@@ -19,7 +19,7 @@ How to install
 ==============
 
 ```
-go install github.com/funny/packnet
+go get github.com/funny/packnet
 ```
 
 How to use
