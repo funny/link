@@ -30,6 +30,7 @@ type Session struct {
 	State interface{}
 }
 
+// Create a new session instance.
 func NewSession(id uint64, conn net.Conn, writer PacketWriter, reader PacketReader, sendChanSize uint) *Session {
 	return &Session{
 		id:             id,
@@ -44,6 +45,7 @@ func NewSession(id uint64, conn net.Conn, writer PacketWriter, reader PacketRead
 	}
 }
 
+// Start the session's read write goroutines.
 func (session *Session) Start() {
 	if atomic.CompareAndSwapInt32(&session.closeFlag, -1, 0) {
 		go session.writeLoop()
@@ -127,6 +129,7 @@ func (session *Session) SetRequestHandler(requestHandler RequestHandler) {
 	session.requestHandler = requestHandler
 }
 
+// Set request handler function.
 func (session *Session) SetRequestHandlerFunc(callback func(*Session, []byte)) {
 	session.requestHandler = requestHandlerFunc{callback}
 }

@@ -6,11 +6,15 @@ import (
 	"time"
 )
 
+// The packet spliting protocol like Erlang's {packet, N}.
 type FixProtocol struct {
 	n  uint
 	bo binary.ByteOrder
 }
 
+// Create a {packet, N} protocol.
+// The n means how many bytes of the packet header used to present packet length.
+// The 'bo' used to define packet header's byte order.
 func NewFixProtocol(n uint, bo binary.ByteOrder) *FixProtocol {
 	return &FixProtocol{
 		n:  n,
@@ -18,14 +22,17 @@ func NewFixProtocol(n uint, bo binary.ByteOrder) *FixProtocol {
 	}
 }
 
+// Create a packet writer.
 func (p FixProtocol) NewWriter() PacketWriter {
 	return NewFixWriter(p.n, p.bo)
 }
 
+// Create a packet reader.
 func (p FixProtocol) NewReader() PacketReader {
 	return NewFixReader(p.n, p.bo)
 }
 
+// The {packet, N} writer.
 type FixWriter struct {
 	n       uint
 	bo      binary.ByteOrder
@@ -33,6 +40,9 @@ type FixWriter struct {
 	maxsize uint
 }
 
+// Create a new instance of {packet, N} writer.
+// The n means how many bytes of the packet header used to present packet length.
+// The 'bo' used to define packet header's byte order.
 func NewFixWriter(n uint, bo binary.ByteOrder) *FixWriter {
 	return &FixWriter{
 		n:  n,
@@ -40,6 +50,9 @@ func NewFixWriter(n uint, bo binary.ByteOrder) *FixWriter {
 	}
 }
 
+// Begin a packet writing on the buff.
+// If the size large than the buff capacity, the buff will be dropped and a new buffer will be created.
+// This method give the session a way to reuse buffer and avoid invoke Conn.Writer() twice.
 func (w *FixWriter) BeginPacket(size uint, buff []byte) []byte {
 	packetLen := w.n + size
 	if uint(cap(buff)) < packetLen {
@@ -48,6 +61,8 @@ func (w *FixWriter) BeginPacket(size uint, buff []byte) []byte {
 	return buff[0:w.n:packetLen]
 }
 
+// Finish a packet writing.
+// Give the protocol writer a chance to set packet head data after packet body writed.
 func (w *FixWriter) EndPacket(packet []byte) []byte {
 	size := uint(len(packet)) - w.n
 
@@ -71,6 +86,7 @@ func (w *FixWriter) EndPacket(packet []byte) []byte {
 	return packet
 }
 
+// Write a packet to the conn.
 func (w *FixWriter) WritePacket(conn net.Conn, packet []byte) error {
 	if w.timeout > 0 {
 		conn.SetReadDeadline(time.Now().Add(w.timeout))
@@ -85,14 +101,17 @@ func (w *FixWriter) WritePacket(conn net.Conn, packet []byte) error {
 	return nil
 }
 
+// Set write timeout.
 func (w *FixWriter) SetTimeout(timeout time.Duration) {
 	w.timeout = timeout
 }
 
+// Limit packet size.
 func (w *FixWriter) SetMaxSize(maxsize uint) {
 	w.maxsize = maxsize
 }
 
+// The {packet, N} reader.
 type FixReader struct {
 	n       uint
 	bo      binary.ByteOrder
@@ -101,6 +120,9 @@ type FixReader struct {
 	maxsize uint
 }
 
+// Create a new instance of {packet, N} reader.
+// The n means how many bytes of the packet header used to present packet length.
+// The 'bo' used to define packet header's byte order.
 func NewFixReader(n uint, bo binary.ByteOrder) *FixReader {
 	return &FixReader{
 		n:    n,
@@ -109,6 +131,7 @@ func NewFixReader(n uint, bo binary.ByteOrder) *FixReader {
 	}
 }
 
+// Read a packet from conn.
 func (r *FixReader) ReadPacket(conn net.Conn, b []byte) ([]byte, error) {
 	if r.timeout > 0 {
 		conn.SetReadDeadline(time.Now().Add(r.timeout))
@@ -154,10 +177,12 @@ func (r *FixReader) ReadPacket(conn net.Conn, b []byte) ([]byte, error) {
 	return data, err
 }
 
+// Set read timeout.
 func (r *FixReader) SetTimeout(timeout time.Duration) {
 	r.timeout = timeout
 }
 
+// Limit packet size.
 func (r *FixReader) SetMaxSize(maxsize uint) {
 	r.maxsize = maxsize
 }

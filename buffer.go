@@ -11,7 +11,7 @@ type Buffer struct {
 	rpos      int
 }
 
-// Create a instance.
+// Create an buffer instance.
 func NewBuffer(buff []byte, byteOrder binary.ByteOrder) *Buffer {
 	return &Buffer{
 		buff:      buff,
@@ -29,13 +29,12 @@ func (b *Buffer) Len() int {
 	return len(b.buff)
 }
 
-// Get buffer. Had better do not modify the buffer.
+// Get internal buffer. Had better do not modify it.
 func (b *Buffer) GetBytes() []byte {
 	return b.buff
 }
 
-// Replace buffer.
-// Dirty operation, not recommend.
+// Replace buffer. Dirty operation, not recommend.
 func (b *Buffer) SetBytes(buff []byte) {
 	b.buff = buff
 }
