@@ -97,6 +97,6 @@ Send a message to server.
 	message := &TestMessage{ "Hello World!" }
 
 	if err2 := client.Send(message); err2 != nil {
-		panic(err)
+		panic(err2)
 	}
 ```

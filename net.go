@@ -40,7 +40,7 @@ type PacketReader interface {
 	SetMaxSize(uint)
 }
 
-type Response interface {
+type Message interface {
 	RecommendPacketSize() uint
 
 	AppendToPacket([]byte) []byte

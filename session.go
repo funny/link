@@ -16,7 +16,7 @@ type Session struct {
 	reader PacketReader
 
 	// About send and receive
-	sendChan       chan Response
+	sendChan       chan Message
 	sendPacketChan chan []byte
 	requestHandler RequestHandler
 
@@ -36,7 +36,7 @@ func NewSession(id uint64, conn net.Conn, writer PacketWriter, reader PacketRead
 		conn:           conn,
 		writer:         writer,
 		reader:         reader,
-		sendChan:       make(chan Response, sendChanSize),
+		sendChan:       make(chan Message, sendChanSize),
 		sendPacketChan: make(chan []byte, sendChanSize),
 		closeChan:      make(chan int),
 		closeWait:      new(sync.WaitGroup),
@@ -87,11 +87,11 @@ func (session *Session) writeLoop() {
 L:
 	for {
 		select {
-		case response := <-session.sendChan:
-			size := response.RecommendPacketSize()
+		case message := <-session.sendChan:
+			size := message.RecommendPacketSize()
 
 			packet = session.writer.BeginPacket(size, packet)
-			packet = response.AppendToPacket(packet)
+			packet = message.AppendToPacket(packet)
 			packet = session.writer.EndPacket(packet)
 
 			if err := session.writer.WritePacket(session.conn, packet); err != nil {
@@ -155,14 +155,14 @@ func (session *Session) Close() {
 	}
 }
 
-// Async send a response.
-func (session *Session) Send(response Response) error {
+// Async send a message.
+func (session *Session) Send(message Message) error {
 	if atomic.LoadInt32(&session.closeFlag) != 0 {
 		return SendToClosedError
 	}
 
 	select {
-	case session.sendChan <- response:
+	case session.sendChan <- message:
 		return nil
 	default:
 		session.Close()
