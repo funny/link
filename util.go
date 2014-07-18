@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// The easy way to setup a server.
 func ListenAndServe(network, address string, protocol PacketProtocol) (*Server, error) {
 	listener, err := net.Listen(network, address)
 	if err != nil {
@@ -14,6 +15,7 @@ func ListenAndServe(network, address string, protocol PacketProtocol) (*Server, 
 	return NewServer(listener, protocol), nil
 }
 
+// The easy way to create a connection.
 func Dial(network, address string, protocol PacketProtocol, id uint64, sendChanSize uint) (*Session, error) {
 	conn, err := net.Dial(network, address)
 	if err != nil {
@@ -25,6 +27,7 @@ func Dial(network, address string, protocol PacketProtocol, id uint64, sendChanS
 	return session, nil
 }
 
+// The easy way to create a connection with timeout setting.
 func DialTimeout(network, address string, timeout time.Duration, protocol PacketProtocol, id uint64, sendChanSize uint) (*Session, error) {
 	conn, err := net.DialTimeout(network, address, timeout)
 	if err != nil {
