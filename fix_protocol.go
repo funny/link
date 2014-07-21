@@ -7,13 +7,14 @@ import (
 )
 
 // The packet spliting protocol like Erlang's {packet, N}.
+// Each packet has a fix length packet header to present packet length.
 type FixProtocol struct {
 	n  uint
 	bo binary.ByteOrder
 }
 
 // Create a {packet, N} protocol.
-// The n means how many bytes of the packet header used to present packet length.
+// The n means how many bytes of the packet header.
 // The 'bo' used to define packet header's byte order.
 func NewFixProtocol(n uint, bo binary.ByteOrder) *FixProtocol {
 	return &FixProtocol{
@@ -41,7 +42,7 @@ type FixWriter struct {
 }
 
 // Create a new instance of {packet, N} writer.
-// The n means how many bytes of the packet header used to present packet length.
+// The n means how many bytes of the packet header.
 // The 'bo' used to define packet header's byte order.
 func NewFixWriter(n uint, bo binary.ByteOrder) *FixWriter {
 	return &FixWriter{
@@ -121,7 +122,7 @@ type FixReader struct {
 }
 
 // Create a new instance of {packet, N} reader.
-// The n means how many bytes of the packet header used to present packet length.
+// The n means how many bytes of the packet header.
 // The 'bo' used to define packet header's byte order.
 func NewFixReader(n uint, bo binary.ByteOrder) *FixReader {
 	return &FixReader{

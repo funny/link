@@ -38,3 +38,27 @@ func DialTimeout(network, address string, timeout time.Duration, protocol Packet
 
 	return session, nil
 }
+
+type SendQueue struct {
+	session  *Session
+	messages []Message
+}
+
+func (q *SendQueue) Send(message Message) {
+	q.messages = append(q.messages, message)
+}
+
+func (q *SendQueue) RecommendPacketSize() uint {
+	size := uint(0)
+	for _, message := range q.messages {
+		size += message.RecommendPacketSize()
+	}
+	return size
+}
+
+func (q *SendQueue) AppendToPacket(packet []byte) []byte {
+	for _, message := range q.messages {
+		packet = message.AppendToPacket(packet)
+	}
+	return packet
+}
