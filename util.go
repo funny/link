@@ -40,7 +40,6 @@ func DialTimeout(network, address string, timeout time.Duration, protocol Packet
 }
 
 type SendQueue struct {
-	session  *Session
 	messages []Message
 }
 
