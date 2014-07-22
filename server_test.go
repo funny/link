@@ -39,7 +39,7 @@ func Test_Server(t *testing.T) {
 	server.SetSessionStartHook(func(session1 *Session) {
 		t.Log("Session start")
 		sessionStartCount += 1
-		session1.SetRequestHandlerFunc(func(session2 *Session, msg []byte) {
+		session1.SetMessageHandlerFunc(func(session2 *Session, msg []byte) {
 			messageCount += 1
 			if session1 != session2 {
 				sessionMatchFailed = true

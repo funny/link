@@ -68,16 +68,16 @@ type Message interface {
 	AppendToPacket([]byte) []byte
 }
 
-// Request handler.
-type RequestHandler interface {
-	// Handle a request from session.
+// Message handler.
+type MessageHandler interface {
+	// Handle a message from session.
 	Handle(*Session, []byte)
 }
 
-type requestHandlerFunc struct {
+type messageHandlerFunc struct {
 	callback func(*Session, []byte)
 }
 
-func (handler requestHandlerFunc) Handle(session *Session, request []byte) {
+func (handler messageHandlerFunc) Handle(session *Session, request []byte) {
 	handler.callback(session, request)
 }

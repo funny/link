@@ -20,7 +20,7 @@ type Session struct {
 	sendPacketChan chan []byte
 	sendBuff       []byte
 	sendLock       *sync.Mutex
-	requestHandler RequestHandler
+	messageHandler MessageHandler
 
 	// About session close
 	closeChan     chan int
@@ -76,7 +76,7 @@ func (session *Session) readLoop() {
 		if err != nil {
 			break
 		}
-		session.requestHandler.Handle(session, packet)
+		session.messageHandler.Handle(session, packet)
 	}
 }
 
@@ -144,14 +144,14 @@ func (session *Session) SetCloseCallback(callback func(*Session)) {
 	session.closeCallback = callback
 }
 
-// Set request handler.
-func (session *Session) SetRequestHandler(requestHandler RequestHandler) {
-	session.requestHandler = requestHandler
+// Set message handler.
+func (session *Session) SetMessageHandler(handler MessageHandler) {
+	session.messageHandler = handler
 }
 
-// Set request handler function.
-func (session *Session) SetRequestHandlerFunc(callback func(*Session, []byte)) {
-	session.requestHandler = requestHandlerFunc{callback}
+// Set message handler function.
+func (session *Session) SetMessageHandlerFunc(callback func(*Session, []byte)) {
+	session.messageHandler = messageHandlerFunc{callback}
 }
 
 // Close session and remove it from api server.
