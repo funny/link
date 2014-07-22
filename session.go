@@ -18,6 +18,8 @@ type Session struct {
 	// About send and receive
 	sendChan       chan Message
 	sendPacketChan chan []byte
+	sendBuff       []byte
+	sendLock       *sync.Mutex
 	requestHandler RequestHandler
 
 	// About session close
@@ -39,6 +41,7 @@ func NewSession(id uint64, conn net.Conn, writer PacketWriter, reader PacketRead
 		reader:         reader,
 		sendChan:       make(chan Message, sendChanSize),
 		sendPacketChan: make(chan []byte, sendChanSize),
+		sendLock:       new(sync.Mutex),
 		closeChan:      make(chan int),
 		closeWait:      new(sync.WaitGroup),
 		closeFlag:      -1,
@@ -85,28 +88,45 @@ func (session *Session) writeLoop() {
 		session.Close()
 	}()
 
-	var packet []byte
 L:
 	for {
 		select {
 		case message := <-session.sendChan:
-			size := message.RecommendPacketSize()
-
-			packet = session.writer.BeginPacket(size, packet)
-			packet = message.AppendToPacket(packet)
-			packet = session.writer.EndPacket(packet)
-
-			if err := session.writer.WritePacket(session.conn, packet); err != nil {
+			if err := session.SyncSend(message); err != nil {
 				break L
 			}
 		case packet := <-session.sendPacketChan:
-			if err := session.writer.WritePacket(session.conn, packet); err != nil {
+			if err := session.SyncSendPacket(packet); err != nil {
 				break L
 			}
 		case <-session.closeChan:
 			break L
 		}
 	}
+}
+
+// Sync send a message.
+func (session *Session) SyncSend(message Message) error {
+	session.sendLock.Lock()
+	defer session.sendLock.Unlock()
+
+	size := message.RecommendPacketSize()
+
+	packet := session.writer.BeginPacket(size, session.sendBuff)
+	packet = message.AppendToPacket(packet)
+	packet = session.writer.EndPacket(packet)
+
+	session.sendBuff = packet
+
+	return session.writer.WritePacket(session.conn, packet)
+}
+
+// Sync send a packet.
+func (session *Session) SyncSendPacket(packet []byte) error {
+	session.sendLock.Lock()
+	defer session.sendLock.Unlock()
+
+	return session.writer.WritePacket(session.conn, packet)
 }
 
 // Get session id.

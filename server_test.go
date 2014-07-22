@@ -71,22 +71,22 @@ func Test_Server(t *testing.T) {
 	client2.Start()
 
 	t.Log("Send 1")
-	if err := client1.Send(message); err != nil {
+	if err := client1.SyncSend(message); err != nil {
 		t.Fatal("Send message failed, Error = %v", err)
 	}
 
 	t.Log("Send 2")
-	if err := client2.Send(message); err != nil {
+	if err := client2.SyncSend(message); err != nil {
 		t.Fatal("Send message failed, Error = %v", err)
 	}
 
 	t.Log("Send 3")
-	if err := client1.Send(message); err != nil {
+	if err := client1.SyncSend(message); err != nil {
 		t.Fatal("Send message failed, Error = %v", err)
 	}
 
 	t.Log("Send 4")
-	if err := client2.Send(message); err != nil {
+	if err := client2.SyncSend(message); err != nil {
 		t.Fatal("Send message failed, Error = %v", err)
 	}
 
