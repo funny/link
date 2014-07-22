@@ -39,14 +39,20 @@ func DialTimeout(network, address string, timeout time.Duration, protocol Packet
 	return session, nil
 }
 
+// A simple send queue. Can used for buffered send.
+// For example, sometimes you have many Send() call during a request processing.
+// You can use the send queue to buffer those messages then call Send() once after request processing done.
+// The send queue type implemented Message interface. So you can pass it as the Send() method argument.
 type SendQueue struct {
 	messages []Message
 }
 
+// Push a message into send queue but not send it immediately.
 func (q *SendQueue) Send(message Message) {
 	q.messages = append(q.messages, message)
 }
 
+// Implement the Message interface.
 func (q *SendQueue) RecommendPacketSize() uint {
 	size := uint(0)
 	for _, message := range q.messages {
@@ -55,6 +61,7 @@ func (q *SendQueue) RecommendPacketSize() uint {
 	return size
 }
 
+// Implement the Message interface.
 func (q *SendQueue) AppendToPacket(packet []byte) []byte {
 	for _, message := range q.messages {
 		packet = message.AppendToPacket(packet)
