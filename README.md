@@ -44,8 +44,9 @@ Setup a server on port `8080` and set protocol.
 ```go
 	server, err := ListenAndServe("tcp", "0.0.0.0:8080", proto)
 	if err != nil {
-		painc(err)
+		panic(err)
 	}
+	server.Start()
 ```
 
 Hook the server's session start event to handle incoming connections.
@@ -99,4 +100,118 @@ Send a message to server.
 	if err2 := client.Send(message); err2 != nil {
 		panic(err2)
 	}
+```
+
+Example 1 - echo
+=================
+
+The echo server.
+
+```go
+package main
+
+import "sync"
+import "encoding/binary"
+import "github.com/funny/packnet"
+
+func main() {
+	wg := new(sync.WaitGroup)
+	wg.Add(2)
+
+	protocol := packnet.NewFixProtocol(4, binary.BigEndian)
+
+	server, err := packnet.ListenAndServe("tcp", "127.0.0.1:10010", protocol)
+	if err != nil {
+		panic(err)
+	}
+
+	server.SetSessionStartHook(func(session *packnet.Session) {
+		println("client from: ", session.RawConn().RemoteAddr().String())
+
+		session.SetMessageHandlerFunc(func(session *packnet.Session, message []byte) {
+			println("message:", string(message))
+
+			session.Send(EchoMessage{message})
+		})
+
+		wg.Done()
+	})
+
+	server.SetSessionCloseHook(func(session *packnet.Session) {
+		wg.Done()
+	})
+
+	server.Start()
+
+	println("server start")
+
+	wg.Wait()
+
+	println("bye")
+}
+
+type EchoMessage struct {
+	Content []byte
+}
+
+func (msg EchoMessage) RecommendPacketSize() uint {
+	return uint(len(msg.Content))
+}
+
+func (msg EchoMessage) AppendToPacket(packet []byte) []byte {
+	return append(packet, msg.Content...)
+}
+```
+
+The echo client.
+
+```go
+package main
+
+import "fmt"
+import "encoding/binary"
+import "github.com/funny/packnet"
+
+func main() {
+	protocol := packnet.NewFixProtocol(4, binary.BigEndian)
+
+	client, err := packnet.Dial("tcp", "127.0.0.1:10010", protocol, 1, 1024)
+	if err != nil {
+		panic(err)
+	}
+
+	client.SetMessageHandlerFunc(func(session *packnet.Session, message []byte) {
+		println("message:", string(message))
+	})
+
+	client.SetCloseCallback(func(session *packnet.Session) {
+		println("closed")
+	})
+
+	client.Start()
+
+	for {
+		var input string
+		if _, err := fmt.Scanf("%s\n", &input); err != nil {
+			break
+		}
+		client.Send(EchoMessage{input})
+	}
+
+	client.Close()
+
+	println("bye")
+}
+
+type EchoMessage struct {
+	Content string
+}
+
+func (msg EchoMessage) RecommendPacketSize() uint {
+	return uint(len(msg.Content))
+}
+
+func (msg EchoMessage) AppendToPacket(packet []byte) []byte {
+	return append(packet, msg.Content...)
+}
 ```
