@@ -140,18 +140,18 @@ func (session *Session) RawConn() net.Conn {
 }
 
 // Set session close callback.
-func (session *Session) SetCloseCallback(callback func(*Session)) {
+func (session *Session) OnClose(callback func(*Session)) {
 	session.closeCallback = callback
+}
+
+// Set message handler function.
+func (session *Session) OnMessage(callback func(*Session, []byte)) {
+	session.messageHandler = messageHandlerFunc{callback}
 }
 
 // Set message handler.
 func (session *Session) SetMessageHandler(handler MessageHandler) {
 	session.messageHandler = handler
-}
-
-// Set message handler function.
-func (session *Session) SetMessageHandlerFunc(callback func(*Session, []byte)) {
-	session.messageHandler = messageHandlerFunc{callback}
 }
 
 // Close session and remove it from api server.

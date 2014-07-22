@@ -54,10 +54,10 @@ Hook the server's session start event to handle incoming connections.
 And setup a request handler on the new session to handle incoming messages.
 
 ```go
-	server.SetSessionStartHook(func(session *Session) {
+	server.OnSessionStart(func(session *Session) {
 		fmt.Println("new session in")
 
-		session.SetRequestHandlerFunc(func(session *Session, msg []byte) {
+		session.OnMessage(func(session *Session, msg []byte) {
 			fmt.Printf("new message: %s\n", msg)
 		})
 	})
@@ -71,11 +71,11 @@ type TestMessage struct {
 	Message string
 }
 
-func (msg *TestMessage) RecommendPacketSize() uint {
+func (msg TestMessage) RecommendPacketSize() uint {
 	return uint(len(msg.Message))
 }
 
-func (msg *TestMessage) AppendToPacket(packet []byte) []byte {
+func (msg TestMessage) AppendToPacket(packet []byte) []byte {
 	return append(packet, msg.Message...)
 }
 ```
@@ -95,7 +95,7 @@ Then use same protocol dial to the server.
 Send a message to server.
 
 ```go
-	message := &TestMessage{ "Hello World!" }
+	message := TestMessage{ "Hello World!" }
 
 	if err2 := client.Send(message); err2 != nil {
 		panic(err2)
@@ -125,10 +125,10 @@ func main() {
 		panic(err)
 	}
 
-	server.SetSessionStartHook(func(session *packnet.Session) {
+	server.OnSessionStart(func(session *packnet.Session) {
 		println("client from: ", session.RawConn().RemoteAddr().String())
 
-		session.SetMessageHandlerFunc(func(session *packnet.Session, message []byte) {
+		session.OnMessage(func(session *packnet.Session, message []byte) {
 			println("message:", string(message))
 
 			session.Send(EchoMessage{message})
@@ -137,7 +137,7 @@ func main() {
 		wg.Done()
 	})
 
-	server.SetSessionCloseHook(func(session *packnet.Session) {
+	server.OnSessionClose(func(session *packnet.Session) {
 		wg.Done()
 	})
 
@@ -180,11 +180,11 @@ func main() {
 		panic(err)
 	}
 
-	client.SetMessageHandlerFunc(func(session *packnet.Session, message []byte) {
+	client.OnMessage(func(session *packnet.Session, message []byte) {
 		println("message:", string(message))
 	})
 
-	client.SetCloseCallback(func(session *packnet.Session) {
+	client.OnClose(func(session *packnet.Session) {
 		println("closed")
 	})
 

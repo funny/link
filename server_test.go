@@ -36,10 +36,10 @@ func Test_Server(t *testing.T) {
 		message            = &TestMessage{[]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}}
 	)
 
-	server.SetSessionStartHook(func(session1 *Session) {
+	server.OnSessionStart(func(session1 *Session) {
 		t.Log("Session start")
 		sessionStartCount += 1
-		session1.SetMessageHandlerFunc(func(session2 *Session, msg []byte) {
+		session1.OnMessage(func(session2 *Session, msg []byte) {
 			messageCount += 1
 			if session1 != session2 {
 				sessionMatchFailed = true
@@ -51,7 +51,7 @@ func Test_Server(t *testing.T) {
 		})
 	})
 
-	server.SetSessionCloseHook(func(session *Session) {
+	server.OnSessionClose(func(session *Session) {
 		t.Log("Session close")
 		sessionCloseCount += 1
 	})

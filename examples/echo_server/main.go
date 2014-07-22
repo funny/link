@@ -15,10 +15,10 @@ func main() {
 		panic(err)
 	}
 
-	server.SetSessionStartHook(func(session *packnet.Session) {
+	server.OnSessionStart(func(session *packnet.Session) {
 		println("client from: ", session.RawConn().RemoteAddr().String())
 
-		session.SetMessageHandlerFunc(func(session *packnet.Session, message []byte) {
+		session.OnMessage(func(session *packnet.Session, message []byte) {
 			println("message:", string(message))
 
 			session.Send(EchoMessage{message})
@@ -27,7 +27,7 @@ func main() {
 		wg.Done()
 	})
 
-	server.SetSessionCloseHook(func(session *packnet.Session) {
+	server.OnSessionClose(func(session *packnet.Session) {
 		wg.Done()
 	})
 

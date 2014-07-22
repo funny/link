@@ -12,11 +12,11 @@ func main() {
 		panic(err)
 	}
 
-	client.SetMessageHandlerFunc(func(session *packnet.Session, message []byte) {
+	client.OnMessage(func(session *packnet.Session, message []byte) {
 		println("message:", string(message))
 	})
 
-	client.SetCloseCallback(func(session *packnet.Session) {
+	client.OnClose(func(session *packnet.Session) {
 		println("closed")
 	})
 

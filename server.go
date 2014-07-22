@@ -30,9 +30,9 @@ type Server struct {
 	started  bool
 
 	// Server events.
-	serverStopHook   func(*Server)
-	sessionStartHook func(*Session)
-	sessionCloseHook func(*Session)
+	serverStopCallback   func(*Server)
+	sessionStartCallback func(*Session)
+	sessionCloseCallback func(*Session)
 
 	// Put your server state here.
 	State interface{}
@@ -68,23 +68,23 @@ func (server *Server) GetSendChanBuff() uint {
 	return server.sendChanBuff
 }
 
-// Set server stop hook. Hook will invoked when server stop and all session closed.
-func (server *Server) SetServerStopHook(hook func(*Server)) {
-	server.serverStopHook = hook
+// Set server stop callback. The callback will invoked when server stop and all session closed.
+func (server *Server) OnServerStop(callback func(*Server)) {
+	server.serverStopCallback = callback
 }
 
-// Set session start hook. Hook will invoked when a new session start.
-func (server *Server) SetSessionStartHook(hook func(*Session)) {
+// Set session start callback. The callback  will invoked when a new session start.
+func (server *Server) OnSessionStart(callback func(*Session)) {
 	server.sessionMutex.Lock()
 	defer server.sessionMutex.Unlock()
-	server.sessionStartHook = hook
+	server.sessionStartCallback = callback
 }
 
-// Set session close hook. Hook will invoked when a session closed.
-func (server *Server) SetSessionCloseHook(hook func(*Session)) {
+// Set session close callback. The callback  will invoked when a session closed.
+func (server *Server) OnSessionClose(callback func(*Session)) {
 	server.sessionMutex.Lock()
 	defer server.sessionMutex.Unlock()
-	server.sessionCloseHook = hook
+	server.sessionCloseCallback = callback
 }
 
 // Start server.
@@ -106,8 +106,8 @@ func (server *Server) Stop() {
 		server.closeSessions()
 		server.stopWait.Wait()
 
-		if server.serverStopHook != nil {
-			server.serverStopHook(server)
+		if server.serverStopCallback != nil {
+			server.serverStopCallback(server)
 		}
 	}
 }
@@ -154,11 +154,11 @@ func (server *Server) startSession(conn net.Conn) {
 		server.GetSendChanBuff(),
 	)
 
-	session.SetCloseCallback(server.closeSession)
+	session.OnClose(server.closeSession)
 
-	startHook := server.putSession(session)
-	if startHook != nil {
-		startHook(session)
+	startCallback := server.putSession(session)
+	if startCallback != nil {
+		startCallback(session)
 	}
 
 	session.Start()
@@ -166,9 +166,9 @@ func (server *Server) startSession(conn net.Conn) {
 
 // Close  and remove a session from server.
 func (server *Server) closeSession(session *Session) {
-	closeHook := server.delSession(session)
-	if closeHook != nil {
-		closeHook(session)
+	closeCallback := server.delSession(session)
+	if closeCallback != nil {
+		closeCallback(session)
 	}
 }
 
@@ -183,7 +183,7 @@ func (server *Server) putSession(session *Session) func(*Session) {
 
 	server.stopWait.Add(1)
 
-	return server.sessionStartHook
+	return server.sessionStartCallback
 }
 
 // Delete a session from session list
@@ -197,7 +197,7 @@ func (server *Server) delSession(session *Session) func(*Session) {
 
 	server.stopWait.Done()
 
-	return server.sessionCloseHook
+	return server.sessionCloseCallback
 }
 
 // Close all sessions.
