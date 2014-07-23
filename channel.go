@@ -74,6 +74,6 @@ func (channel *Channel) Broadcast(message Message) {
 	channel.broadcastBuff = packet
 
 	channel.Fetch(func(session *Session) {
-		session.SendPacket(packet)
+		session.sendPacket(packet)
 	})
 }

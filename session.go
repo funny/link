@@ -99,7 +99,7 @@ L:
 				break L
 			}
 		case packet := <-session.sendPacketChan:
-			if err := session.SyncSendPacket(packet); err != nil {
+			if err := session.syncSendPacket(packet); err != nil {
 				break L
 			}
 		case <-session.closeChan:
@@ -125,7 +125,7 @@ func (session *Session) SyncSend(message Message) error {
 }
 
 // Sync send a packet.
-func (session *Session) SyncSendPacket(packet []byte) error {
+func (session *Session) syncSendPacket(packet []byte) error {
 	session.sendLock.Lock()
 	defer session.sendLock.Unlock()
 
@@ -192,7 +192,7 @@ func (session *Session) Send(message Message) error {
 }
 
 // Async send a packet.
-func (session *Session) SendPacket(packet []byte) error {
+func (session *Session) sendPacket(packet []byte) error {
 	if atomic.LoadInt32(&session.closeFlag) != 0 {
 		return SendToClosedError
 	}
