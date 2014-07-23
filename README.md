@@ -82,11 +82,7 @@ func (msg TestMessage) AppendToPacket(packet []byte) []byte {
 Send a message to server.
 
 ```go
-	message := TestMessage{ "Hello World!" }
-
-	if err2 := client.Send(message); err2 != nil {
-		panic(err2)
-	}
+	client.Send(TestMessage{ "Hello World!" })
 ```
 
 Examples
