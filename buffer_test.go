@@ -61,4 +61,9 @@ func Test_Buffer(t *testing.T) {
 	if bytes.Equal(buffer.ReadBytes(5), []byte("Hello")) != true {
 		t.Fatal(`bytes.Equal(buffer.ReadBytes(5), []byte("Hello")) != true`)
 	}
+
+	buffer.WriteBytes([]byte("Hello"))
+	if bytes.Equal(buffer.CopyBytes(5), []byte("Hello")) != true {
+		t.Fatal(`bytes.Equal(buffer.CopyBytes(5), []byte("Hello")) != true`)
+	}
 }

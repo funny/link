@@ -19,6 +19,13 @@ func NewBuffer(buff []byte, byteOrder binary.ByteOrder) *Buffer {
 	}
 }
 
+// Reset the buffer and reading cursor.
+// This method used to reuse a Buffer object.
+func (b *Buffer) Reset(buff []byte) {
+	b.buff = buff
+	b.rpos = 0
+}
+
 // Get current buffer capacity
 func (b *Buffer) Cap() int {
 	return cap(b.buff)
@@ -183,10 +190,21 @@ func (b *Buffer) ReadInt64() int64 {
 	return int64(r)
 }
 
-// Read bytes.
+// Read some bytes. The result is a slice that reference to internal buffer.
+// Modify the result bytes will dirty the buffer.
+// If you want to modify the result bytes, please make a copy to do it.
+// See CopyBytes().
 func (b *Buffer) ReadBytes(length int) []byte {
 	r := b.buff[b.rpos : b.rpos+length]
 	b.rpos += length
+	return r
+}
+
+// Read and copy some bytes.
+// The result is a new slice. This method slow than ReadBytes() but more safety.
+func (b *Buffer) CopyBytes(length int) []byte {
+	r := make([]byte, length)
+	copy(r, b.ReadBytes(length))
 	return r
 }
 
