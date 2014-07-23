@@ -4,6 +4,9 @@ import "fmt"
 import "encoding/binary"
 import "github.com/funny/packnet"
 
+// This is an echo client demo work with the echo_server.
+// usage:
+//     go run github.com/funny/examples/echo_client/main.go
 func main() {
 	protocol := packnet.NewFixProtocol(4, binary.BigEndian)
 

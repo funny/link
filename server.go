@@ -112,20 +112,6 @@ func (server *Server) Stop() {
 	}
 }
 
-// Broadcast to sessions. The message only encoded one time
-// so performance better than send message one by one.
-func (server *Server) Broadcast(sessions SessionList, message Message) {
-	size := message.RecommendPacketSize()
-
-	packet := server.writer.BeginPacket(size, nil)
-	packet = message.AppendToPacket(packet)
-	packet = server.writer.EndPacket(packet)
-
-	sessions.Fetch(func(session *Session) {
-		session.SendPacket(packet)
-	})
-}
-
 // Loop and accept connections until get an error.
 func (server *Server) acceptLoop() {
 	defer func() {

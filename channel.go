@@ -4,8 +4,11 @@ import "sync"
 
 // The channel type. Used to maintain a group of session. Normally used for broadcast classify purpose.
 type Channel struct {
-	mutex    *sync.RWMutex
-	sessions map[uint64]channelSession
+	server         *Server
+	mutex          sync.RWMutex
+	broadcastBuff  []byte
+	broadcastMutex sync.RWMutex
+	sessions       map[uint64]channelSession
 }
 
 type channelSession struct {
@@ -14,9 +17,9 @@ type channelSession struct {
 }
 
 // Create a channel instance.
-func NewChannel() *Channel {
+func (server *Server) NewChannel() *Channel {
 	return &Channel{
-		mutex:    new(sync.RWMutex),
+		server:   server,
 		sessions: make(map[uint64]channelSession),
 	}
 }
@@ -47,12 +50,30 @@ func (channel *Channel) Kick(sessionId uint64) {
 	}
 }
 
-// Fetch the sessions. Implement the SessionList interface.
-// So the channel can use to send broadcast by Server.Broadcast().
+// Fetch the sessions. NOTE: Invoke Kick() or Exit() in fetch callback will dead lock.
 func (channel *Channel) Fetch(callback func(*Session)) {
 	channel.mutex.RLock()
 	defer channel.mutex.RUnlock()
 	for _, sesssion := range channel.sessions {
 		callback(sesssion.Session)
 	}
+}
+
+// Broadcast to sessions. The message only encoded one time
+// so the performance it's better than send message one by one.
+func (channel *Channel) Broadcast(message Message) {
+	channel.broadcastMutex.Lock()
+	defer channel.broadcastMutex.Unlock()
+
+	size := message.RecommendPacketSize()
+
+	packet := channel.server.writer.BeginPacket(size, channel.broadcastBuff)
+	packet = message.AppendToPacket(packet)
+	packet = channel.server.writer.EndPacket(packet)
+
+	channel.broadcastBuff = packet
+
+	channel.Fetch(func(session *Session) {
+		session.SendPacket(packet)
+	})
 }

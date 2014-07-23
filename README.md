@@ -110,14 +110,13 @@ The echo server.
 ```go
 package main
 
-import "sync"
 import "encoding/binary"
 import "github.com/funny/packnet"
 
+// This is an echo server demo work with the echo_client.
+// usage:
+//     go run github.com/funny/examples/echo_server/main.go
 func main() {
-	wg := new(sync.WaitGroup)
-	wg.Add(2)
-
 	protocol := packnet.NewFixProtocol(4, binary.BigEndian)
 
 	server, err := packnet.ListenAndServe("tcp", "127.0.0.1:10010", protocol)
@@ -126,28 +125,24 @@ func main() {
 	}
 
 	server.OnSessionStart(func(session *packnet.Session) {
-		println("client from: ", session.RawConn().RemoteAddr().String())
+		println("client", session.RawConn().RemoteAddr().String(), "in")
 
 		session.OnMessage(func(session *packnet.Session, message []byte) {
-			println("message:", string(message))
+			println("client", session.RawConn().RemoteAddr().String(), "say:", string(message))
 
 			session.Send(EchoMessage{message})
 		})
-
-		wg.Done()
 	})
 
 	server.OnSessionClose(func(session *packnet.Session) {
-		wg.Done()
+		println("client", session.RawConn().RemoteAddr().String(), "close")
 	})
 
 	server.Start()
 
 	println("server start")
 
-	wg.Wait()
-
-	println("bye")
+	<-make(chan int)
 }
 
 type EchoMessage struct {
@@ -172,6 +167,9 @@ import "fmt"
 import "encoding/binary"
 import "github.com/funny/packnet"
 
+// This is an echo client demo work with the echo_server.
+// usage:
+//     go run github.com/funny/examples/echo_client/main.go
 func main() {
 	protocol := packnet.NewFixProtocol(4, binary.BigEndian)
 
@@ -201,6 +199,71 @@ func main() {
 	client.Close()
 
 	println("bye")
+}
+
+type EchoMessage struct {
+	Content string
+}
+
+func (msg EchoMessage) RecommendPacketSize() uint {
+	return uint(len(msg.Content))
+}
+
+func (msg EchoMessage) AppendToPacket(packet []byte) []byte {
+	return append(packet, msg.Content...)
+}
+```
+
+Example 2 - broadcast
+=====================
+
+The broadcast server. Use the echo client to receive broadcast.
+
+```go
+package main
+
+import "time"
+import "encoding/binary"
+import "github.com/funny/packnet"
+
+// This is broadcast server demo work with the echo_client.
+// usage:
+//     go run github.com/funny/examples/broadcast/main.go
+func main() {
+	protocol := packnet.NewFixProtocol(4, binary.BigEndian)
+
+	server, err := packnet.ListenAndServe("tcp", "127.0.0.1:10010", protocol)
+	if err != nil {
+		panic(err)
+	}
+
+	channel := server.NewChannel()
+
+	server.OnSessionStart(func(session *packnet.Session) {
+		println("client", session.RawConn().RemoteAddr().String(), "in")
+
+		channel.Join(session, nil)
+	})
+
+	server.OnSessionClose(func(session *packnet.Session) {
+		println("client", session.RawConn().RemoteAddr().String(), "close")
+
+		channel.Exit(session)
+	})
+
+	server.Start()
+
+	go func() {
+		for {
+			time.Sleep(time.Second)
+
+			channel.Broadcast(EchoMessage{time.Now().String()})
+		}
+	}()
+
+	println("server start")
+
+	<-make(chan int)
 }
 
 type EchoMessage struct {

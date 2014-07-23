@@ -76,7 +76,9 @@ func (session *Session) readLoop() {
 		if err != nil {
 			break
 		}
-		session.messageHandler.Handle(session, packet)
+		if session.messageHandler != nil {
+			session.messageHandler.Handle(session, packet)
+		}
 	}
 }
 
@@ -144,12 +146,12 @@ func (session *Session) OnClose(callback func(*Session)) {
 	session.closeCallback = callback
 }
 
-// Set message handler function.
+// Set message handler function. A easy way to handle messages.
 func (session *Session) OnMessage(callback func(*Session, []byte)) {
 	session.messageHandler = messageHandlerFunc{callback}
 }
 
-// Set message handler.
+// Set message handler. A complex but more powerful way to handle messages.
 func (session *Session) SetMessageHandler(handler MessageHandler) {
 	session.messageHandler = handler
 }
