@@ -49,8 +49,9 @@ func NewSession(id uint64, conn net.Conn, writer PacketWriter, reader PacketRead
 }
 
 // Start the session's read write goroutines.
-func (session *Session) Start() {
+func (session *Session) Start(closeCallback func(*Session)) {
 	if atomic.CompareAndSwapInt32(&session.closeFlag, -1, 0) {
+		session.closeCallback = closeCallback
 		go session.writeLoop()
 		go session.readLoop()
 	} else {
@@ -139,11 +140,6 @@ func (session *Session) Id() uint64 {
 // Get local address.
 func (session *Session) RawConn() net.Conn {
 	return session.conn
-}
-
-// Set session close callback.
-func (session *Session) OnClose(callback func(*Session)) {
-	session.closeCallback = callback
 }
 
 // Set message handler function. A easy way to handle messages.

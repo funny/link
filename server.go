@@ -6,6 +6,9 @@ import (
 	"sync/atomic"
 )
 
+// Default send chan buffer size for sessions.
+var DefaultSendChanSize uint = 1024
+
 type SessionList interface {
 	Fetch(func(*Session))
 }
@@ -18,7 +21,7 @@ type Server struct {
 	writer   PacketWriter
 
 	// About sessions
-	sendChanBuff uint
+	sendChanSize uint
 	maxSessionId uint64
 	sessions     map[uint64]*Session
 	sessionMutex sync.Mutex
@@ -44,7 +47,7 @@ func NewServer(listener net.Listener, protocol PacketProtocol) *Server {
 		listener:     listener,
 		protocol:     protocol,
 		writer:       protocol.NewWriter(),
-		sendChanBuff: 1024,
+		sendChanSize: DefaultSendChanSize,
 		maxSessionId: 0,
 		sessions:     make(map[uint64]*Session),
 		stopChan:     make(chan int),
@@ -59,13 +62,13 @@ func (server *Server) Listener() net.Listener {
 
 // Set session send channel buffer size setting.
 // New setting will effect on new sessions.
-func (server *Server) SetSendChanBuff(size uint) {
-	server.sendChanBuff = size
+func (server *Server) SetSendChanSize(size uint) {
+	server.sendChanSize = size
 }
 
 // Get current session send chan buffer size setting.
-func (server *Server) GetSendChanBuff() uint {
-	return server.sendChanBuff
+func (server *Server) GetSendChanSize() uint {
+	return server.sendChanSize
 }
 
 // Set server stop callback. The callback will invoked when server stop and all session closed.
@@ -137,17 +140,15 @@ func (server *Server) startSession(conn net.Conn) {
 		conn,
 		server.protocol.NewWriter(),
 		server.protocol.NewReader(),
-		server.GetSendChanBuff(),
+		server.sendChanSize,
 	)
-
-	session.OnClose(server.closeSession)
 
 	startCallback := server.putSession(session)
 	if startCallback != nil {
 		startCallback(session)
 	}
 
-	session.Start()
+	session.Start(server.closeSession)
 }
 
 // Close  and remove a session from server.

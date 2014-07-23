@@ -10,7 +10,7 @@ import "github.com/funny/packnet"
 func main() {
 	protocol := packnet.NewFixProtocol(4, binary.BigEndian)
 
-	client, err := packnet.Dial("tcp", "127.0.0.1:10010", protocol, 1, 1024)
+	client, err := packnet.Dial("tcp", "127.0.0.1:10010", protocol)
 	if err != nil {
 		panic(err)
 	}
@@ -19,11 +19,9 @@ func main() {
 		println("message:", string(message))
 	})
 
-	client.OnClose(func(session *packnet.Session) {
+	client.Start(func(session *packnet.Session) {
 		println("closed")
 	})
-
-	client.Start()
 
 	for {
 		var input string

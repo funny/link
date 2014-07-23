@@ -58,17 +58,21 @@ func Test_Server(t *testing.T) {
 
 	server.Start()
 
-	client1, err1 := DialTimeout("tcp", addr, time.Second, proto, 1, 1024)
+	client1, err1 := DialTimeout("tcp", addr, time.Second, proto)
 	if err1 != nil {
 		t.Fatal("Create client1 failed, Error = %v", err1)
 	}
-	client1.Start()
+	client1.Start(func(*Session) {
+		t.Log("Client 1 close callback")
+	})
 
-	client2, err2 := DialTimeout("tcp", addr, time.Second, proto, 2, 1024)
+	client2, err2 := DialTimeout("tcp", addr, time.Second, proto)
 	if err2 != nil {
 		t.Fatal("Create client2 failed, Error = %v", err2)
 	}
-	client2.Start()
+	client2.Start(func(*Session) {
+		t.Log("Client 2 close callback")
+	})
 
 	t.Log("Send 1")
 	if err := client1.SyncSend(message); err != nil {
