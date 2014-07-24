@@ -117,6 +117,10 @@ func (b *Buffer) WriteString(v string) {
 	copy(b.Grows(len(v)), v)
 }
 
+func (b *Buffer) WriteRune(v rune) {
+	utf8.EncodeRune(b.Grows(utf8.RuneLen(v)), v)
+}
+
 // Get current read position.
 func (b *Buffer) GetReadPosition() int {
 	return b.rpos

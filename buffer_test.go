@@ -52,7 +52,7 @@ func Test_Buffer(t *testing.T) {
 		t.Fatal("buffer.ReadInt64() != 0x7FEEDDCCBBAA9988")
 	}
 
-	buffer.WriteString("好")
+	buffer.WriteRune('好')
 	if buffer.ReadRune() != '好' {
 		t.Fatal(`buffer.ReadRune() != '好'`)
 	}
