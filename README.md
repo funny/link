@@ -88,9 +88,9 @@ Send a message to server.
 Examples
 ========
 
-* [An echo server](//github.com/funny/examples/echo_server/)
-* [An echo client](//github.com/funny/examples/echo_client/)
-* [Broadcast server](//github.com/funny/examples/broadcast/)
+* [An echo server](https://github.com/funny/packnet/tree/master/examples/echo_server)
+* [An echo client](https://github.com/funny/packnet/tree/master/examples/echo_client/)
+* [Broadcast server](https://github.com/funny/packnet/tree/master/examples/broadcast/)
 
 Document
 ========
