@@ -28,15 +28,15 @@ How to use
 Choose a protocol for your project.
 
 ```go
-	proto := packnet.NewFixProtocol(4, binary.BigEndian)
+proto := packnet.NewFixProtocol(4, binary.BigEndian)
 ```
 
 Setup a server on port `8080` and set protocol.
 
 ```go
-	server, _ := ListenAndServe("tcp", "0.0.0.0:8080", proto)
+server, _ := ListenAndServe("tcp", "0.0.0.0:8080", proto)
 
-	server.Start()
+server.Start()
 ```
 
 Hook the server's session start event to handle incoming connections.
@@ -44,23 +44,23 @@ Hook the server's session start event to handle incoming connections.
 And setup a request handler on the new session to handle incoming messages.
 
 ```go
-	server.OnSessionStart(func(session *Session) {
-		fmt.Println("new session in")
+server.OnSessionStart(func(session *Session) {
+	fmt.Println("new session in")
 
-		session.OnMessage(func(session *Session, msg []byte) {
-			fmt.Printf("new message: %s\n", msg)
-		})
+	session.OnMessage(func(session *Session, msg []byte) {
+		fmt.Printf("new message: %s\n", msg)
 	})
+})
 ```
 
 Use the same protocol dial to the server.
 
 ```go
-	proto := packnet.NewFixProtocol(4, binary.BigEndian)
+proto := packnet.NewFixProtocol(4, binary.BigEndian)
 
-	client, _ := packnet.Dial("tcp", "127.0.0.1:8080", proto)
+client, _ := packnet.Dial("tcp", "127.0.0.1:8080", proto)
 
-	client.Start(nil)
+client.Start(nil)
 ```
 
 Implement a message type.
