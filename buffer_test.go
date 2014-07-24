@@ -52,6 +52,11 @@ func Test_Buffer(t *testing.T) {
 		t.Fatal("buffer.ReadInt64() != 0x7FEEDDCCBBAA9988")
 	}
 
+	buffer.WriteString("好")
+	if buffer.ReadRune() != '好' {
+		t.Fatal(`buffer.ReadRune() != '好'`)
+	}
+
 	buffer.WriteString("Hello")
 	if buffer.ReadString(5) != "Hello" {
 		t.Fatal(`buffer.ReadString() != "Hello"`)
@@ -63,7 +68,7 @@ func Test_Buffer(t *testing.T) {
 	}
 
 	buffer.WriteBytes([]byte("Hello"))
-	if bytes.Equal(buffer.CopyBytes(5), []byte("Hello")) != true {
-		t.Fatal(`bytes.Equal(buffer.CopyBytes(5), []byte("Hello")) != true`)
+	if bytes.Equal(buffer.ReadSlice(5), []byte("Hello")) != true {
+		t.Fatal(`bytes.Equal(buffer.ReadSlice(5), []byte("Hello")) != true`)
 	}
 }

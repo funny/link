@@ -1,10 +1,11 @@
 package packnet
 
+import "unicode/utf8"
 import "encoding/binary"
 
-// The buffer type. Can used for message encoding and decoding.
-// When a writing operation needs more space, the buffer will auto grows.
-// The reading cursor will auto move after each reading operation.
+// The buffer type. Can used for encode or decode message.
+// The writing operations will grows buffer to guarantee space.
+// The reading cursor will moved after each reading operation.
 type Buffer struct {
 	buff      []byte
 	byteOrder binary.ByteOrder
@@ -190,27 +191,28 @@ func (b *Buffer) ReadInt64() int64 {
 	return int64(r)
 }
 
-// Read some bytes. The result is a slice that reference to internal buffer.
-// Modify the result bytes will dirty the buffer.
-// If you want to modify the result bytes, please make a copy to do it.
-// See CopyBytes().
-func (b *Buffer) ReadBytes(length int) []byte {
+// Read an UTF-8 rune.
+func (b *Buffer) ReadRune() rune {
+	r, size := utf8.DecodeRune(b.buff[b.rpos:])
+	b.rpos += size
+	return r
+}
+
+// Read a slice of internal buffer. Fast but dirty
+func (b *Buffer) ReadSlice(length int) []byte {
 	r := b.buff[b.rpos : b.rpos+length]
 	b.rpos += length
 	return r
 }
 
-// Read and copy some bytes.
-// The result is a new slice. This method slow than ReadBytes() but more safety.
-func (b *Buffer) CopyBytes(length int) []byte {
+// Read a copy of some bytes. Slow but safety.
+func (b *Buffer) ReadBytes(length int) []byte {
 	r := make([]byte, length)
-	copy(r, b.ReadBytes(length))
+	copy(r, b.ReadSlice(length))
 	return r
 }
 
 // Read string.
 func (b *Buffer) ReadString(length int) string {
-	r := b.buff[b.rpos : b.rpos+length]
-	b.rpos += length
-	return string(r)
+	return string(b.ReadSlice(length))
 }
