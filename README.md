@@ -82,7 +82,7 @@ func (msg TestMessage) AppendToPacket(packet []byte) []byte {
 Send a message to server.
 
 ```go
-	client.Send(TestMessage{ "Hello World!" })
+client.Send(TestMessage{ "Hello World!" })
 ```
 
 Examples
