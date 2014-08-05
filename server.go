@@ -139,8 +139,7 @@ func (server *Server) startSession(conn net.Conn) {
 	session := NewSession(
 		atomic.AddUint64(&server.maxSessionId, 1),
 		conn,
-		server.protocol.NewWriter(),
-		server.protocol.NewReader(),
+		server.protocol,
 		server.sendChanSize,
 	)
 

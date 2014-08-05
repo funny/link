@@ -33,12 +33,12 @@ type Session struct {
 }
 
 // Create a new session instance.
-func NewSession(id uint64, conn net.Conn, writer PacketWriter, reader PacketReader, sendChanSize uint) *Session {
+func NewSession(id uint64, conn net.Conn, protocol PacketProtocol, sendChanSize uint) *Session {
 	return &Session{
 		id:             id,
 		conn:           conn,
-		writer:         writer,
-		reader:         reader,
+		writer:         protocol.NewWriter(),
+		reader:         protocol.NewReader(),
 		sendChan:       make(chan Message, sendChanSize),
 		sendPacketChan: make(chan []byte, sendChanSize),
 		sendLock:       new(sync.Mutex),

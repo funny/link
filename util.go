@@ -26,7 +26,7 @@ func Dial(network, address string, protocol PacketProtocol) (*Session, error) {
 
 	dialSessionId += 1
 
-	session := NewSession(dialSessionId, conn, protocol.NewWriter(), protocol.NewReader(), DefaultSendChanSize)
+	session := NewSession(dialSessionId, conn, protocol, DefaultSendChanSize)
 
 	return session, nil
 }
@@ -40,7 +40,7 @@ func DialTimeout(network, address string, timeout time.Duration, protocol Packet
 
 	dialSessionId += 1
 
-	session := NewSession(dialSessionId, conn, protocol.NewWriter(), protocol.NewReader(), DefaultSendChanSize)
+	session := NewSession(dialSessionId, conn, protocol, DefaultSendChanSize)
 
 	return session, nil
 }
