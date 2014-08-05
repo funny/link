@@ -24,6 +24,13 @@ func (server *Server) NewChannel() *Channel {
 	}
 }
 
+// How mush sessions in this channel.
+func (channel *Channel) Len() int {
+	channel.mutex.RLock()
+	defer channel.mutex.RUnlock()
+	return len(channel.sessions)
+}
+
 // Join the channel. The kickClallback will called when the session kick out from the channel.
 func (channel *Channel) Join(session *Session, kickCallback func()) {
 	channel.mutex.Lock()
