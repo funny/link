@@ -9,10 +9,6 @@ import (
 // Default send chan buffer size for sessions.
 var DefaultSendChanSize uint = 1024
 
-type SessionList interface {
-	Fetch(func(*Session))
-}
-
 // Server.
 type Server struct {
 	// About network
@@ -133,10 +129,8 @@ func (server *Server) acceptLoop() {
 
 // Start a session to present the connection.
 func (server *Server) startSession(conn net.Conn) {
-	atomic.AddUint64(&server.maxSessionId, 1)
-
 	session := NewSession(
-		server.maxSessionId,
+		atomic.AddUint64(&server.maxSessionId, 1),
 		conn,
 		server.protocol.NewWriter(),
 		server.protocol.NewReader(),
