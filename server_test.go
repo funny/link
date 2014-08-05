@@ -34,45 +34,50 @@ func Test_Server(t *testing.T) {
 		messageCount       int
 		messageMatchFailed bool
 		message            = &TestMessage{[]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}}
+		serverStopChan     = make(chan int)
 	)
 
-	server.OnSessionStart(func(session1 *Session) {
-		t.Log("Session start")
-		sessionStartCount += 1
-		session1.OnMessage(func(session2 *Session, msg []byte) {
-			messageCount += 1
-			if session1 != session2 {
-				sessionMatchFailed = true
-			}
-			if !bytes.Equal(msg, message.Message) {
-				messageMatchFailed = true
-				t.Logf("message: %v", msg)
-			}
+	go func() {
+		server.Handle(func(session1 *Session) {
+			t.Log("Session start")
+			sessionStartCount += 1
+
+			session1.OnMessage(func(session2 *Session, msg []byte) {
+				messageCount += 1
+				if session1 != session2 {
+					sessionMatchFailed = true
+				}
+				if !bytes.Equal(msg, message.Message) {
+					messageMatchFailed = true
+					t.Logf("message: %v", msg)
+				}
+			})
+
+			session1.OnClose(func(session *Session) {
+				t.Log("Session close")
+				sessionCloseCount += 1
+			})
 		})
-	})
-
-	server.OnSessionClose(func(session *Session) {
-		t.Log("Session close")
-		sessionCloseCount += 1
-	})
-
-	server.Start()
+		close(serverStopChan)
+	}()
 
 	client1, err1 := Dial("tcp", addr, proto)
 	if err1 != nil {
 		t.Fatal("Create client1 failed, Error = %v", err1)
 	}
-	client1.Start(func(*Session) {
+	client1.OnClose(func(*Session) {
 		t.Log("Client 1 close callback")
 	})
+	client1.Start()
 
 	client2, err2 := Dial("tcp", addr, proto)
 	if err2 != nil {
 		t.Fatal("Create client2 failed, Error = %v", err2)
 	}
-	client2.Start(func(*Session) {
+	client2.OnClose(func(*Session) {
 		t.Log("Client 2 close callback")
 	})
+	client2.Start()
 
 	t.Log("Send 1")
 	if err := client1.SyncSend(message); err != nil {
@@ -101,6 +106,7 @@ func Test_Server(t *testing.T) {
 
 	t.Log("Stop server")
 	server.Stop()
+	<-serverStopChan
 
 	if sessionStartCount != 2 {
 		t.Fatal("Session start count not match")

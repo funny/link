@@ -16,32 +16,24 @@ func main() {
 	}
 
 	channel := server.NewChannel()
-
-	server.OnSessionStart(func(session *packnet.Session) {
-		println("client", session.RawConn().RemoteAddr().String(), "in")
-
-		channel.Join(session, nil)
-	})
-
-	server.OnSessionClose(func(session *packnet.Session) {
-		println("client", session.RawConn().RemoteAddr().String(), "close")
-
-		channel.Exit(session)
-	})
-
-	server.Start()
-
 	go func() {
 		for {
 			time.Sleep(time.Second)
-
 			channel.Broadcast(EchoMessage{time.Now().String()})
 		}
 	}()
 
 	println("server start")
 
-	<-make(chan int)
+	server.Handle(func(session *packnet.Session) {
+		println("client", session.RawConn().RemoteAddr().String(), "in")
+		channel.Join(session, nil)
+
+		session.OnClose(func(session *packnet.Session) {
+			println("client", session.RawConn().RemoteAddr().String(), "close")
+			channel.Exit(session)
+		})
+	})
 }
 
 type EchoMessage struct {

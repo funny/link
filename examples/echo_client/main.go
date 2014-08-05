@@ -19,9 +19,11 @@ func main() {
 		println("message:", string(message))
 	})
 
-	client.Start(func(session *packnet.Session) {
+	client.OnClose(func(session *packnet.Session) {
 		println("closed")
 	})
+
+	client.Start()
 
 	for {
 		var input string

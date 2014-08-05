@@ -14,7 +14,9 @@ func main() {
 		panic(err)
 	}
 
-	server.OnSessionStart(func(session *packnet.Session) {
+	println("server start")
+
+	server.Handle(func(session *packnet.Session) {
 		println("client", session.RawConn().RemoteAddr().String(), "in")
 
 		session.OnMessage(func(session *packnet.Session, message []byte) {
@@ -22,17 +24,11 @@ func main() {
 
 			session.Send(EchoMessage{message})
 		})
+
+		session.OnClose(func(session *packnet.Session) {
+			println("client", session.RawConn().RemoteAddr().String(), "close")
+		})
 	})
-
-	server.OnSessionClose(func(session *packnet.Session) {
-		println("client", session.RawConn().RemoteAddr().String(), "close")
-	})
-
-	server.Start()
-
-	println("server start")
-
-	<-make(chan int)
 }
 
 type EchoMessage struct {

@@ -8,7 +8,8 @@ import (
 
 // Session.
 type Session struct {
-	id uint64
+	id     uint64
+	server *Server
 
 	// About network
 	conn   net.Conn
@@ -48,10 +49,14 @@ func NewSession(id uint64, conn net.Conn, protocol PacketProtocol, sendChanSize 
 	}
 }
 
+// Set session close callback.
+func (session *Session) OnClose(callback func(*Session)) {
+	session.closeCallback = callback
+}
+
 // Start the session's read write goroutines.
-func (session *Session) Start(closeCallback func(*Session)) {
+func (session *Session) Start() {
 	if atomic.CompareAndSwapInt32(&session.closeFlag, -1, 0) {
-		session.closeCallback = closeCallback
 		go session.writeLoop()
 		go session.readLoop()
 	} else {
@@ -159,20 +164,24 @@ func (session *Session) Close() {
 
 	if atomic.CompareAndSwapInt32(&session.closeFlag, 0, 1) {
 		// if close session without this goroutine
-		// deadlock will happen when session close by itself.
+		// deadlock will happen when session close itself.
 		go func() {
-			defer func() {
-				// remove session from server
-				if session.closeCallback != nil {
-					session.closeCallback(session)
-				}
-			}()
-
 			// notify write loop session closed
 			close(session.closeChan)
 
 			// wait for read loop and write lopp exit
 			session.closeWait.Wait()
+
+			// if this is a server side session
+			// remove it from sessin list
+			if session.server != nil {
+				session.server.delSession(session)
+			}
+
+			// trigger the session close event
+			if session.closeCallback != nil {
+				session.closeCallback(session)
+			}
 		}()
 	}
 }

@@ -39,12 +39,10 @@ server, _ := ListenAndServe("tcp", "0.0.0.0:8080", proto)
 server.Start()
 ```
 
-Hook the server's session start event to handle incoming connections.
-
-And setup a request handler on the new session to handle incoming messages.
+Handle incoming connections. And setup a message handler on the new session.
 
 ```go
-server.OnSessionStart(func(session *Session) {
+server.Handle(func(session *Session) {
 	fmt.Println("new session in")
 
 	session.OnMessage(func(session *Session, msg []byte) {
@@ -60,7 +58,7 @@ proto := packnet.NewFixProtocol(4, binary.BigEndian)
 
 client, _ := packnet.Dial("tcp", "127.0.0.1:8080", proto)
 
-client.Start(nil)
+client.Start()
 ```
 
 Implement a message type.

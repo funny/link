@@ -27,11 +27,6 @@ type Server struct {
 	stopFlag int32
 	stopWait *sync.WaitGroup
 
-	// Server events.
-	serverStopCallback   func(*Server)
-	sessionStartCallback func(*Session)
-	sessionCloseCallback func(*Session)
-
 	// Put your server state here.
 	State interface{}
 }
@@ -67,35 +62,10 @@ func (server *Server) GetSendChanSize() uint {
 	return server.sendChanSize
 }
 
-// Set server stop callback. The callback will invoked when server stop and all session closed.
-func (server *Server) OnServerStop(callback func(*Server)) {
-	server.serverStopCallback = callback
-}
-
-// Set session start callback. The callback  will invoked when a new session start.
-func (server *Server) OnSessionStart(callback func(*Session)) {
-	server.sessionMutex.Lock()
-	defer server.sessionMutex.Unlock()
-	server.sessionStartCallback = callback
-}
-
-func (server *Server) getSessionStartCallback() func(*Session) {
-	server.sessionMutex.Lock()
-	defer server.sessionMutex.Unlock()
-	return server.sessionStartCallback
-}
-
-// Set session close callback. The callback  will invoked when a session closed.
-func (server *Server) OnSessionClose(callback func(*Session)) {
-	server.sessionMutex.Lock()
-	defer server.sessionMutex.Unlock()
-	server.sessionCloseCallback = callback
-}
-
-// Start server.
-func (server *Server) Start() {
+// Handle incoming connections. The callback will called asynchronously when each session start.
+func (server *Server) Handle(callback func(*Session)) {
 	if atomic.CompareAndSwapInt32(&server.stopFlag, -1, 0) {
-		go server.acceptLoop()
+		server.acceptLoop(callback)
 	} else {
 		panic(ServerDuplicateStartError)
 	}
@@ -104,25 +74,27 @@ func (server *Server) Start() {
 // Stop server.
 func (server *Server) Stop() {
 	if atomic.CompareAndSwapInt32(&server.stopFlag, 0, 1) {
-		// wait for accept loop exit
-		server.listener.Close()
-		<-server.stopChan
+		// if stop server without this goroutine
+		// deadlock will happen when server closed by session.
+		go func() {
+			// wait for accept loop exit
+			server.listener.Close()
+			<-server.stopChan
 
-		// wait for all session exit
-		server.closeSessions()
-		server.stopWait.Wait()
-
-		if server.serverStopCallback != nil {
-			server.serverStopCallback(server)
-		}
+			// close all sessions
+			server.closeSessions()
+		}()
 	}
 }
 
 // Loop and accept connections until get an error.
-func (server *Server) acceptLoop() {
+func (server *Server) acceptLoop(callback func(*Session)) {
 	defer func() {
 		close(server.stopChan)
 		server.Stop()
+
+		// wait for all session exit
+		server.stopWait.Wait()
 	}()
 
 	for {
@@ -130,37 +102,29 @@ func (server *Server) acceptLoop() {
 		if err != nil {
 			break
 		}
-		go server.startSession(conn)
+		go server.startSession(conn, callback)
 	}
 }
 
 // Start a session to present the connection.
-func (server *Server) startSession(conn net.Conn) {
+func (server *Server) startSession(conn net.Conn, callback func(*Session)) {
 	session := NewSession(
 		atomic.AddUint64(&server.maxSessionId, 1),
 		conn,
 		server.protocol,
 		server.sendChanSize,
 	)
+	session.server = server
 
 	// init the session state
-	startCallback := server.getSessionStartCallback()
-	if startCallback != nil {
-		startCallback(session)
+	if callback != nil {
+		callback(session)
 	}
 
 	// session maybe closed in start callback
 	if !session.IsClosed() {
 		server.putSession(session)
-		session.Start(server.closeSession)
-	}
-}
-
-// Close  and remove a session from server.
-func (server *Server) closeSession(session *Session) {
-	closeCallback := server.delSession(session)
-	if closeCallback != nil {
-		closeCallback(session)
+		session.Start()
 	}
 }
 
@@ -177,7 +141,7 @@ func (server *Server) putSession(session *Session) {
 }
 
 // Delete a session from session list
-func (server *Server) delSession(session *Session) func(*Session) {
+func (server *Server) delSession(session *Session) {
 	if atomic.LoadInt32(&server.stopFlag) == 0 {
 		server.sessionMutex.Lock()
 		defer server.sessionMutex.Unlock()
@@ -186,8 +150,6 @@ func (server *Server) delSession(session *Session) func(*Session) {
 	}
 
 	server.stopWait.Done()
-
-	return server.sessionCloseCallback
 }
 
 // Close all sessions.
