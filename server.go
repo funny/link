@@ -26,7 +26,6 @@ type Server struct {
 	stopChan chan int
 	stopFlag int32
 	stopWait *sync.WaitGroup
-	started  bool
 
 	// Server events.
 	serverStopCallback   func(*Server)
@@ -48,6 +47,7 @@ func NewServer(listener net.Listener, protocol PacketProtocol) *Server {
 		sessions:     make(map[uint64]*Session),
 		stopChan:     make(chan int),
 		stopWait:     new(sync.WaitGroup),
+		stopFlag:     -1,
 	}
 }
 
@@ -79,6 +79,12 @@ func (server *Server) OnSessionStart(callback func(*Session)) {
 	server.sessionStartCallback = callback
 }
 
+func (server *Server) getSessionStartCallback() func(*Session) {
+	server.sessionMutex.Lock()
+	defer server.sessionMutex.Unlock()
+	return server.sessionStartCallback
+}
+
 // Set session close callback. The callback  will invoked when a session closed.
 func (server *Server) OnSessionClose(callback func(*Session)) {
 	server.sessionMutex.Lock()
@@ -88,9 +94,10 @@ func (server *Server) OnSessionClose(callback func(*Session)) {
 
 // Start server.
 func (server *Server) Start() {
-	if !server.started {
-		server.started = true
+	if atomic.CompareAndSwapInt32(&server.stopFlag, -1, 0) {
 		go server.acceptLoop()
+	} else {
+		panic(ServerDuplicateStartError)
 	}
 }
 
@@ -137,12 +144,17 @@ func (server *Server) startSession(conn net.Conn) {
 		server.sendChanSize,
 	)
 
-	startCallback := server.putSession(session)
+	// init the session state
+	startCallback := server.getSessionStartCallback()
 	if startCallback != nil {
 		startCallback(session)
 	}
 
-	session.Start(server.closeSession)
+	// session maybe closed in start callback
+	if !session.IsClosed() {
+		server.putSession(session)
+		session.Start(server.closeSession)
+	}
 }
 
 // Close  and remove a session from server.
@@ -154,7 +166,7 @@ func (server *Server) closeSession(session *Session) {
 }
 
 // Put a session into session list
-func (server *Server) putSession(session *Session) func(*Session) {
+func (server *Server) putSession(session *Session) {
 	if atomic.LoadInt32(&server.stopFlag) == 0 {
 		server.sessionMutex.Lock()
 		defer server.sessionMutex.Unlock()
@@ -163,8 +175,6 @@ func (server *Server) putSession(session *Session) func(*Session) {
 	}
 
 	server.stopWait.Add(1)
-
-	return server.sessionStartCallback
 }
 
 // Delete a session from session list

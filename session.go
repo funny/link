@@ -154,6 +154,9 @@ func (session *Session) SetMessageHandler(handler MessageHandler) {
 
 // Close session and remove it from api server.
 func (session *Session) Close() {
+	// aways close the conn because session maybe closed before it start.
+	session.conn.Close()
+
 	if atomic.CompareAndSwapInt32(&session.closeFlag, 0, 1) {
 		// if close session without this goroutine
 		// deadlock will happen when session close by itself.
@@ -165,8 +168,6 @@ func (session *Session) Close() {
 				}
 			}()
 
-			session.conn.Close()
-
 			// notify write loop session closed
 			close(session.closeChan)
 
@@ -174,6 +175,11 @@ func (session *Session) Close() {
 			session.closeWait.Wait()
 		}()
 	}
+}
+
+// Check session is closed or not.
+func (session *Session) IsClosed() bool {
+	return atomic.LoadInt32(&session.closeFlag) == 1
 }
 
 // Async send a message.
