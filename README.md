@@ -35,7 +35,7 @@ proto := link.NewFixProtocol(4, binary.BigEndian)
 Setup a server on port `8080` and set protocol.
 
 ```go
-server, _ := ListenAndServe("tcp", "0.0.0.0:8080", proto)
+server, _ := link.ListenAndServe("tcp", "0.0.0.0:8080", proto)
 
 server.Start()
 ```
