@@ -1,8 +1,10 @@
 package link
 
-import "bytes"
-import "testing"
-import "encoding/binary"
+import (
+	"bytes"
+	"encoding/binary"
+	"testing"
+)
 
 func Test_Buffer(t *testing.T) {
 	buffer := NewBuffer(nil, binary.BigEndian)

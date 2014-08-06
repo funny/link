@@ -1,7 +1,9 @@
 package link
 
-import "unicode/utf8"
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"unicode/utf8"
+)
 
 // The buffer type. Can used for encode or decode message.
 // The writing operations will grows buffer to guarantee space.
