@@ -170,6 +170,10 @@ func (r *FixReader) ReadPacket(conn net.Conn, b []byte) ([]byte, error) {
 		data = make([]byte, size)
 	}
 
+	if len(data) == 0 {
+		return data, nil
+	}
+
 	if r.timeout > 0 {
 		conn.SetReadDeadline(time.Now().Add(r.timeout))
 	}
