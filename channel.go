@@ -66,8 +66,8 @@ func (channel *Channel) Fetch(callback func(*Session)) {
 	}
 }
 
-// Broadcast to sessions. The message only encoded one time
-// so the performance it's better than send message one by one.
+// Broadcast to sessions. The message only encoded once
+// so the performance it's better then send message one by one.
 func (channel *Channel) Broadcast(message Message) {
 	channel.broadcastMutex.Lock()
 	defer channel.broadcastMutex.Unlock()
