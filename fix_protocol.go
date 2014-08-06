@@ -2,6 +2,7 @@ package link
 
 import (
 	"encoding/binary"
+	"io"
 	"net"
 	"time"
 )
@@ -138,7 +139,7 @@ func (r *FixReader) ReadPacket(conn net.Conn, b []byte) ([]byte, error) {
 		conn.SetReadDeadline(time.Now().Add(r.timeout))
 	}
 
-	if _, err := conn.Read(r.head); err != nil {
+	if _, err := io.ReadFull(conn, r.head); err != nil {
 		return nil, err
 	}
 
@@ -173,7 +174,7 @@ func (r *FixReader) ReadPacket(conn net.Conn, b []byte) ([]byte, error) {
 		conn.SetReadDeadline(time.Now().Add(r.timeout))
 	}
 
-	_, err := conn.Read(data)
+	_, err := io.ReadFull(conn, data)
 
 	return data, err
 }
