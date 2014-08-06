@@ -57,7 +57,10 @@ func (session *Session) OnClose(callback func(*Session)) {
 // Start the session's read write goroutines.
 func (session *Session) Start() {
 	if atomic.CompareAndSwapInt32(&session.closeFlag, -1, 0) {
+		session.closeWait.Add(1)
 		go session.writeLoop()
+
+		session.closeWait.Add(1)
 		go session.readLoop()
 	} else {
 		panic(SessionDuplicateStartError)
@@ -66,7 +69,6 @@ func (session *Session) Start() {
 
 // Loop and wait incoming requests.
 func (session *Session) readLoop() {
-	session.closeWait.Add(1)
 	defer func() {
 		session.closeWait.Done()
 		session.Close()
@@ -90,12 +92,10 @@ func (session *Session) readLoop() {
 
 // Loop and transport responses.
 func (session *Session) writeLoop() {
-	session.closeWait.Add(1)
 	defer func() {
 		session.closeWait.Done()
 		session.Close()
 	}()
-
 L:
 	for {
 		select {
