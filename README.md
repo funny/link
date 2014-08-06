@@ -20,7 +20,7 @@ How to install
 ==============
 
 ```
-go get github.com/funny/packnet
+go get github.com/funny/link
 ```
 
 How to use
@@ -29,7 +29,7 @@ How to use
 Choose a protocol for your project.
 
 ```go
-proto := packnet.NewFixProtocol(4, binary.BigEndian)
+proto := link.NewFixProtocol(4, binary.BigEndian)
 ```
 
 Setup a server on port `8080` and set protocol.
@@ -55,9 +55,9 @@ server.Handle(func(session *Session) {
 Use the same protocol dial to the server.
 
 ```go
-proto := packnet.NewFixProtocol(4, binary.BigEndian)
+proto := link.NewFixProtocol(4, binary.BigEndian)
 
-client, _ := packnet.Dial("tcp", "127.0.0.1:8080", proto)
+client, _ := link.Dial("tcp", "127.0.0.1:8080", proto)
 
 client.Start()
 ```
@@ -87,11 +87,11 @@ client.Send(TestMessage{ "Hello World!" })
 Examples
 ========
 
-* [An echo server](https://github.com/funny/packnet/tree/master/examples/echo_server/main.go)
-* [An echo client](https://github.com/funny/packnet/tree/master/examples/echo_client/main.go)
-* [Broadcast server](https://github.com/funny/packnet/tree/master/examples/broadcast/main.go)
+* [An echo server](https://github.com/funny/link/tree/master/examples/echo_server/main.go)
+* [An echo client](https://github.com/funny/link/tree/master/examples/echo_client/main.go)
+* [Broadcast server](https://github.com/funny/link/tree/master/examples/broadcast/main.go)
 
 Document
 ========
 
-[Let's Go!](https://gowalker.org/github.com/funny/packnet)
+[Let's Go!](https://gowalker.org/github.com/funny/link)

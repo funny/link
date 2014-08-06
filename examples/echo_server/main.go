@@ -1,31 +1,31 @@
 package main
 
 import "encoding/binary"
-import "github.com/funny/packnet"
+import "github.com/funny/link"
 
 // This is an echo server demo work with the echo_client.
 // usage:
 //     go run github.com/funny/examples/echo_server/main.go
 func main() {
-	protocol := packnet.NewFixProtocol(4, binary.BigEndian)
+	protocol := link.NewFixProtocol(4, binary.BigEndian)
 
-	server, err := packnet.ListenAndServe("tcp", "127.0.0.1:10010", protocol)
+	server, err := link.ListenAndServe("tcp", "127.0.0.1:10010", protocol)
 	if err != nil {
 		panic(err)
 	}
 
 	println("server start")
 
-	server.Handle(func(session *packnet.Session) {
+	server.Handle(func(session *link.Session) {
 		println("client", session.RawConn().RemoteAddr().String(), "in")
 
-		session.OnMessage(func(session *packnet.Session, message []byte) {
+		session.OnMessage(func(session *link.Session, message []byte) {
 			println("client", session.RawConn().RemoteAddr().String(), "say:", string(message))
 
 			session.Send(EchoMessage{message})
 		})
 
-		session.OnClose(func(session *packnet.Session) {
+		session.OnClose(func(session *link.Session) {
 			println("client", session.RawConn().RemoteAddr().String(), "close")
 		})
 	})

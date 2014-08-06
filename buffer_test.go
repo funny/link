@@ -1,4 +1,4 @@
-package packnet
+package link
 
 import "bytes"
 import "testing"

@@ -1,4 +1,4 @@
-package packnet
+package link
 
 import (
 	"encoding/binary"

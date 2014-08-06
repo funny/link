@@ -2,15 +2,15 @@ package main
 
 import "time"
 import "encoding/binary"
-import "github.com/funny/packnet"
+import "github.com/funny/link"
 
 // This is broadcast server demo work with the echo_client.
 // usage:
 //     go run github.com/funny/examples/broadcast/main.go
 func main() {
-	protocol := packnet.NewFixProtocol(4, binary.BigEndian)
+	protocol := link.NewFixProtocol(4, binary.BigEndian)
 
-	server, err := packnet.ListenAndServe("tcp", "127.0.0.1:10010", protocol)
+	server, err := link.ListenAndServe("tcp", "127.0.0.1:10010", protocol)
 	if err != nil {
 		panic(err)
 	}
@@ -25,11 +25,11 @@ func main() {
 
 	println("server start")
 
-	server.Handle(func(session *packnet.Session) {
+	server.Handle(func(session *link.Session) {
 		println("client", session.RawConn().RemoteAddr().String(), "in")
 		channel.Join(session, nil)
 
-		session.OnClose(func(session *packnet.Session) {
+		session.OnClose(func(session *link.Session) {
 			println("client", session.RawConn().RemoteAddr().String(), "close")
 			channel.Exit(session)
 		})
