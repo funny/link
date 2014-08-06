@@ -6,11 +6,11 @@
 Introduction
 ============
 
-This is a network library for Go.
+This is a simple network library for Go.
 
 It focus on packet based persistent connection communication.
 
-It provide a packet splitting protocol like Erlang's `{packet: N}`. And supported custom packet splitting protocol.
+It provide a packet splitting protocol like Erlang's `{packet: N}` in default. And supported custom packet splitting protocol.
 
 But it didn't limit the encode or decode format of the request and response.
 
