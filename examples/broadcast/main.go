@@ -1,8 +1,10 @@
 package main
 
-import "time"
-import "encoding/binary"
-import "github.com/funny/link"
+import (
+	"encoding/binary"
+	"github.com/funny/link"
+	"time"
+)
 
 // This is broadcast server demo work with the echo_client.
 // usage:

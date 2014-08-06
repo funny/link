@@ -1,8 +1,10 @@
 package main
 
-import "fmt"
-import "encoding/binary"
-import "github.com/funny/link"
+import (
+	"encoding/binary"
+	"fmt"
+	"github.com/funny/link"
+)
 
 // This is an echo client demo work with the echo_server.
 // usage:

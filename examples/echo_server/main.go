@@ -1,7 +1,9 @@
 package main
 
-import "encoding/binary"
-import "github.com/funny/link"
+import (
+	"encoding/binary"
+	"github.com/funny/link"
+)
 
 // This is an echo server demo work with the echo_client.
 // usage:
