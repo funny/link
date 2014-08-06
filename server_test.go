@@ -1,9 +1,11 @@
 package link
 
-import "time"
-import "bytes"
-import "testing"
-import "encoding/binary"
+import (
+	"bytes"
+	"encoding/binary"
+	"testing"
+	"time"
+)
 
 type TestMessage struct {
 	Message []byte
