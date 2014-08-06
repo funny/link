@@ -126,7 +126,12 @@ func (session *Session) SyncSend(message Message) error {
 
 	session.sendBuff = packet
 
-	return session.writer.WritePacket(session.conn, packet)
+	err := session.writer.WritePacket(session.conn, packet)
+	if err != nil {
+		session.Close()
+	}
+
+	return err
 }
 
 // Sync send a packet.
@@ -134,7 +139,12 @@ func (session *Session) syncSendPacket(packet []byte) error {
 	session.sendLock.Lock()
 	defer session.sendLock.Unlock()
 
-	return session.writer.WritePacket(session.conn, packet)
+	err := session.writer.WritePacket(session.conn, packet)
+	if err != nil {
+		session.Close()
+	}
+
+	return err
 }
 
 // Get session id.
