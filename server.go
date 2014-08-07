@@ -124,7 +124,8 @@ func (server *Server) startSession(conn net.Conn, callback func(*Session)) {
 	// session maybe closed in start callback
 	if !session.IsClosed() {
 		server.putSession(session)
-		session.Start()
+	} else {
+		conn.Close()
 	}
 }
 

@@ -30,6 +30,8 @@ func main() {
 		session.OnClose(func(session *link.Session) {
 			println("client", session.RawConn().RemoteAddr().String(), "close")
 		})
+
+		session.Start()
 	})
 }
 

@@ -35,6 +35,8 @@ func main() {
 			println("client", session.RawConn().RemoteAddr().String(), "close")
 			channel.Exit(session)
 		})
+
+		session.Start()
 	})
 }
 

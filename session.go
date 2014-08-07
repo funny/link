@@ -50,6 +50,7 @@ func NewSession(id uint64, conn net.Conn, protocol PacketProtocol, sendChanSize 
 }
 
 // Start the session's read write goroutines.
+// NOTE: A session always need to started before you use it.
 func (session *Session) Start() {
 	if atomic.CompareAndSwapInt32(&session.closeFlag, -1, 0) {
 		session.closeWait.Add(1)
@@ -125,7 +126,7 @@ func (session *Session) Server() *Server {
 
 // Check session is closed or not.
 func (session *Session) IsClosed() bool {
-	return atomic.LoadInt32(&session.closeFlag) == 1
+	return atomic.LoadInt32(&session.closeFlag) != 0
 }
 
 // Set message handler function. A easy way to handle messages.
@@ -145,13 +146,12 @@ func (session *Session) OnClose(callback func(*Session)) {
 
 // Close session and remove it from api server.
 func (session *Session) Close() {
-	// aways close the conn because session maybe closed before it start.
-	session.conn.Close()
-
 	if atomic.CompareAndSwapInt32(&session.closeFlag, 0, 1) {
 		// if close session without this goroutine
 		// deadlock will happen when session close itself.
 		go func() {
+			session.conn.Close()
+
 			// notify write loop session closed
 			close(session.closeChan)
 
@@ -175,7 +175,7 @@ func (session *Session) Close() {
 // Async send a message. This method will never block.
 // If channel blocked session will be closed.
 func (session *Session) Send(message Message) error {
-	if atomic.LoadInt32(&session.closeFlag) != 0 {
+	if session.IsClosed() {
 		return SendToClosedError
 	}
 
@@ -231,7 +231,7 @@ func (session *Session) SyncSendPacket(packet []byte) error {
 // If you didn't know what it means, please see Channel.Broadcast().
 // Use in carefully.
 func (session *Session) SendPacket(packet []byte) error {
-	if atomic.LoadInt32(&session.closeFlag) != 0 {
+	if session.IsClosed() {
 		return SendToClosedError
 	}
 

@@ -60,6 +60,8 @@ func Test_Server(t *testing.T) {
 				t.Log("Session close")
 				atomic.AddInt32(&sessionCloseCount, 1)
 			})
+
+			session1.Start()
 		})
 		close(serverStopChan)
 	}()

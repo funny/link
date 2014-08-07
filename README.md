@@ -42,8 +42,12 @@ server.Handle(func(session *Session) {
 	session.OnMessage(func(session *Session, msg []byte) {
 		fmt.Printf("new message: %s\n", msg)
 	})
+
+	session.Start()
 })
 ```
+
+***NOTE: After initialize the session, you need to start it by manual.***
 
 Use the same protocol dial to the server.
 
@@ -54,6 +58,8 @@ client, _ := link.Dial("tcp", "127.0.0.1:8080", proto)
 
 client.Start()
 ```
+
+***NOTE: You need to start the session before you use it.***
 
 Implement a message type.
 
