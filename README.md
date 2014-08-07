@@ -31,8 +31,6 @@ Setup a server on port `8080` and set protocol.
 
 ```go
 server, _ := link.ListenAndServe("tcp", "0.0.0.0:8080", proto)
-
-server.Start()
 ```
 
 Handle incoming connections. And setup a message handler on the new session.
