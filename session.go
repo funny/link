@@ -99,47 +99,13 @@ L:
 				break L
 			}
 		case packet := <-session.sendPacketChan:
-			if err := session.syncSendPacket(packet); err != nil {
+			if err := session.SyncSendPacket(packet); err != nil {
 				break L
 			}
 		case <-session.closeChan:
 			break L
 		}
 	}
-}
-
-// Sync send a message.
-func (session *Session) SyncSend(message Message) error {
-	session.sendLock.Lock()
-	defer session.sendLock.Unlock()
-
-	size := message.RecommendPacketSize()
-
-	packet := session.writer.BeginPacket(size, session.sendBuff)
-	packet = message.AppendToPacket(packet)
-	packet = session.writer.EndPacket(packet)
-
-	session.sendBuff = packet
-
-	err := session.writer.WritePacket(session.conn, packet)
-	if err != nil {
-		session.Close()
-	}
-
-	return err
-}
-
-// Sync send a packet.
-func (session *Session) syncSendPacket(packet []byte) error {
-	session.sendLock.Lock()
-	defer session.sendLock.Unlock()
-
-	err := session.writer.WritePacket(session.conn, packet)
-	if err != nil {
-		session.Close()
-	}
-
-	return err
 }
 
 // Get session id.
@@ -150,6 +116,16 @@ func (session *Session) Id() uint64 {
 // Get local address.
 func (session *Session) RawConn() net.Conn {
 	return session.conn
+}
+
+// Get session owner.
+func (session *Session) Server() *Server {
+	return session.server
+}
+
+// Check session is closed or not.
+func (session *Session) IsClosed() bool {
+	return atomic.LoadInt32(&session.closeFlag) == 1
 }
 
 // Set message handler function. A easy way to handle messages.
@@ -165,11 +141,6 @@ func (session *Session) SetMessageHandler(handler MessageHandler) {
 // Set session close callback.
 func (session *Session) OnClose(callback func(*Session)) {
 	session.closeCallback = callback
-}
-
-// Get session owner.
-func (session *Session) Server() *Server {
-	return session.server
 }
 
 // Close session and remove it from api server.
@@ -201,12 +172,8 @@ func (session *Session) Close() {
 	}
 }
 
-// Check session is closed or not.
-func (session *Session) IsClosed() bool {
-	return atomic.LoadInt32(&session.closeFlag) == 1
-}
-
-// Async send a message.
+// Async send a message. This method will never block.
+// If channel blocked session will be closed.
 func (session *Session) Send(message Message) error {
 	if atomic.LoadInt32(&session.closeFlag) != 0 {
 		return SendToClosedError
@@ -221,8 +188,49 @@ func (session *Session) Send(message Message) error {
 	}
 }
 
-// Async send a packet.
-func (session *Session) sendPacket(packet []byte) error {
+// Sync send a message. This method will block on IO.
+// Use in carefully.
+func (session *Session) SyncSend(message Message) error {
+	session.sendLock.Lock()
+	defer session.sendLock.Unlock()
+
+	size := message.RecommendPacketSize()
+
+	packet := session.writer.BeginPacket(size, session.sendBuff)
+	packet = message.AppendToPacket(packet)
+	packet = session.writer.EndPacket(packet)
+
+	session.sendBuff = packet
+
+	err := session.writer.WritePacket(session.conn, packet)
+	if err != nil {
+		session.Close()
+	}
+
+	return err
+}
+
+// Sync send a packet. Use in carefully.
+// The packet must be properly formatted.
+// If you didn't know what it means, please see Channel.Broadcast().
+// Use in carefully.
+func (session *Session) SyncSendPacket(packet []byte) error {
+	session.sendLock.Lock()
+	defer session.sendLock.Unlock()
+
+	err := session.writer.WritePacket(session.conn, packet)
+	if err != nil {
+		session.Close()
+	}
+
+	return err
+}
+
+// Async send a packet. This method will block on IO.
+// The packet must be properly formatted.
+// If you didn't know what it means, please see Channel.Broadcast().
+// Use in carefully.
+func (session *Session) SendPacket(packet []byte) error {
 	if atomic.LoadInt32(&session.closeFlag) != 0 {
 		return SendToClosedError
 	}
