@@ -2,13 +2,12 @@ package link
 
 import "sync"
 
-// The channel type. Used to maintain a group of session. Normally used for broadcast classify purpose.
+// The channel type. Used to maintain a group of session.
+// Normally used for broadcast classify purpose.
 type Channel struct {
-	server         *Server
-	mutex          sync.RWMutex
-	broadcastBuff  []byte
-	broadcastMutex sync.RWMutex
-	sessions       map[uint64]channelSession
+	*Broadcaster
+	mutex    sync.RWMutex
+	sessions map[uint64]channelSession
 }
 
 type channelSession struct {
@@ -19,8 +18,8 @@ type channelSession struct {
 // Create a channel instance.
 func (server *Server) NewChannel() *Channel {
 	return &Channel{
-		server:   server,
-		sessions: make(map[uint64]channelSession),
+		Broadcaster: server.NewBroadcaster(),
+		sessions:    make(map[uint64]channelSession),
 	}
 }
 
@@ -64,23 +63,4 @@ func (channel *Channel) Fetch(callback func(*Session)) {
 	for _, sesssion := range channel.sessions {
 		callback(sesssion.Session)
 	}
-}
-
-// Broadcast to sessions. The message only encoded once
-// so the performance it's better then send message one by one.
-func (channel *Channel) Broadcast(message Message) {
-	channel.broadcastMutex.Lock()
-	defer channel.broadcastMutex.Unlock()
-
-	size := message.RecommendPacketSize()
-
-	packet := channel.server.writer.BeginPacket(size, channel.broadcastBuff)
-	packet = message.AppendToPacket(packet)
-	packet = channel.server.writer.EndPacket(packet)
-
-	channel.broadcastBuff = packet
-
-	channel.Fetch(func(session *Session) {
-		session.SendPacket(packet)
-	})
 }

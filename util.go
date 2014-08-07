@@ -2,6 +2,7 @@ package link
 
 import (
 	"net"
+	"sync"
 	"time"
 )
 
@@ -73,4 +74,43 @@ func (q *SendQueue) AppendToPacket(packet []byte) []byte {
 		packet = message.AppendToPacket(packet)
 	}
 	return packet
+}
+
+// A broadcast sender. The broadcast message only encoded once
+// so the performance it's better then send message one by one.
+type Broadcaster struct {
+	mutex  sync.RWMutex
+	buff   []byte
+	writer PacketWriter
+}
+
+// The session collection use to fetch session and send broadcast.
+type SessionCollection interface {
+	Fetch(func(*Session))
+}
+
+// Craete a broadcaster.
+func (server *Server) NewBroadcaster() *Broadcaster {
+	return &Broadcaster{
+		writer: server.protocol.NewWriter(),
+	}
+}
+
+// Broadcast to sessions. The message only encoded once
+// so the performance it's better then send message one by one.
+func (b *Broadcaster) Broadcast(sessions SessionCollection, message Message) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
+	size := message.RecommendPacketSize()
+
+	packet := b.writer.BeginPacket(size, b.buff)
+	packet = message.AppendToPacket(packet)
+	packet = b.writer.EndPacket(packet)
+
+	b.buff = packet
+
+	sessions.Fetch(func(session *Session) {
+		session.SendPacket(packet)
+	})
 }
