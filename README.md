@@ -1,8 +1,3 @@
-***THIS PROJECT IS STILL IN EARLY STAGE***
-
-***API MAY RADICALLY CHANGE IN THE NEAR FUTURE***
-
-
 Introduction
 ============
 
