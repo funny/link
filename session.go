@@ -49,11 +49,6 @@ func NewSession(id uint64, conn net.Conn, protocol PacketProtocol, sendChanSize 
 	}
 }
 
-// Set session close callback.
-func (session *Session) OnClose(callback func(*Session)) {
-	session.closeCallback = callback
-}
-
 // Start the session's read write goroutines.
 func (session *Session) Start() {
 	if atomic.CompareAndSwapInt32(&session.closeFlag, -1, 0) {
@@ -165,6 +160,16 @@ func (session *Session) OnMessage(callback func(*Session, []byte)) {
 // Set message handler. A complex but more powerful way to handle messages.
 func (session *Session) SetMessageHandler(handler MessageHandler) {
 	session.messageHandler = handler
+}
+
+// Set session close callback.
+func (session *Session) OnClose(callback func(*Session)) {
+	session.closeCallback = callback
+}
+
+// Get session owner.
+func (session *Session) Server() *Server {
+	return session.server
 }
 
 // Close session and remove it from api server.

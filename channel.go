@@ -31,7 +31,7 @@ func (channel *Channel) Len() int {
 	return len(channel.sessions)
 }
 
-// Join the channel. The kickClallback will called when the session kick out from the channel.
+// Join the channel. The kickCallback will called when the session kick out from the channel.
 func (channel *Channel) Join(session *Session, kickCallback func()) {
 	channel.mutex.Lock()
 	defer channel.mutex.Unlock()
