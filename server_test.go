@@ -3,6 +3,7 @@ package link
 import (
 	"bytes"
 	"encoding/binary"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -30,10 +31,10 @@ func Test_Server(t *testing.T) {
 	t.Logf("Server: %v", addr)
 
 	var (
-		sessionStartCount  int
-		sessionCloseCount  int
+		sessionStartCount  int32
+		sessionCloseCount  int32
 		sessionMatchFailed bool
-		messageCount       int
+		messageCount       int32
 		messageMatchFailed bool
 		message            = &TestMessage{[]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}}
 		serverStopChan     = make(chan int)
@@ -42,10 +43,10 @@ func Test_Server(t *testing.T) {
 	go func() {
 		server.Handle(func(session1 *Session) {
 			t.Log("Session start")
-			sessionStartCount += 1
+			atomic.AddInt32(&sessionStartCount, 1)
 
 			session1.OnMessage(func(session2 *Session, msg []byte) {
-				messageCount += 1
+				atomic.AddInt32(&messageCount, 1)
 				if session1 != session2 {
 					sessionMatchFailed = true
 				}
@@ -57,7 +58,7 @@ func Test_Server(t *testing.T) {
 
 			session1.OnClose(func(session *Session) {
 				t.Log("Session close")
-				sessionCloseCount += 1
+				atomic.AddInt32(&sessionCloseCount, 1)
 			})
 		})
 		close(serverStopChan)
