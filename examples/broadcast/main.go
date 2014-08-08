@@ -21,7 +21,7 @@ func main() {
 	go func() {
 		for {
 			time.Sleep(time.Second)
-			channel.Broadcast(EchoMessage{time.Now().String()})
+			channel.Broadcast(channel, EchoMessage{time.Now().String()})
 		}
 	}()
 
