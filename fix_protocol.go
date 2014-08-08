@@ -36,10 +36,9 @@ func (p FixProtocol) NewReader() PacketReader {
 
 // The {packet, N} writer.
 type FixWriter struct {
-	n       uint
-	bo      binary.ByteOrder
-	timeout time.Duration
-	maxsize uint
+	SimpleSetting
+	n  uint
+	bo binary.ByteOrder
 }
 
 // Create a new instance of {packet, N} writer.
@@ -103,28 +102,12 @@ func (w *FixWriter) WritePacket(conn net.Conn, packet []byte) error {
 	return nil
 }
 
-// Get write timeout.
-func (w *FixWriter) GetTimeout() time.Duration {
-	return w.timeout
-}
-
-// Set write timeout.
-func (w *FixWriter) SetTimeout(timeout time.Duration) {
-	w.timeout = timeout
-}
-
-// Limit packet size.
-func (w *FixWriter) SetMaxSize(maxsize uint) {
-	w.maxsize = maxsize
-}
-
 // The {packet, N} reader.
 type FixReader struct {
-	n       uint
-	bo      binary.ByteOrder
-	head    []byte
-	timeout time.Duration
-	maxsize uint
+	SimpleSetting
+	n    uint
+	bo   binary.ByteOrder
+	head []byte
 }
 
 // Create a new instance of {packet, N} reader.
@@ -186,19 +169,4 @@ func (r *FixReader) ReadPacket(conn net.Conn, b []byte) ([]byte, error) {
 	_, err := io.ReadFull(conn, data)
 
 	return data, err
-}
-
-// Get read timeout.
-func (r *FixReader) GetTimeout() time.Duration {
-	return r.timeout
-}
-
-// Set read timeout.
-func (r *FixReader) SetTimeout(timeout time.Duration) {
-	r.timeout = timeout
-}
-
-// Limit packet size.
-func (r *FixReader) SetMaxSize(maxsize uint) {
-	r.maxsize = maxsize
 }

@@ -16,6 +16,20 @@ var (
 	SyncSendTimeoutError       = errors.New("Sync send timeout")
 )
 
+type Setable interface {
+	// Get write timeout
+	GetTimeout() time.Duration
+
+	// Set write timeout.
+	SetTimeout(time.Duration)
+
+	// Get packet size limitation.
+	GetMaxSize() uint
+
+	// Limit packet size.
+	SetMaxSize(uint)
+}
+
 // Packet spliting protocol.
 type PacketProtocol interface {
 	// Create a packet writer.
@@ -27,6 +41,8 @@ type PacketProtocol interface {
 
 // Packet writer.
 type PacketWriter interface {
+	Setable
+
 	// Begin a packet writing on the buff.
 	// If the size large than the buff capacity, the buff will be dropped and a new buffer will be created.
 	// This method give the session a way to reuse buffer and avoid invoke Conn.Writer() twice.
@@ -38,32 +54,16 @@ type PacketWriter interface {
 
 	// Write a packet to the conn.
 	WritePacket(net.Conn, []byte) error
-
-	// Get write timeout
-	GetTimeout() time.Duration
-
-	// Set write timeout.
-	SetTimeout(time.Duration)
-
-	// Limit packet size.
-	SetMaxSize(uint)
 }
 
 // Packet reader.
 type PacketReader interface {
+	Setable
+
 	// Create a new instance of {packet, N} reader.
 	// The n means how many bytes of the packet header used to present packet length.
 	// The 'bo' used to define packet header's byte order.
 	ReadPacket(net.Conn, []byte) ([]byte, error)
-
-	// Get read timeout.
-	GetTimeout() time.Duration
-
-	// Set read timeout.
-	SetTimeout(time.Duration)
-
-	// Limit packet size.
-	SetMaxSize(uint)
 }
 
 // Message.
