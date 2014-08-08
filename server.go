@@ -14,7 +14,6 @@ type Server struct {
 	// About network
 	listener net.Listener
 	protocol PacketProtocol
-	writer   PacketWriter
 
 	// About sessions
 	sendChanSize uint
@@ -36,7 +35,6 @@ func NewServer(listener net.Listener, protocol PacketProtocol) *Server {
 	return &Server{
 		listener:     listener,
 		protocol:     protocol,
-		writer:       protocol.NewWriter(),
 		sendChanSize: DefaultSendChanSize,
 		maxSessionId: 0,
 		sessions:     make(map[uint64]*Session),

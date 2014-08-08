@@ -20,7 +20,7 @@ type Session struct {
 	sendChan       chan Message
 	sendPacketChan chan []byte
 	sendBuff       []byte
-	sendLock       *sync.Mutex
+	sendLock       sync.Mutex
 	messageHandler MessageHandler
 
 	// About session close
@@ -42,7 +42,6 @@ func NewSession(id uint64, conn net.Conn, protocol PacketProtocol, sendChanSize 
 		reader:         protocol.NewReader(),
 		sendChan:       make(chan Message, sendChanSize),
 		sendPacketChan: make(chan []byte, sendChanSize),
-		sendLock:       new(sync.Mutex),
 		closeChan:      make(chan int),
 		closeWait:      new(sync.WaitGroup),
 		closeFlag:      -1,
