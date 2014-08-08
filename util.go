@@ -64,7 +64,7 @@ func (s *SimpleSetting) SetTimeout(timeout time.Duration) {
 	s.timeout = timeout
 }
 
-// Get packet size limitation.
+// Get packet size limit
 func (s *SimpleSetting) GetMaxSize() uint {
 	return s.maxsize
 }
