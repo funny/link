@@ -39,6 +39,9 @@ type PacketWriter interface {
 	// Write a packet to the conn.
 	WritePacket(net.Conn, []byte) error
 
+	// Get write timeout
+	GetTimeout() time.Duration
+
 	// Set write timeout.
 	SetTimeout(time.Duration)
 
@@ -52,6 +55,9 @@ type PacketReader interface {
 	// The n means how many bytes of the packet header used to present packet length.
 	// The 'bo' used to define packet header's byte order.
 	ReadPacket(net.Conn, []byte) ([]byte, error)
+
+	// Get read timeout.
+	GetTimeout() time.Duration
 
 	// Set read timeout.
 	SetTimeout(time.Duration)

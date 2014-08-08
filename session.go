@@ -123,6 +123,16 @@ func (session *Session) Server() *Server {
 	return session.server
 }
 
+// Get packet reader.
+func (session *Session) Reader() PacketReader {
+	return session.reader
+}
+
+// Get packet writer.
+func (session *Session) Writer() PacketWriter {
+	return session.writer
+}
+
 // Check session is closed or not.
 func (session *Session) IsClosed() bool {
 	return atomic.LoadInt32(&session.closeFlag) != 0

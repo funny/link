@@ -103,6 +103,11 @@ func (w *FixWriter) WritePacket(conn net.Conn, packet []byte) error {
 	return nil
 }
 
+// Get write timeout.
+func (w *FixWriter) GetTimeout() time.Duration {
+	return w.timeout
+}
+
 // Set write timeout.
 func (w *FixWriter) SetTimeout(timeout time.Duration) {
 	w.timeout = timeout
@@ -181,6 +186,11 @@ func (r *FixReader) ReadPacket(conn net.Conn, b []byte) ([]byte, error) {
 	_, err := io.ReadFull(conn, data)
 
 	return data, err
+}
+
+// Get read timeout.
+func (r *FixReader) GetTimeout() time.Duration {
+	return r.timeout
 }
 
 // Set read timeout.
