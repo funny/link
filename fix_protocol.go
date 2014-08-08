@@ -91,9 +91,9 @@ func (w *FixWriter) EndPacket(packet []byte) []byte {
 // Write a packet to the conn.
 func (w *FixWriter) WritePacket(conn net.Conn, packet []byte) error {
 	if w.timeout > 0 {
-		conn.SetReadDeadline(time.Now().Add(w.timeout))
+		conn.SetWriteDeadline(time.Now().Add(w.timeout))
 	} else {
-		conn.SetReadDeadline(time.Time{})
+		conn.SetWriteDeadline(time.Time{})
 	}
 
 	if _, err := conn.Write(packet); err != nil {
