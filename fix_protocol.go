@@ -36,7 +36,7 @@ func (p FixProtocol) NewReader() PacketReader {
 
 // The {packet, N} writer.
 type FixWriter struct {
-	SimpleSetting
+	SimpleSettings
 	n  uint
 	bo binary.ByteOrder
 }
@@ -104,7 +104,7 @@ func (w *FixWriter) WritePacket(conn net.Conn, packet []byte) error {
 
 // The {packet, N} reader.
 type FixReader struct {
-	SimpleSetting
+	SimpleSettings
 	n    uint
 	bo   binary.ByteOrder
 	head []byte

@@ -46,31 +46,31 @@ func DialTimeout(network, address string, timeout time.Duration, protocol Packet
 	return session, nil
 }
 
-// This type implement the Setable interface.
-// It's simple way to make your custome protocol implement Setable interface.
+// This type implement the Settings interface.
+// It's simple way to make your custome protocol implement Settings interface.
 // See FixWriter and FixReader.
-type SimpleSetting struct {
+type SimpleSettings struct {
 	timeout time.Duration
 	maxsize uint
 }
 
 // Get timeout setting.
-func (s *SimpleSetting) GetTimeout() time.Duration {
+func (s *SimpleSettings) GetTimeout() time.Duration {
 	return s.timeout
 }
 
 // Set timeout.
-func (s *SimpleSetting) SetTimeout(timeout time.Duration) {
+func (s *SimpleSettings) SetTimeout(timeout time.Duration) {
 	s.timeout = timeout
 }
 
 // Get packet size limit
-func (s *SimpleSetting) GetMaxSize() uint {
+func (s *SimpleSettings) GetMaxSize() uint {
 	return s.maxsize
 }
 
 // Limit packet size.
-func (s *SimpleSetting) SetMaxSize(maxsize uint) {
+func (s *SimpleSettings) SetMaxSize(maxsize uint) {
 	s.maxsize = maxsize
 }
 

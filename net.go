@@ -19,7 +19,7 @@ var (
 	DiscardBlockingError       = errors.New("Message is discarded after blocking")
 )
 
-type Setable interface {
+type Settings interface {
 	// Get write timeout
 	GetTimeout() time.Duration
 
@@ -44,7 +44,7 @@ type PacketProtocol interface {
 
 // Packet writer.
 type PacketWriter interface {
-	Setable
+	Settings
 
 	// Begin a packet writing on the buff.
 	// If the size large than the buff capacity, the buff will be dropped and a new buffer will be created.
@@ -61,7 +61,7 @@ type PacketWriter interface {
 
 // Packet reader.
 type PacketReader interface {
-	Setable
+	Settings
 
 	// Create a new instance of {packet, N} reader.
 	// The n means how many bytes of the packet header used to present packet length.

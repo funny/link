@@ -159,12 +159,12 @@ func (session *Session) Server() *Server {
 }
 
 // Get reader setting.
-func (session *Session) ReaderSetting() Setable {
+func (session *Session) ReaderSettings() Settings {
 	return session.reader
 }
 
 // Get writer setting.
-func (session *Session) WriterSetting() Setable {
+func (session *Session) WriterSettings() Settings {
 	return session.writer
 }
 
