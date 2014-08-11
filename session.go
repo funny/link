@@ -9,16 +9,18 @@ import (
 
 type SendMode uint64
 
+// Example:
+// // Async send a message and wait for timeout in 3 seconds, don't close session when timeout.
+// session.Send(msg, ASYNC|DO_NOT_CLOSE|TIMEOUT(time.Second * 3))
 const (
-	SYNC      = SendMode(1 << 0) // Sync send
-	ASYNC     = SendMode(1 << 1) // Async send
-	CLOSE_BLK = SendMode(1 << 2) // Close session and immediately return when blocking
-	_WAIT_BLK = SendMode(1 << 3)
+	SYNC         = SendMode(1 << 0) // Sync send.
+	ASYNC        = SendMode(1 << 1) // Async send.
+	DO_NOT_CLOSE = SendMode(1 << 2) // Disable auto close when blocking happens.
 )
 
-// Wait for blocking, The timeout setting is the high 48 bit of SendMode in milliseconds.
-func WAIT_BLK(timeout time.Duration) SendMode {
-	return SendMode(timeout<<48) | _WAIT_BLK
+// Setting the wait blocking timeout.
+func TIMEOUT(timeout time.Duration) SendMode {
+	return SendMode(timeout << 48)
 }
 
 // Session.
@@ -244,13 +246,17 @@ func (session *Session) Send(message Message, mode SendMode) error {
 			select {
 			case session.sendChan <- message:
 			case <-time.After(timeout):
+				if mode&DO_NOT_CLOSE != DO_NOT_CLOSE {
+					session.Close()
+					return CloseBlockingError
+				}
 				return TimeoutBlockingError
 			}
 		} else {
 			select {
 			case session.sendChan <- message:
 			default:
-				if mode&CLOSE_BLK == CLOSE_BLK {
+				if mode&DO_NOT_CLOSE != DO_NOT_CLOSE {
 					session.Close()
 					return CloseBlockingError
 				}
@@ -276,13 +282,17 @@ func (session *Session) SendPacket(packet []byte, mode SendMode) error {
 			select {
 			case session.sendPacketChan <- packet:
 			case <-time.After(timeout):
+				if mode&DO_NOT_CLOSE != DO_NOT_CLOSE {
+					session.Close()
+					return CloseBlockingError
+				}
 				return TimeoutBlockingError
 			}
 		} else {
 			select {
 			case session.sendPacketChan <- packet:
 			default:
-				if mode&CLOSE_BLK == CLOSE_BLK {
+				if mode&DO_NOT_CLOSE != DO_NOT_CLOSE {
 					session.Close()
 					return CloseBlockingError
 				}
