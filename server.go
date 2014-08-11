@@ -157,6 +157,6 @@ func (server *Server) closeSessions() {
 	defer server.sessionMutex.Unlock()
 
 	for _, session := range server.sessions {
-		session.Close()
+		session.Close(nil)
 	}
 }

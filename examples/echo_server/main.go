@@ -27,8 +27,8 @@ func main() {
 			session.Send(EchoMessage{message})
 		})
 
-		session.OnClose(func(session *link.Session) {
-			println("client", session.Conn().RemoteAddr().String(), "close")
+		session.OnClose(func(session *link.Session, reason error) {
+			println("client", session.Conn().RemoteAddr().String(), "close, ", reason)
 		})
 
 		session.Start()

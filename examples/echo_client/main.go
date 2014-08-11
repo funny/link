@@ -21,7 +21,7 @@ func main() {
 		println("message:", string(message))
 	})
 
-	client.OnClose(func(session *link.Session) {
+	client.OnClose(func(session *link.Session, reason error) {
 		println("closed")
 	})
 
@@ -35,7 +35,7 @@ func main() {
 		client.Send(EchoMessage{input})
 	}
 
-	client.Close()
+	client.Close(nil)
 
 	println("bye")
 }

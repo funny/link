@@ -27,7 +27,7 @@ type Session struct {
 	closeChan     chan int
 	closeWait     *sync.WaitGroup
 	closeFlag     int32
-	closeCallback func(*Session)
+	closeCallback func(*Session, error)
 
 	// Put your session state here.
 	State interface{}
@@ -66,7 +66,7 @@ func (session *Session) Start() {
 func (session *Session) readLoop() {
 	defer func() {
 		session.closeWait.Done()
-		session.Close()
+		session.Close(nil)
 	}()
 
 	var (
@@ -89,7 +89,7 @@ func (session *Session) readLoop() {
 func (session *Session) writeLoop() {
 	defer func() {
 		session.closeWait.Done()
-		session.Close()
+		session.Close(nil)
 	}()
 L:
 	for {
@@ -149,12 +149,12 @@ func (session *Session) SetMessageHandler(handler MessageHandler) {
 }
 
 // Set session close callback.
-func (session *Session) OnClose(callback func(*Session)) {
+func (session *Session) OnClose(callback func(*Session, error)) {
 	session.closeCallback = callback
 }
 
 // Close session and remove it from api server.
-func (session *Session) Close() {
+func (session *Session) Close(reason error) {
 	if atomic.CompareAndSwapInt32(&session.closeFlag, 0, 1) {
 		// if close session without this goroutine
 		// deadlock will happen when session close itself.
@@ -175,7 +175,7 @@ func (session *Session) Close() {
 
 			// trigger the session close event
 			if session.closeCallback != nil {
-				session.closeCallback(session)
+				session.closeCallback(session, reason)
 			}
 		}()
 	}
@@ -197,7 +197,7 @@ func (session *Session) SyncSend(message Message) error {
 
 	err := session.writer.WritePacket(session.conn, packet)
 	if err != nil {
-		session.Close()
+		session.Close(err)
 	}
 
 	return err
@@ -213,7 +213,7 @@ func (session *Session) SyncSendPacket(packet []byte) error {
 
 	err := session.writer.WritePacket(session.conn, packet)
 	if err != nil {
-		session.Close()
+		session.Close(err)
 	}
 
 	return err
@@ -230,7 +230,7 @@ func (session *Session) Send(message Message) error {
 	case session.sendChan <- message:
 		return nil
 	default:
-		session.Close()
+		session.Close(BlockingError)
 		return BlockingError
 	}
 }
@@ -248,7 +248,7 @@ func (session *Session) SendPacket(packet []byte) error {
 	case session.sendPacketChan <- packet:
 		return nil
 	default:
-		session.Close()
+		session.Close(BlockingError)
 		return BlockingError
 	}
 }

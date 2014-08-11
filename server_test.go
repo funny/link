@@ -56,7 +56,7 @@ func Test_Server(t *testing.T) {
 				}
 			})
 
-			session1.OnClose(func(session *Session) {
+			session1.OnClose(func(session *Session, reason error) {
 				t.Log("Session close")
 				atomic.AddInt32(&sessionCloseCount, 1)
 			})
@@ -70,7 +70,7 @@ func Test_Server(t *testing.T) {
 	if err1 != nil {
 		t.Fatal("Create client1 failed, Error = %v", err1)
 	}
-	client1.OnClose(func(*Session) {
+	client1.OnClose(func(*Session, error) {
 		t.Log("Client 1 close callback")
 	})
 	client1.Start()
@@ -79,7 +79,7 @@ func Test_Server(t *testing.T) {
 	if err2 != nil {
 		t.Fatal("Create client2 failed, Error = %v", err2)
 	}
-	client2.OnClose(func(*Session) {
+	client2.OnClose(func(*Session, error) {
 		t.Log("Client 2 close callback")
 	})
 	client2.Start()
@@ -106,7 +106,7 @@ func Test_Server(t *testing.T) {
 
 	// close by manual
 	t.Log("Close client1")
-	client1.Close()
+	client1.Close(nil)
 	time.Sleep(time.Second)
 
 	t.Log("Stop server")
