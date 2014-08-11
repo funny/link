@@ -7,22 +7,6 @@ import (
 	"time"
 )
 
-type SendMode uint64
-
-// Example:
-// // Async send a message and wait for timeout in 3 seconds, don't close session when timeout.
-// session.Send(msg, ASYNC|DO_NOT_CLOSE|TIMEOUT(time.Second * 3))
-const (
-	SYNC         = SendMode(1 << 0) // Sync send.
-	ASYNC        = SendMode(1 << 1) // Async send.
-	DO_NOT_CLOSE = SendMode(1 << 2) // Disable auto close when blocking happens.
-)
-
-// Setting the wait blocking timeout.
-func TIMEOUT(timeout time.Duration) SendMode {
-	return SendMode(timeout << 48)
-}
-
 // Session.
 type Session struct {
 	id     uint64
@@ -232,6 +216,24 @@ func (session *Session) Close() {
 	}
 }
 
+type SendMode uint64
+
+// Example:
+// // Async send a message and wait for timeout in 3 seconds, don't close session when timeout.
+// session.Send(msg, ASYNC|DO_NOT_CLOSE|TIMEOUT(time.Second * 3))
+const (
+	SYNC         = SendMode(1 << 0) // Sync send.
+	ASYNC        = SendMode(1 << 1) // Async send.
+	DO_NOT_CLOSE = SendMode(1 << 2) // Disable auto close when blocking happens.
+)
+
+const _TIMEOUT_BITS_ = 60
+
+// Setting the wait blocking timeout.
+func TIMEOUT(timeout time.Duration) SendMode {
+	return SendMode(timeout << _TIMEOUT_BITS_)
+}
+
 // Send a message.
 func (session *Session) Send(message Message, mode SendMode) error {
 	if session.IsClosed() {
@@ -242,7 +244,7 @@ func (session *Session) Send(message Message, mode SendMode) error {
 	case mode&SYNC == SYNC:
 		session.syncSend(message)
 	case mode&ASYNC == ASYNC:
-		if timeout := time.Duration(uint64(mode) >> 48); timeout != 0 {
+		if timeout := time.Duration(uint64(mode) >> _TIMEOUT_BITS_); timeout != 0 {
 			select {
 			case session.sendChan <- message:
 			case <-time.After(timeout):
@@ -278,7 +280,7 @@ func (session *Session) SendPacket(packet []byte, mode SendMode) error {
 	case mode&SYNC == SYNC:
 		session.syncSendPacket(packet)
 	case mode&ASYNC == ASYNC:
-		if timeout := time.Duration(uint64(mode) >> 48); timeout != 0 {
+		if timeout := time.Duration(uint64(mode) >> _TIMEOUT_BITS_); timeout != 0 {
 			select {
 			case session.sendPacketChan <- packet:
 			case <-time.After(timeout):
