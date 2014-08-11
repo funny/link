@@ -32,7 +32,7 @@ func main() {
 		if _, err := fmt.Scanf("%s\n", &input); err != nil {
 			break
 		}
-		client.Send(EchoMessage{input}, link.ASYNC)
+		client.Send(EchoMessage{input})
 	}
 
 	client.Close()

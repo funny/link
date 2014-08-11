@@ -4,7 +4,6 @@ import (
 	"net"
 	"sync"
 	"sync/atomic"
-	"time"
 )
 
 // Session.
@@ -96,51 +95,17 @@ L:
 	for {
 		select {
 		case message := <-session.sendChan:
-			if err := session.syncSend(message); err != nil {
+			if err := session.SyncSend(message); err != nil {
 				break L
 			}
 		case packet := <-session.sendPacketChan:
-			if err := session.syncSendPacket(packet); err != nil {
+			if err := session.SyncSendPacket(packet); err != nil {
 				break L
 			}
 		case <-session.closeChan:
 			break L
 		}
 	}
-}
-
-// Sync send a message. This method will block on IO.
-func (session *Session) syncSend(message Message) error {
-	session.sendLock.Lock()
-	defer session.sendLock.Unlock()
-
-	size := message.RecommendPacketSize()
-
-	packet := session.writer.BeginPacket(size, session.sendBuff)
-	packet = message.AppendToPacket(packet)
-	packet = session.writer.EndPacket(packet)
-
-	session.sendBuff = packet
-
-	err := session.writer.WritePacket(session.conn, packet)
-	if err != nil {
-		session.Close()
-	}
-
-	return err
-}
-
-// Sync send a packet. The packet must be properly formatted.
-func (session *Session) syncSendPacket(packet []byte) error {
-	session.sendLock.Lock()
-	defer session.sendLock.Unlock()
-
-	err := session.writer.WritePacket(session.conn, packet)
-	if err != nil {
-		session.Close()
-	}
-
-	return err
 }
 
 // Get session id.
@@ -158,12 +123,12 @@ func (session *Session) Server() *Server {
 	return session.server
 }
 
-// Get reader setting.
+// Get reader settings.
 func (session *Session) ReaderSettings() Settings {
 	return session.reader
 }
 
-// Get writer setting.
+// Get writer settings.
 func (session *Session) WriterSettings() Settings {
 	return session.writer
 }
@@ -216,92 +181,74 @@ func (session *Session) Close() {
 	}
 }
 
-type SendMode uint64
+// Sync send a message. This method will block on IO.
+// Use in carefully.
+func (session *Session) SyncSend(message Message) error {
+	session.sendLock.Lock()
+	defer session.sendLock.Unlock()
 
-// Example:
-// // Async send a message and wait for timeout in 3 seconds, don't close session when timeout.
-// session.Send(msg, ASYNC|DO_NOT_CLOSE|TIMEOUT(time.Second * 3))
-const (
-	SYNC         = SendMode(1 << 0) // Sync send.
-	ASYNC        = SendMode(1 << 1) // Async send.
-	DO_NOT_CLOSE = SendMode(1 << 2) // Disable auto close when blocking happens.
-)
+	size := message.RecommendPacketSize()
 
-const _TIMEOUT_BITS_ = 60
+	packet := session.writer.BeginPacket(size, session.sendBuff)
+	packet = message.AppendToPacket(packet)
+	packet = session.writer.EndPacket(packet)
 
-// Setting the wait blocking timeout.
-func TIMEOUT(timeout time.Duration) SendMode {
-	return SendMode(timeout << _TIMEOUT_BITS_)
+	session.sendBuff = packet
+
+	err := session.writer.WritePacket(session.conn, packet)
+	if err != nil {
+		session.Close()
+	}
+
+	return err
 }
 
-// Send a message.
-func (session *Session) Send(message Message, mode SendMode) error {
+// Sync send a packet. Use in carefully.
+// The packet must be properly formatted.
+// If you didn't know what it means, please see Channel.Broadcast().
+// Use in carefully.
+func (session *Session) SyncSendPacket(packet []byte) error {
+	session.sendLock.Lock()
+	defer session.sendLock.Unlock()
+
+	err := session.writer.WritePacket(session.conn, packet)
+	if err != nil {
+		session.Close()
+	}
+
+	return err
+}
+
+// Async send a message. This method will never block.
+// If channel blocked session will be closed.
+func (session *Session) Send(message Message) error {
 	if session.IsClosed() {
 		return SendToClosedError
 	}
 
-	switch {
-	case mode&SYNC == SYNC:
-		session.syncSend(message)
-	case mode&ASYNC == ASYNC:
-		if timeout := time.Duration(uint64(mode) >> _TIMEOUT_BITS_); timeout != 0 {
-			select {
-			case session.sendChan <- message:
-			case <-time.After(timeout):
-				if mode&DO_NOT_CLOSE != DO_NOT_CLOSE {
-					session.Close()
-					return CloseBlockingError
-				}
-				return TimeoutBlockingError
-			}
-		} else {
-			select {
-			case session.sendChan <- message:
-			default:
-				if mode&DO_NOT_CLOSE != DO_NOT_CLOSE {
-					session.Close()
-					return CloseBlockingError
-				}
-				return DiscardBlockingError
-			}
-		}
+	select {
+	case session.sendChan <- message:
+		return nil
+	default:
+		session.Close()
+		return BlockingError
 	}
-
-	return nil
 }
 
-// Send a packet. The packet must be properly formatted.
-func (session *Session) SendPacket(packet []byte, mode SendMode) error {
+// Async send a packet. This method will block on IO.
+// The packet must be properly formatted.
+// If you didn't know what it means, please see Channel.Broadcast().
+// Use in carefully.
+func (session *Session) SendPacket(packet []byte) error {
 	if session.IsClosed() {
 		return SendToClosedError
 	}
 
-	switch {
-	case mode&SYNC == SYNC:
-		session.syncSendPacket(packet)
-	case mode&ASYNC == ASYNC:
-		if timeout := time.Duration(uint64(mode) >> _TIMEOUT_BITS_); timeout != 0 {
-			select {
-			case session.sendPacketChan <- packet:
-			case <-time.After(timeout):
-				if mode&DO_NOT_CLOSE != DO_NOT_CLOSE {
-					session.Close()
-					return CloseBlockingError
-				}
-				return TimeoutBlockingError
-			}
-		} else {
-			select {
-			case session.sendPacketChan <- packet:
-			default:
-				if mode&DO_NOT_CLOSE != DO_NOT_CLOSE {
-					session.Close()
-					return CloseBlockingError
-				}
-				return DiscardBlockingError
-			}
-		}
+	select {
+	case session.sendPacketChan <- packet:
+		return nil
+	default:
+		session.Close()
+		return BlockingError
 	}
-
-	return nil
 }

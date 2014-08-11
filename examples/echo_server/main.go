@@ -24,7 +24,7 @@ func main() {
 		session.OnMessage(func(session *link.Session, message []byte) {
 			println("client", session.Conn().RemoteAddr().String(), "say:", string(message))
 
-			session.Send(EchoMessage{message}, link.ASYNC)
+			session.Send(EchoMessage{message})
 		})
 
 		session.OnClose(func(session *link.Session) {
