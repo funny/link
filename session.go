@@ -114,7 +114,7 @@ func (session *Session) Id() uint64 {
 }
 
 // Get local address.
-func (session *Session) RawConn() net.Conn {
+func (session *Session) Conn() net.Conn {
 	return session.conn
 }
 
