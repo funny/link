@@ -126,7 +126,7 @@ func (server *Server) NewBroadcaster() *Broadcaster {
 
 // Broadcast to sessions. The message only encoded once
 // so the performance it's better then send message one by one.
-func (b *Broadcaster) Broadcast(sessions SessionCollection, message Message) {
+func (b *Broadcaster) Broadcast(sessions SessionCollection, message Message, mode SendMode) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
@@ -139,6 +139,6 @@ func (b *Broadcaster) Broadcast(sessions SessionCollection, message Message) {
 	b.buff = packet
 
 	sessions.Fetch(func(session *Session) {
-		session.SendPacket(packet)
+		session.SendPacket(packet, mode)
 	})
 }

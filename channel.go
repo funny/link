@@ -66,6 +66,6 @@ func (channel *Channel) Fetch(callback func(*Session)) {
 }
 
 // Broadcast to channel sessions.
-func (channel *Channel) Broadcast(message Message) {
-	channel.broadcaster.Broadcast(channel, message)
+func (channel *Channel) Broadcast(message Message, mode SendMode) {
+	channel.broadcaster.Broadcast(channel, message, mode)
 }

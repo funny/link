@@ -19,16 +19,16 @@ func main() {
 	println("server start")
 
 	server.Handle(func(session *link.Session) {
-		println("client", session.RawConn().RemoteAddr().String(), "in")
+		println("client", session.Conn().RemoteAddr().String(), "in")
 
 		session.OnMessage(func(session *link.Session, message []byte) {
-			println("client", session.RawConn().RemoteAddr().String(), "say:", string(message))
+			println("client", session.Conn().RemoteAddr().String(), "say:", string(message))
 
-			session.Send(EchoMessage{message})
+			session.Send(EchoMessage{message}, link.ASYNC)
 		})
 
 		session.OnClose(func(session *link.Session) {
-			println("client", session.RawConn().RemoteAddr().String(), "close")
+			println("client", session.Conn().RemoteAddr().String(), "close")
 		})
 
 		session.Start()

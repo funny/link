@@ -14,6 +14,9 @@ var (
 	SessionDuplicateStartError = errors.New("Session duplicate start")
 	ServerDuplicateStartError  = errors.New("Server duplicate start")
 	SyncSendTimeoutError       = errors.New("Sync send timeout")
+	TimeoutBlockingError       = errors.New("Timeout happens when blocking")
+	CloseBlockingError         = errors.New("Session closed after blocking")
+	DiscardBlockingError       = errors.New("Message is discarded after blocking")
 )
 
 type Setable interface {

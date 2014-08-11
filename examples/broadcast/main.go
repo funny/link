@@ -21,18 +21,18 @@ func main() {
 	go func() {
 		for {
 			time.Sleep(time.Second)
-			channel.Broadcast(EchoMessage{time.Now().String()})
+			channel.Broadcast(EchoMessage{time.Now().String()}, link.ASYNC)
 		}
 	}()
 
 	println("server start")
 
 	server.Handle(func(session *link.Session) {
-		println("client", session.RawConn().RemoteAddr().String(), "in")
+		println("client", session.Conn().RemoteAddr().String(), "in")
 		channel.Join(session, nil)
 
 		session.OnClose(func(session *link.Session) {
-			println("client", session.RawConn().RemoteAddr().String(), "close")
+			println("client", session.Conn().RemoteAddr().String(), "close")
 			channel.Exit(session)
 		})
 
