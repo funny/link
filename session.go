@@ -181,22 +181,6 @@ func (session *Session) Close() {
 	}
 }
 
-// Async send a message. This method will never block.
-// If channel blocked session will be closed.
-func (session *Session) Send(message Message) error {
-	if session.IsClosed() {
-		return SendToClosedError
-	}
-
-	select {
-	case session.sendChan <- message:
-		return nil
-	default:
-		session.Close()
-		return BlockingError
-	}
-}
-
 // Sync send a message. This method will block on IO.
 // Use in carefully.
 func (session *Session) SyncSend(message Message) error {
@@ -233,6 +217,22 @@ func (session *Session) SyncSendPacket(packet []byte) error {
 	}
 
 	return err
+}
+
+// Async send a message. This method will never block.
+// If channel blocked session will be closed.
+func (session *Session) Send(message Message) error {
+	if session.IsClosed() {
+		return SendToClosedError
+	}
+
+	select {
+	case session.sendChan <- message:
+		return nil
+	default:
+		session.Close()
+		return BlockingError
+	}
 }
 
 // Async send a packet. This method will block on IO.
