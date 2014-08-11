@@ -123,13 +123,13 @@ func (session *Session) Server() *Server {
 	return session.server
 }
 
-// Get packet reader.
-func (session *Session) Reader() PacketReader {
+// Get reader setting.
+func (session *Session) ReaderSetting() Setable {
 	return session.reader
 }
 
-// Get packet writer.
-func (session *Session) Writer() PacketWriter {
+// Get writer setting.
+func (session *Session) WriterSetting() Setable {
 	return session.writer
 }
 
