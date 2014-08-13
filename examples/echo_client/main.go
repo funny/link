@@ -10,7 +10,7 @@ import (
 // usage:
 //     go run github.com/funny/examples/echo_client/main.go
 func main() {
-	protocol := link.NewFixProtocol(4, binary.BigEndian)
+	protocol := link.NewFixProtocol(2, binary.BigEndian)
 
 	client, err := link.Dial("tcp", "127.0.0.1:10010", protocol)
 	if err != nil {
