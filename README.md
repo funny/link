@@ -86,9 +86,9 @@ client.Send(TestMessage{ "Hello World!" })
 Examples
 ========
 
-* [An echo server](https://github.com/funny/link/tree/master/examples/echo_server/main.go)
-* [An echo client](https://github.com/funny/link/tree/master/examples/echo_client/main.go)
-* [Broadcast server](https://github.com/funny/link/tree/master/examples/broadcast/main.go)
+* [An echo server](https://github.com/funny/link-demo/tree/master/echo_server/main.go)
+* [An echo client](https://github.com/funny/link-demo/tree/master/echo_client/main.go)
+* [Broadcast server](https://github.com/funny/link-demo/tree/master/broadcast/main.go)
 
 Document
 ========
