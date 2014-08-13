@@ -77,6 +77,7 @@ func (session *Session) readLoop() {
 	for {
 		packet, err = session.reader.ReadPacket(session.conn, packet)
 		if err != nil {
+			session.Close(err)
 			break
 		}
 		if session.messageHandler != nil {
