@@ -9,7 +9,7 @@ import (
 var dialSessionId uint64
 
 // The easy way to setup a server.
-func ListenAndServe(network, address string, protocol PacketProtocol) (*Server, error) {
+func Listen(network, address string, protocol PacketProtocol) (*Server, error) {
 	listener, err := net.Listen(network, address)
 	if err != nil {
 		return nil, err
