@@ -36,7 +36,7 @@ server, _ := link.Listen("tcp", "0.0.0.0:8080", proto)
 Handle incoming connections. And setup a message handler on the new session.
 
 ```go
-server.Handle(func(session *Session) {
+server.Accept(func(session *Session) {
 	fmt.Println("new session in")
 
 	session.OnMessage(func(session *Session, msg []byte) {

@@ -61,11 +61,25 @@ func (server *Server) GetSendChanSize() uint {
 }
 
 // Handle incoming connections. The callback will called asynchronously when each session start.
-func (server *Server) Handle(callback func(*Session)) {
-	if atomic.CompareAndSwapInt32(&server.stopFlag, -1, 0) {
-		server.acceptLoop(callback)
-	} else {
+func (server *Server) Accept(callback func(*Session)) error {
+	if !atomic.CompareAndSwapInt32(&server.stopFlag, -1, 0) {
 		panic(ServerDuplicateStartError)
+	}
+
+	defer func() {
+		close(server.stopChan)
+		server.Stop()
+
+		// wait for all session exit
+		server.stopWait.Wait()
+	}()
+
+	for {
+		conn, err := server.listener.Accept()
+		if err != nil {
+			return err
+		}
+		go server.startSession(conn, callback)
 	}
 }
 
@@ -82,25 +96,6 @@ func (server *Server) Stop() {
 			// close all sessions
 			server.closeSessions()
 		}()
-	}
-}
-
-// Loop and accept connections until get an error.
-func (server *Server) acceptLoop(callback func(*Session)) {
-	defer func() {
-		close(server.stopChan)
-		server.Stop()
-
-		// wait for all session exit
-		server.stopWait.Wait()
-	}()
-
-	for {
-		conn, err := server.listener.Accept()
-		if err != nil {
-			break
-		}
-		go server.startSession(conn, callback)
 	}
 }
 

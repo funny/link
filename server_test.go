@@ -41,7 +41,7 @@ func Test_Server(t *testing.T) {
 	)
 
 	go func() {
-		server.Handle(func(session1 *Session) {
+		server.Accept(func(session1 *Session) {
 			t.Log("Session start")
 			atomic.AddInt32(&sessionStartCount, 1)
 
