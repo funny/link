@@ -108,42 +108,37 @@ func (server *Server) startSession(conn net.Conn, callback func(*Session)) {
 		server.sendChanSize,
 	)
 	session.server = server
+	server.putSession(session)
 
 	// init the session state
 	if callback != nil {
 		callback(session)
 	}
 
-	// session maybe closed in start callback
-	if !session.IsClosed() {
-		server.putSession(session)
-	} else {
+	// session maybe closed or not start in the callback
+	if session.IsClosed() {
 		conn.Close()
+		server.delSession(session)
 	}
 }
 
-// Put a session into session list
+// Put a session into session list.
 func (server *Server) putSession(session *Session) {
-	if atomic.LoadInt32(&server.stopFlag) == 0 {
-		server.sessionMutex.Lock()
-		defer server.sessionMutex.Unlock()
+	server.sessionMutex.Lock()
+	defer server.sessionMutex.Unlock()
 
-		server.sessions[session.id] = session
-	}
-
-	server.stopWait.Add(1)
+	server.sessions[session.id] = session
 }
 
-// Delete a session from session list
+// Delete a session from session list.
 func (server *Server) delSession(session *Session) {
+	// don't lock session list when server stop.
 	if atomic.LoadInt32(&server.stopFlag) == 0 {
 		server.sessionMutex.Lock()
 		defer server.sessionMutex.Unlock()
 
 		delete(server.sessions, session.id)
 	}
-
-	server.stopWait.Done()
 }
 
 // Close all sessions.

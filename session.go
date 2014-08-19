@@ -57,6 +57,10 @@ func (session *Session) Start() {
 
 		session.closeWait.Add(1)
 		go session.readLoop()
+
+		if session.server != nil {
+			session.server.stopWait.Add(1)
+		}
 	} else {
 		panic(SessionDuplicateStartError)
 	}
@@ -168,15 +172,16 @@ func (session *Session) Close(reason error) {
 			// wait for read loop and write lopp exit
 			session.closeWait.Wait()
 
+			// trigger the session close event
+			if session.closeCallback != nil {
+				session.closeCallback(session, reason)
+			}
+
 			// if this is a server side session
 			// remove it from sessin list
 			if session.server != nil {
 				session.server.delSession(session)
-			}
-
-			// trigger the session close event
-			if session.closeCallback != nil {
-				session.closeCallback(session, reason)
+				session.server.stopWait.Done()
 			}
 		}()
 	}
