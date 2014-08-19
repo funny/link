@@ -21,9 +21,9 @@ func (msg *TestMessage) AppendToPacket(packet []byte) []byte {
 }
 
 func Test_Server(t *testing.T) {
-	proto := NewFixProtocol(4, binary.BigEndian)
+	proto := PacketN(4, binary.BigEndian)
 
-	server, err0 := ListenAndServe("tcp", "0.0.0.0:0", proto)
+	server, err0 := Listen("tcp", "0.0.0.0:0", proto)
 	if err0 != nil {
 		t.Fatalf("Setup server failed, Error = %v", err0)
 	}

@@ -24,13 +24,13 @@ How to use
 Choose a protocol for your project.
 
 ```go
-proto := link.NewFixProtocol(4, binary.BigEndian)
+proto := link.PacketN(4, binary.BigEndian)
 ```
 
 Setup a server on port `8080` and set protocol.
 
 ```go
-server, _ := link.ListenAndServe("tcp", "0.0.0.0:8080", proto)
+server, _ := link.Listen("tcp", "0.0.0.0:8080", proto)
 ```
 
 Handle incoming connections. And setup a message handler on the new session.
@@ -52,7 +52,7 @@ server.Handle(func(session *Session) {
 Use the same protocol dial to the server.
 
 ```go
-proto := link.NewFixProtocol(4, binary.BigEndian)
+proto := link.PacketN(4, binary.BigEndian)
 
 client, _ := link.Dial("tcp", "127.0.0.1:8080", proto)
 
@@ -94,4 +94,4 @@ Examples
 Document
 ========
 
-[Let's Go!](https://gowalker.org/github.com/funny/link)
+[Let's Go!](http://godoc.org/github.com/funny/link)
