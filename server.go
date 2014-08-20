@@ -108,34 +108,30 @@ func (server *Server) startSession(conn net.Conn, callback func(*Session)) {
 		server.sendChanSize,
 	)
 	session.server = server
-	server.putSession(session)
 
 	// init the session state
-	if callback != nil {
-		callback(session)
-	}
+	callback(session)
 
 	// session maybe closed or not start in the callback
 	if session.IsClosed() {
 		conn.Close()
-		server.delSession(session)
 	}
 }
 
 // Put a session into session list.
 func (server *Server) putSession(session *Session) {
 	server.sessionMutex.Lock()
-	defer server.sessionMutex.Unlock()
-
 	server.sessions[session.id] = session
+	session.server.stopWait.Add(1)
+	server.sessionMutex.Unlock()
 }
 
 // Delete a session from session list.
 func (server *Server) delSession(session *Session) {
 	server.sessionMutex.Lock()
-	defer server.sessionMutex.Unlock()
-
 	delete(server.sessions, session.id)
+	session.server.stopWait.Done()
+	server.sessionMutex.Unlock()
 }
 
 // Close all sessions.

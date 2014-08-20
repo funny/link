@@ -51,19 +51,19 @@ func NewSession(id uint64, conn net.Conn, protocol PacketProtocol, sendChanSize 
 // Start the session's read write goroutines.
 // NOTE: A session always need to started before you use it.
 func (session *Session) Start() {
-	if atomic.CompareAndSwapInt32(&session.closeFlag, -1, 0) {
-		session.closeWait.Add(1)
-		go session.writeLoop()
-
-		session.closeWait.Add(1)
-		go session.readLoop()
-
-		if session.server != nil {
-			session.server.stopWait.Add(1)
-		}
-	} else {
+	if !atomic.CompareAndSwapInt32(&session.closeFlag, -1, 0) {
 		panic(SessionDuplicateStartError)
 	}
+
+	if session.server != nil {
+		session.server.putSession(session)
+	}
+
+	session.closeWait.Add(1)
+	go session.writeLoop()
+
+	session.closeWait.Add(1)
+	go session.readLoop()
 }
 
 // Loop and wait incoming requests.
@@ -171,7 +171,6 @@ func (session *Session) Close(reason error) {
 			// remove it from sessin list
 			if session.server != nil {
 				session.server.delSession(session)
-				session.server.stopWait.Done()
 			}
 		}()
 	}
