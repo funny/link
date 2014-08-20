@@ -3,6 +3,7 @@ package link
 import (
 	"bytes"
 	"encoding/binary"
+	"runtime/pprof"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -28,7 +29,6 @@ func Test_Server(t *testing.T) {
 		t.Fatalf("Setup server failed, Error = %v", err0)
 	}
 	addr := server.Listener().Addr().String()
-	t.Logf("Server: %v", addr)
 
 	var (
 		sessionStartCount  int32
@@ -42,7 +42,6 @@ func Test_Server(t *testing.T) {
 
 	go func() {
 		server.Accept(func(session1 *Session) {
-			t.Log("Session start")
 			atomic.AddInt32(&sessionStartCount, 1)
 
 			session1.OnMessage(func(session2 *Session, msg []byte) {
@@ -52,12 +51,10 @@ func Test_Server(t *testing.T) {
 				}
 				if !bytes.Equal(msg, message.Message) {
 					messageMatchFailed = true
-					t.Logf("message: %v", msg)
 				}
 			})
 
 			session1.OnClose(func(session *Session, reason error) {
-				t.Log("Session close")
 				atomic.AddInt32(&sessionCloseCount, 1)
 			})
 
@@ -70,46 +67,34 @@ func Test_Server(t *testing.T) {
 	if err1 != nil {
 		t.Fatal("Create client1 failed, Error = %v", err1)
 	}
-	client1.OnClose(func(*Session, error) {
-		t.Log("Client 1 close callback")
-	})
 	client1.Start()
 
 	client2, err2 := Dial("tcp", addr, proto)
 	if err2 != nil {
 		t.Fatal("Create client2 failed, Error = %v", err2)
 	}
-	client2.OnClose(func(*Session, error) {
-		t.Log("Client 2 close callback")
-	})
 	client2.Start()
 
-	t.Log("Send 1")
 	if err := client1.Send(message); err != nil {
 		t.Fatal("Send message failed, Error = %v", err)
 	}
 
-	t.Log("Send 2")
 	if err := client2.Send(message); err != nil {
 		t.Fatal("Send message failed, Error = %v", err)
 	}
 
-	t.Log("Send 3")
 	if err := client1.Send(message); err != nil {
 		t.Fatal("Send message failed, Error = %v", err)
 	}
 
-	t.Log("Send 4")
 	if err := client2.Send(message); err != nil {
 		t.Fatal("Send message failed, Error = %v", err)
 	}
 
 	// close by manual
-	t.Log("Close client1")
 	client1.Close(nil)
 	time.Sleep(time.Second)
 
-	t.Log("Stop server")
 	server.Stop()
 	<-serverStopChan
 
@@ -132,5 +117,26 @@ func Test_Server(t *testing.T) {
 
 	if messageMatchFailed {
 		t.Fatal("Message match failed")
+	}
+
+	MakeSureSessionGoroutineExit(t)
+}
+
+func MakeSureSessionGoroutineExit(t *testing.T) {
+	buff := new(bytes.Buffer)
+	goroutines := pprof.Lookup("goroutine")
+
+	if err := goroutines.WriteTo(buff, 2); err != nil {
+		t.Fatalf("Dump goroutine failed: %v", err)
+	}
+
+	if n := bytes.Index(buff.Bytes(), []byte("writeLoop")); n >= 0 {
+		t.Log(buff.String())
+		t.Fatalf("Some session goroutine running")
+	}
+
+	if n := bytes.Index(buff.Bytes(), []byte("Process")); n >= 0 {
+		t.Log(buff.String())
+		t.Fatalf("Some session goroutine running")
 	}
 }

@@ -68,10 +68,7 @@ func (session *Session) Start() {
 
 // Loop and wait incoming requests.
 func (session *Session) readLoop() {
-	defer func() {
-		session.closeWait.Done()
-		session.Close(nil)
-	}()
+	defer session.closeWait.Done()
 
 	var (
 		packet []byte
@@ -92,21 +89,14 @@ func (session *Session) readLoop() {
 
 // Loop and transport responses.
 func (session *Session) writeLoop() {
-	defer func() {
-		session.closeWait.Done()
-		session.Close(nil)
-	}()
+	defer session.closeWait.Done()
 L:
 	for {
 		select {
 		case message := <-session.sendChan:
-			if err := session.SyncSend(message); err != nil {
-				break L
-			}
+			session.SyncSend(message)
 		case packet := <-session.sendPacketChan:
-			if err := session.SyncSendPacket(packet); err != nil {
-				break L
-			}
+			session.SyncSendPacket(packet)
 		case <-session.closeChan:
 			break L
 		}

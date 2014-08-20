@@ -132,21 +132,22 @@ func (server *Server) putSession(session *Session) {
 
 // Delete a session from session list.
 func (server *Server) delSession(session *Session) {
-	// don't lock session list when server stop.
-	if atomic.LoadInt32(&server.stopFlag) == 0 {
-		server.sessionMutex.Lock()
-		defer server.sessionMutex.Unlock()
+	server.sessionMutex.Lock()
+	defer server.sessionMutex.Unlock()
 
-		delete(server.sessions, session.id)
-	}
+	delete(server.sessions, session.id)
 }
 
 // Close all sessions.
 func (server *Server) closeSessions() {
 	server.sessionMutex.Lock()
-	defer server.sessionMutex.Unlock()
-
+	sessions := make([]*Session, 0, len(server.sessions))
 	for _, session := range server.sessions {
+		sessions = append(sessions, session)
+	}
+	server.sessionMutex.Unlock()
+
+	for _, session := range sessions {
 		session.Close(nil)
 	}
 }
