@@ -33,7 +33,6 @@ func Test_Server(t *testing.T) {
 	var (
 		sessionStartCount  int32
 		sessionCloseCount  int32
-		sessionMatchFailed bool
 		messageCount       int32
 		messageMatchFailed bool
 		message            = &TestMessage{[]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}}
@@ -41,25 +40,20 @@ func Test_Server(t *testing.T) {
 	)
 
 	go func() {
-		server.Accept(func(session1 *Session) {
+		server.AcceptLoop(func(session *Session) {
 			atomic.AddInt32(&sessionStartCount, 1)
 
-			session1.OnMessage(func(session2 *Session, msg []byte) {
+			session.ReadLoop(func(msg []byte) {
 				atomic.AddInt32(&messageCount, 1)
-				if session1 != session2 {
-					sessionMatchFailed = true
-				}
+
 				if !bytes.Equal(msg, message.Message) {
 					messageMatchFailed = true
 				}
 			})
 
-			session1.OnClose(func(session *Session, reason error) {
-				atomic.AddInt32(&sessionCloseCount, 1)
-			})
-
-			session1.Start()
+			atomic.AddInt32(&sessionCloseCount, 1)
 		})
+		server.Stop()
 		close(serverStopChan)
 	}()
 
@@ -67,27 +61,25 @@ func Test_Server(t *testing.T) {
 	if err1 != nil {
 		t.Fatal("Create client1 failed, Error = %v", err1)
 	}
-	client1.Start()
 
 	client2, err2 := Dial("tcp", addr, proto)
 	if err2 != nil {
 		t.Fatal("Create client2 failed, Error = %v", err2)
 	}
-	client2.Start()
 
-	if err := client1.Send(message); err != nil {
+	if err := client1.SyncSend(message); err != nil {
 		t.Fatal("Send message failed, Error = %v", err)
 	}
 
-	if err := client2.Send(message); err != nil {
+	if err := client2.SyncSend(message); err != nil {
 		t.Fatal("Send message failed, Error = %v", err)
 	}
 
-	if err := client1.Send(message); err != nil {
+	if err := client1.SyncSend(message); err != nil {
 		t.Fatal("Send message failed, Error = %v", err)
 	}
 
-	if err := client2.Send(message); err != nil {
+	if err := client2.SyncSend(message); err != nil {
 		t.Fatal("Send message failed, Error = %v", err)
 	}
 
@@ -104,10 +96,6 @@ func Test_Server(t *testing.T) {
 
 	if sessionCloseCount != 2 {
 		t.Fatal("Session close count not match")
-	}
-
-	if sessionMatchFailed {
-		t.Fatal("Session match failed")
 	}
 
 	if messageCount != 4 {

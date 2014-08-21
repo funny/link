@@ -19,15 +19,15 @@ type Session struct {
 	// About send and receive
 	sendChan       chan Message
 	sendPacketChan chan []byte
+	readBUff       []byte
 	sendBuff       []byte
 	sendLock       sync.Mutex
 	messageHandler MessageHandler
 
 	// About session close
-	closeChan     chan int
-	closeWait     *sync.WaitGroup
-	closeFlag     int32
-	closeCallback func(*Session, error)
+	closeChan   chan int
+	closeFlag   int32
+	closeReason error
 
 	// Put your session state here.
 	State interface{}
@@ -35,7 +35,7 @@ type Session struct {
 
 // Create a new session instance.
 func NewSession(id uint64, conn net.Conn, protocol PacketProtocol, sendChanSize uint) *Session {
-	return &Session{
+	session := &Session{
 		id:             id,
 		conn:           conn,
 		writer:         protocol.NewWriter(),
@@ -43,54 +43,47 @@ func NewSession(id uint64, conn net.Conn, protocol PacketProtocol, sendChanSize 
 		sendChan:       make(chan Message, sendChanSize),
 		sendPacketChan: make(chan []byte, sendChanSize),
 		closeChan:      make(chan int),
-		closeWait:      new(sync.WaitGroup),
-		closeFlag:      -1,
 	}
+
+	go session.sendLoop()
+
+	return session
 }
 
-// Start the session's read write goroutines.
-// NOTE: A session always need to started before you use it.
-func (session *Session) Start() {
-	if !atomic.CompareAndSwapInt32(&session.closeFlag, -1, 0) {
-		panic(SessionDuplicateStartError)
-	}
-
-	if session.server != nil {
-		session.server.putSession(session)
-	}
-
-	session.closeWait.Add(1)
-	go session.writeLoop()
-
-	session.closeWait.Add(1)
-	go session.readLoop()
+func (server *Server) newSession(id uint64, conn net.Conn) *Session {
+	session := NewSession(id, conn, server.protocol, server.sendChanSize)
+	session.server = server
+	session.server.putSession(session)
+	return session
 }
 
-// Loop and wait incoming requests.
-func (session *Session) readLoop() {
-	defer session.closeWait.Done()
-
-	var (
-		packet []byte
-		err    error
-	)
-
+// Loop and read message.
+func (session *Session) ReadLoop(handler func([]byte)) {
 	for {
-		packet, err = session.reader.ReadPacket(session.conn, packet)
-		if err != nil {
-			session.Close(err)
+		msg := session.Read()
+		if msg == nil {
 			break
 		}
-		if session.messageHandler != nil {
-			session.messageHandler.Handle(session, packet)
-		}
+		handler(msg)
 	}
+}
+
+// Read message once.
+func (session *Session) Read() []byte {
+	if session.IsClosed() {
+		return nil
+	}
+	var err error
+	session.readBUff, err = session.reader.ReadPacket(session.conn, session.readBUff)
+	if err != nil {
+		session.Close(err)
+		return nil
+	}
+	return session.readBUff
 }
 
 // Loop and transport responses.
-func (session *Session) writeLoop() {
-	defer session.closeWait.Done()
-L:
+func (session *Session) sendLoop() {
 	for {
 		select {
 		case message := <-session.sendChan:
@@ -98,7 +91,7 @@ L:
 		case packet := <-session.sendPacketChan:
 			session.SyncSendPacket(packet)
 		case <-session.closeChan:
-			break L
+			return
 		}
 	}
 }
@@ -133,46 +126,26 @@ func (session *Session) IsClosed() bool {
 	return atomic.LoadInt32(&session.closeFlag) != 0
 }
 
-// Set message handler function. A easy way to handle messages.
-func (session *Session) OnMessage(callback func(*Session, []byte)) {
-	session.messageHandler = messageHandlerFunc{callback}
-}
-
-// Set message handler. A complex but more powerful way to handle messages.
-func (session *Session) SetMessageHandler(handler MessageHandler) {
-	session.messageHandler = handler
-}
-
-// Set session close callback.
-func (session *Session) OnClose(callback func(*Session, error)) {
-	session.closeCallback = callback
+// Get session close reason.
+func (session *Session) CloseReason() error {
+	return session.closeReason
 }
 
 // Close session and remove it from api server.
 func (session *Session) Close(reason error) {
 	if atomic.CompareAndSwapInt32(&session.closeFlag, 0, 1) {
-		// if close session without this goroutine
-		// deadlock will happen when session close itself.
-		go func() {
-			session.conn.Close()
+		session.closeReason = reason
 
-			// notify write loop session closed
-			close(session.closeChan)
+		session.conn.Close()
 
-			// wait for read loop and write lopp exit
-			session.closeWait.Wait()
+		// exit send loop
+		close(session.closeChan)
 
-			// trigger the session close event
-			if session.closeCallback != nil {
-				session.closeCallback(session, reason)
-			}
-
-			// if this is a server side session
-			// remove it from sessin list
-			if session.server != nil {
-				session.server.delSession(session)
-			}
-		}()
+		// if this is a server side session
+		// remove it from sessin list
+		if session.server != nil {
+			session.server.delSession(session)
+		}
 	}
 }
 

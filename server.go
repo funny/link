@@ -22,7 +22,6 @@ type Server struct {
 	sessionMutex sync.Mutex
 
 	// About server start and stop
-	stopChan chan int
 	stopFlag int32
 	stopWait *sync.WaitGroup
 
@@ -38,9 +37,7 @@ func NewServer(listener net.Listener, protocol PacketProtocol) *Server {
 		sendChanSize: DefaultSendChanSize,
 		maxSessionId: 0,
 		sessions:     make(map[uint64]*Session),
-		stopChan:     make(chan int),
 		stopWait:     new(sync.WaitGroup),
-		stopFlag:     -1,
 	}
 }
 
@@ -60,61 +57,41 @@ func (server *Server) GetSendChanSize() uint {
 	return server.sendChanSize
 }
 
-// Handle incoming connections. The callback will called asynchronously when each session start.
-func (server *Server) Accept(callback func(*Session)) error {
-	if !atomic.CompareAndSwapInt32(&server.stopFlag, -1, 0) {
-		panic(ServerDuplicateStartError)
-	}
-
-	defer func() {
-		close(server.stopChan)
-		server.Stop()
-
-		// wait for all session exit
-		server.stopWait.Wait()
-	}()
-
+// Loop and accept incoming connections. The callback will called asynchronously when each session start.
+func (server *Server) AcceptLoop(handler func(*Session)) {
 	for {
-		conn, err := server.listener.Accept()
+		session, err := server.Accept()
 		if err != nil {
-			return err
+			server.Stop()
+			break
 		}
-		go server.startSession(conn, callback)
+		go handler(session)
 	}
+}
+
+// Accept incoming connection once.
+func (server *Server) Accept() (*Session, error) {
+	conn, err := server.listener.Accept()
+	if err != nil {
+		return nil, err
+	}
+
+	session := server.newSession(
+		atomic.AddUint64(&server.maxSessionId, 1),
+		conn,
+	)
+
+	return session, nil
 }
 
 // Stop server.
 func (server *Server) Stop() {
 	if atomic.CompareAndSwapInt32(&server.stopFlag, 0, 1) {
-		// if stop server without this goroutine
-		// deadlock will happen when server closed by session.
-		go func() {
-			// wait for accept loop exit
-			server.listener.Close()
-			<-server.stopChan
+		server.listener.Close()
 
-			// close all sessions
-			server.closeSessions()
-		}()
-	}
-}
-
-// Start a session to present the connection.
-func (server *Server) startSession(conn net.Conn, callback func(*Session)) {
-	session := NewSession(
-		atomic.AddUint64(&server.maxSessionId, 1),
-		conn,
-		server.protocol,
-		server.sendChanSize,
-	)
-	session.server = server
-
-	// init the session state
-	callback(session)
-
-	// session maybe closed or not start in the callback
-	if session.IsClosed() {
-		conn.Close()
+		// close all sessions
+		server.closeSessions()
+		server.stopWait.Wait()
 	}
 }
 

@@ -167,6 +167,9 @@ func (r *PNReader) ReadPacket(conn net.Conn, b []byte) ([]byte, error) {
 	}
 
 	_, err := io.ReadFull(conn, data)
+	if err != nil {
+		return nil, err
+	}
 
-	return data, err
+	return data, nil
 }
