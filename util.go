@@ -3,6 +3,7 @@ package link
 import (
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -14,7 +15,6 @@ func Listen(network, address string, protocol PacketProtocol) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return NewServer(listener, protocol), nil
 }
 
@@ -24,11 +24,8 @@ func Dial(network, address string, protocol PacketProtocol) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	dialSessionId += 1
-
-	session := NewSession(dialSessionId, conn, protocol, DefaultSendChanSize)
-
+	id := atomic.AddUint64(&dialSessionId, 1)
+	session := NewSession(id, conn, protocol, DefaultSendChanSize)
 	return session, nil
 }
 
@@ -38,11 +35,8 @@ func DialTimeout(network, address string, timeout time.Duration, protocol Packet
 	if err != nil {
 		return nil, err
 	}
-
-	dialSessionId += 1
-
-	session := NewSession(dialSessionId, conn, protocol, DefaultSendChanSize)
-
+	id := atomic.AddUint64(&dialSessionId, 1)
+	session := NewSession(id, conn, protocol, DefaultSendChanSize)
 	return session, nil
 }
 
