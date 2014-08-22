@@ -3,7 +3,6 @@ package link
 import (
 	"errors"
 	"net"
-	"time"
 )
 
 // Errors
@@ -20,12 +19,6 @@ var (
 )
 
 type Settings interface {
-	// Get write timeout
-	GetTimeout() time.Duration
-
-	// Set write timeout.
-	SetTimeout(time.Duration)
-
 	// Get packet size limitation.
 	GetMaxSize() uint
 

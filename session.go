@@ -1,10 +1,28 @@
 package link
 
 import (
+	"bufio"
 	"net"
 	"sync"
 	"sync/atomic"
 )
+
+// Buffered connection.
+type BufferConn struct {
+	net.Conn
+	reader *bufio.Reader
+}
+
+func NewBufferConn(conn net.Conn, size int) *BufferConn {
+	return &BufferConn{
+		conn,
+		bufio.NewReaderSize(conn, size),
+	}
+}
+
+func (conn *BufferConn) Read(d []byte) (int, error) {
+	return conn.reader.Read(d)
+}
 
 // Session.
 type Session struct {
@@ -27,14 +45,18 @@ type Session struct {
 	// About session close
 	closeChan   chan int
 	closeFlag   int32
-	closeReason error
+	closeReason interface{}
 
 	// Put your session state here.
 	State interface{}
 }
 
 // Create a new session instance.
-func NewSession(id uint64, conn net.Conn, protocol PacketProtocol, sendChanSize uint) *Session {
+func NewSession(id uint64, conn net.Conn, protocol PacketProtocol, sendChanSize uint, readBufferSize int) *Session {
+	if readBufferSize > 0 {
+		conn = NewBufferConn(conn, readBufferSize)
+	}
+
 	session := &Session{
 		id:             id,
 		conn:           conn,
@@ -51,7 +73,7 @@ func NewSession(id uint64, conn net.Conn, protocol PacketProtocol, sendChanSize 
 }
 
 func (server *Server) newSession(id uint64, conn net.Conn) *Session {
-	session := NewSession(id, conn, server.protocol, server.sendChanSize)
+	session := NewSession(id, conn, server.protocol, server.sendChanSize, server.readBufferSize)
 	session.server = server
 	session.server.putSession(session)
 	return session
@@ -60,8 +82,9 @@ func (server *Server) newSession(id uint64, conn net.Conn) *Session {
 // Loop and read message.
 func (session *Session) ReadLoop(handler func([]byte)) {
 	for {
-		msg := session.Read()
-		if msg == nil {
+		msg, err := session.Read()
+		if err != nil {
+			session.Close(err)
 			break
 		}
 		handler(msg)
@@ -69,17 +92,13 @@ func (session *Session) ReadLoop(handler func([]byte)) {
 }
 
 // Read message once.
-func (session *Session) Read() []byte {
-	if session.IsClosed() {
-		return nil
-	}
+func (session *Session) Read() ([]byte, error) {
 	var err error
 	session.readBUff, err = session.reader.ReadPacket(session.conn, session.readBUff)
 	if err != nil {
-		session.Close(err)
-		return nil
+		return nil, err
 	}
-	return session.readBUff
+	return session.readBUff, nil
 }
 
 // Loop and transport responses.
@@ -87,9 +106,15 @@ func (session *Session) sendLoop() {
 	for {
 		select {
 		case message := <-session.sendChan:
-			session.SyncSend(message)
+			if err := session.SyncSend(message); err != nil {
+				session.Close(err)
+				return
+			}
 		case packet := <-session.sendPacketChan:
-			session.SyncSendPacket(packet)
+			if err := session.SyncSendPacket(packet); err != nil {
+				session.Close(err)
+				return
+			}
 		case <-session.closeChan:
 			return
 		}
@@ -127,12 +152,12 @@ func (session *Session) IsClosed() bool {
 }
 
 // Get session close reason.
-func (session *Session) CloseReason() error {
+func (session *Session) CloseReason() interface{} {
 	return session.closeReason
 }
 
 // Close session and remove it from api server.
-func (session *Session) Close(reason error) {
+func (session *Session) Close(reason interface{}) {
 	if atomic.CompareAndSwapInt32(&session.closeFlag, 0, 1) {
 		session.closeReason = reason
 
@@ -163,12 +188,7 @@ func (session *Session) SyncSend(message Message) error {
 
 	session.sendBuff = packet
 
-	err := session.writer.WritePacket(session.conn, packet)
-	if err != nil {
-		session.Close(err)
-	}
-
-	return err
+	return session.writer.WritePacket(session.conn, packet)
 }
 
 // Sync send a packet. Use in carefully.
@@ -179,12 +199,7 @@ func (session *Session) SyncSendPacket(packet []byte) error {
 	session.sendLock.Lock()
 	defer session.sendLock.Unlock()
 
-	err := session.writer.WritePacket(session.conn, packet)
-	if err != nil {
-		session.Close(err)
-	}
-
-	return err
+	return session.writer.WritePacket(session.conn, packet)
 }
 
 // Async send a message. This method will never block.

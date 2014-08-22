@@ -25,7 +25,7 @@ func Dial(network, address string, protocol PacketProtocol) (*Session, error) {
 		return nil, err
 	}
 	id := atomic.AddUint64(&dialSessionId, 1)
-	session := NewSession(id, conn, protocol, DefaultSendChanSize)
+	session := NewSession(id, conn, protocol, DefaultSendChanSize, DefaultReadBufferSize)
 	return session, nil
 }
 
@@ -36,7 +36,7 @@ func DialTimeout(network, address string, timeout time.Duration, protocol Packet
 		return nil, err
 	}
 	id := atomic.AddUint64(&dialSessionId, 1)
-	session := NewSession(id, conn, protocol, DefaultSendChanSize)
+	session := NewSession(id, conn, protocol, DefaultSendChanSize, DefaultReadBufferSize)
 	return session, nil
 }
 
@@ -44,18 +44,7 @@ func DialTimeout(network, address string, timeout time.Duration, protocol Packet
 // It's simple way to make your custome protocol implement Settings interface.
 // See FixWriter and FixReader.
 type SimpleSettings struct {
-	timeout time.Duration
 	maxsize uint
-}
-
-// Get timeout setting.
-func (s *SimpleSettings) GetTimeout() time.Duration {
-	return s.timeout
-}
-
-// Set timeout.
-func (s *SimpleSettings) SetTimeout(timeout time.Duration) {
-	s.timeout = timeout
 }
 
 // Get packet size limit

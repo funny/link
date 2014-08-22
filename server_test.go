@@ -53,7 +53,7 @@ func Test_Server(t *testing.T) {
 
 			atomic.AddInt32(&sessionCloseCount, 1)
 		})
-		server.Stop()
+		server.Stop(nil)
 		close(serverStopChan)
 	}()
 
@@ -87,7 +87,7 @@ func Test_Server(t *testing.T) {
 	client1.Close(nil)
 	time.Sleep(time.Second)
 
-	server.Stop()
+	server.Stop(nil)
 	<-serverStopChan
 
 	if sessionStartCount != 2 {

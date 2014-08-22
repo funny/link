@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"io"
 	"net"
-	"time"
 )
 
 // The packet spliting protocol like Erlang's {packet, N}.
@@ -89,16 +88,9 @@ func (w *PNWriter) EndPacket(packet []byte) []byte {
 
 // Write a packet to the conn.
 func (w *PNWriter) WritePacket(conn net.Conn, packet []byte) error {
-	if w.timeout > 0 {
-		conn.SetWriteDeadline(time.Now().Add(w.timeout))
-	} else {
-		conn.SetWriteDeadline(time.Time{})
-	}
-
 	if _, err := conn.Write(packet); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -123,10 +115,6 @@ func NewPNReader(n uint, bo binary.ByteOrder) *PNReader {
 
 // Read a packet from conn.
 func (r *PNReader) ReadPacket(conn net.Conn, b []byte) ([]byte, error) {
-	if r.timeout > 0 {
-		conn.SetReadDeadline(time.Now().Add(r.timeout))
-	}
-
 	if _, err := io.ReadFull(conn, r.head); err != nil {
 		return nil, err
 	}
@@ -160,10 +148,6 @@ func (r *PNReader) ReadPacket(conn net.Conn, b []byte) ([]byte, error) {
 
 	if len(data) == 0 {
 		return data, nil
-	}
-
-	if r.timeout > 0 {
-		conn.SetReadDeadline(time.Now().Add(r.timeout))
 	}
 
 	_, err := io.ReadFull(conn, data)
