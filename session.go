@@ -37,7 +37,7 @@ type Session struct {
 	// About send and receive
 	sendChan       chan Message
 	sendPacketChan chan []byte
-	readBUff       []byte
+	readBuff       []byte
 	sendBuff       []byte
 	sendLock       sync.Mutex
 	messageHandler MessageHandler
@@ -94,11 +94,11 @@ func (session *Session) ReadLoop(handler func([]byte)) {
 // Read message once.
 func (session *Session) Read() ([]byte, error) {
 	var err error
-	session.readBUff, err = session.reader.ReadPacket(session.conn, session.readBUff)
+	session.readBuff, err = session.reader.ReadPacket(session.conn, session.readBuff)
 	if err != nil {
 		return nil, err
 	}
-	return session.readBUff, nil
+	return session.readBuff, nil
 }
 
 // Loop and transport responses.
