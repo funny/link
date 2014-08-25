@@ -213,7 +213,6 @@ func (session *Session) Send(message Message) error {
 	case session.sendChan <- message:
 		return nil
 	default:
-		session.Close(BlockingError)
 		return BlockingError
 	}
 }
@@ -231,7 +230,6 @@ func (session *Session) SendPacket(packet []byte) error {
 	case session.sendPacketChan <- packet:
 		return nil
 	default:
-		session.Close(BlockingError)
 		return BlockingError
 	}
 }
