@@ -69,3 +69,8 @@ func (channel *Channel) Fetch(callback func(*Session)) {
 func (channel *Channel) Broadcast(message Message) {
 	channel.broadcaster.Broadcast(channel, message)
 }
+
+// Broadcast to channel sessions.
+func (channel *Channel) MustBroadcast(message Message) {
+	channel.broadcaster.MustBroadcast(channel, message)
+}

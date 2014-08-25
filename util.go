@@ -114,11 +114,26 @@ func (b *Broadcaster) Broadcast(sessions SessionCollection, message Message) {
 	defer b.mutex.Unlock()
 
 	size := message.RecommendPacketSize()
-
 	packet := b.writer.BeginPacket(size, b.buff)
 	packet = message.AppendToPacket(packet)
 	packet = b.writer.EndPacket(packet)
+	b.buff = packet
 
+	sessions.Fetch(func(session *Session) {
+		session.TrySendPacket(packet, 0)
+	})
+}
+
+// Broadcast to sessions. The message only encoded once
+// so the performance it's better then send message one by one.
+func (b *Broadcaster) MustBroadcast(sessions SessionCollection, message Message) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
+	size := message.RecommendPacketSize()
+	packet := b.writer.BeginPacket(size, b.buff)
+	packet = message.AppendToPacket(packet)
+	packet = b.writer.EndPacket(packet)
 	b.buff = packet
 
 	sessions.Fetch(func(session *Session) {
