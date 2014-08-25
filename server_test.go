@@ -67,19 +67,19 @@ func Test_Server(t *testing.T) {
 		t.Fatal("Create client2 failed, Error = %v", err2)
 	}
 
-	if err := client1.SyncSend(message); err != nil {
+	if err := client1.Send(message); err != nil {
 		t.Fatal("Send message failed, Error = %v", err)
 	}
 
-	if err := client2.SyncSend(message); err != nil {
+	if err := client2.Send(message); err != nil {
 		t.Fatal("Send message failed, Error = %v", err)
 	}
 
-	if err := client1.SyncSend(message); err != nil {
+	if err := client1.Send(message); err != nil {
 		t.Fatal("Send message failed, Error = %v", err)
 	}
 
-	if err := client2.SyncSend(message); err != nil {
+	if err := client2.Send(message); err != nil {
 		t.Fatal("Send message failed, Error = %v", err)
 	}
 
@@ -107,6 +107,7 @@ func Test_Server(t *testing.T) {
 		t.Fatal("Message match failed")
 	}
 
+	client2.Close(nil)
 	MakeSureSessionGoroutineExit(t)
 }
 
@@ -118,12 +119,7 @@ func MakeSureSessionGoroutineExit(t *testing.T) {
 		t.Fatalf("Dump goroutine failed: %v", err)
 	}
 
-	if n := bytes.Index(buff.Bytes(), []byte("writeLoop")); n >= 0 {
-		t.Log(buff.String())
-		t.Fatalf("Some session goroutine running")
-	}
-
-	if n := bytes.Index(buff.Bytes(), []byte("Process")); n >= 0 {
+	if n := bytes.Index(buff.Bytes(), []byte("sendLoop")); n >= 0 {
 		t.Log(buff.String())
 		t.Fatalf("Some session goroutine running")
 	}

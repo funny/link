@@ -3,8 +3,12 @@ package link
 import (
 	"bufio"
 	"net"
-	"sync"
 	"sync/atomic"
+	"time"
+)
+
+var (
+	noTimeout = make(<-chan time.Time)
 )
 
 // Buffered connection.
@@ -39,7 +43,6 @@ type Session struct {
 	sendPacketChan chan []byte
 	readBuff       []byte
 	sendBuff       []byte
-	sendLock       sync.Mutex
 	messageHandler MessageHandler
 
 	// About session close
@@ -79,39 +82,17 @@ func (server *Server) newSession(id uint64, conn net.Conn) *Session {
 	return session
 }
 
-// Loop and read message.
-func (session *Session) ReadLoop(handler func([]byte)) {
-	for {
-		msg, err := session.Read()
-		if err != nil {
-			session.Close(err)
-			break
-		}
-		handler(msg)
-	}
-}
-
-// Read message once.
-func (session *Session) Read() ([]byte, error) {
-	var err error
-	session.readBuff, err = session.reader.ReadPacket(session.conn, session.readBuff)
-	if err != nil {
-		return nil, err
-	}
-	return session.readBuff, nil
-}
-
 // Loop and transport responses.
 func (session *Session) sendLoop() {
 	for {
 		select {
 		case message := <-session.sendChan:
-			if err := session.SyncSend(message); err != nil {
+			if err := session.Send(message); err != nil {
 				session.Close(err)
 				return
 			}
 		case packet := <-session.sendPacketChan:
-			if err := session.SyncSendPacket(packet); err != nil {
+			if err := session.SendPacket(packet); err != nil {
 				session.Close(err)
 				return
 			}
@@ -174,62 +155,100 @@ func (session *Session) Close(reason interface{}) {
 	}
 }
 
-// Sync send a message. This method will block on IO.
-// Use in carefully.
-func (session *Session) SyncSend(message Message) error {
-	session.sendLock.Lock()
-	defer session.sendLock.Unlock()
-
-	size := message.RecommendPacketSize()
-
-	packet := session.writer.BeginPacket(size, session.sendBuff)
-	packet = message.AppendToPacket(packet)
-	packet = session.writer.EndPacket(packet)
-
-	session.sendBuff = packet
-
-	return session.writer.WritePacket(session.conn, packet)
+// Loop and read message. NOTE: The callback argument point to internal read buffer.
+func (session *Session) ReadLoop(handler func([]byte)) {
+	for {
+		msg, err := session.Read()
+		if err != nil {
+			session.Close(err)
+			break
+		}
+		handler(msg)
+	}
 }
 
-// Sync send a packet. Use in carefully.
-// The packet must be properly formatted.
-// If you didn't know what it means, please see Channel.Broadcast().
-// Use in carefully.
-func (session *Session) SyncSendPacket(packet []byte) error {
-	session.sendLock.Lock()
-	defer session.sendLock.Unlock()
+// Read message once. NOTE: The result of byte slice point to internal read buffer.
+// If you want to read from a session in multi-thread situation,
+// you need to lock the session and copy the result by yourself.
+func (session *Session) Read() ([]byte, error) {
+	var err error
+	session.readBuff, err = session.reader.ReadPacket(session.conn, session.readBuff)
+	if err != nil {
+		return nil, err
+	}
+	return session.readBuff, nil
+}
 
+// Packet a message.
+func (session *Session) Packet(message Message, buff []byte) []byte {
+	size := message.RecommendPacketSize()
+	packet := session.writer.BeginPacket(size, buff)
+	packet = message.AppendToPacket(packet)
+	packet = session.writer.EndPacket(packet)
+	return packet
+}
+
+// Sync send a message. This method will block on IO.
+// NOTE: This method reuse a send buffer to decrease memory allocation.
+// If you want to send message to a session in multi-thread situation,
+// you need to lock the session by yourself.
+func (session *Session) Send(message Message) error {
+	session.sendBuff = session.Packet(message, session.sendBuff)
+	return session.writer.WritePacket(session.conn, session.sendBuff)
+}
+
+// Sync send a packet. The packet must be properly formatted.
+// Please see Session.Packet().
+func (session *Session) SendPacket(packet []byte) error {
 	return session.writer.WritePacket(session.conn, packet)
 }
 
 // Async send a message. This method will never block.
-// If channel blocked session will be closed.
-func (session *Session) Send(message Message) error {
+// If blocking happens, this method returns BlockingError.
+func (session *Session) TrySend(message Message, timeout time.Duration) error {
 	if session.IsClosed() {
 		return SendToClosedError
 	}
 
-	select {
-	case session.sendChan <- message:
-		return nil
-	default:
-		return BlockingError
+	if timeout > 0 {
+		select {
+		case session.sendChan <- message:
+			return nil
+		case <-time.After(timeout):
+			return BlockingError
+		}
+	} else {
+		select {
+		case session.sendChan <- message:
+			return nil
+		default:
+			return BlockingError
+		}
 	}
 }
 
-// Async send a packet. This method will block on IO.
+// Try send a message. This method will never block.
+// If blocking happens, this method returns BlockingError.
 // The packet must be properly formatted.
-// If you didn't know what it means, please see Channel.Broadcast().
-// Use in carefully.
-func (session *Session) SendPacket(packet []byte) error {
+// Please see Session.Packet().
+func (session *Session) TrySendPacket(packet []byte, timeout time.Duration) error {
 	if session.IsClosed() {
 		return SendToClosedError
 	}
 
-	select {
-	case session.sendPacketChan <- packet:
-		return nil
-	default:
-		return BlockingError
+	if timeout > 0 {
+		select {
+		case session.sendPacketChan <- packet:
+			return nil
+		case <-time.After(timeout):
+			return BlockingError
+		}
+	} else {
+		select {
+		case session.sendPacketChan <- packet:
+			return nil
+		default:
+			return BlockingError
+		}
 	}
 }
