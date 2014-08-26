@@ -213,18 +213,18 @@ func (session *Session) TrySend(message Message, timeout time.Duration) error {
 	if timeout > 0 {
 		select {
 		case session.sendChan <- message:
-			return nil
 		case <-time.After(timeout):
 			return BlockingError
 		}
 	} else {
 		select {
 		case session.sendChan <- message:
-			return nil
 		default:
 			return BlockingError
 		}
 	}
+
+	return nil
 }
 
 // Try send a message. This method will never block.
@@ -239,16 +239,16 @@ func (session *Session) TrySendPacket(packet []byte, timeout time.Duration) erro
 	if timeout > 0 {
 		select {
 		case session.sendPacketChan <- packet:
-			return nil
 		case <-time.After(timeout):
 			return BlockingError
 		}
 	} else {
 		select {
 		case session.sendPacketChan <- packet:
-			return nil
 		default:
 			return BlockingError
 		}
 	}
+
+	return nil
 }

@@ -4,20 +4,19 @@ import (
 	"bytes"
 	"encoding/binary"
 	"runtime/pprof"
-	"sync/atomic"
+	"sync"
 	"testing"
-	"time"
 )
 
 type TestMessage struct {
 	Message []byte
 }
 
-func (msg *TestMessage) RecommendPacketSize() uint {
+func (msg TestMessage) RecommendPacketSize() uint {
 	return uint(len(msg.Message))
 }
 
-func (msg *TestMessage) AppendToPacket(packet []byte) []byte {
+func (msg TestMessage) AppendToPacket(packet []byte) []byte {
 	return append(packet, msg.Message...)
 }
 
@@ -28,86 +27,85 @@ func Test_Server(t *testing.T) {
 	if err0 != nil {
 		t.Fatalf("Setup server failed, Error = %v", err0)
 	}
-	addr := server.Listener().Addr().String()
 
 	var (
-		sessionStartCount  int32
-		sessionCloseCount  int32
-		messageCount       int32
+		addr    = server.Listener().Addr().String()
+		message = TestMessage{[]byte{0, 1, 2, 3, 4, 45, 6, 7, 8, 9}}
+
+		sessionStart       sync.WaitGroup
+		sessionClose       sync.WaitGroup
+		sessionRequest     sync.WaitGroup
 		messageMatchFailed bool
-		message            = &TestMessage{[]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}}
-		serverStopChan     = make(chan int)
 	)
 
-	go func() {
-		server.AcceptLoop(func(session *Session) {
-			atomic.AddInt32(&sessionStartCount, 1)
+	go server.AcceptLoop(func(session *Session) {
+		sessionStart.Done()
 
-			session.ReadLoop(func(msg []byte) {
-				atomic.AddInt32(&messageCount, 1)
+		session.ReadLoop(func(msg []byte) {
+			sessionRequest.Done()
 
-				if !bytes.Equal(msg, message.Message) {
-					messageMatchFailed = true
-				}
-			})
-
-			atomic.AddInt32(&sessionCloseCount, 1)
+			if !bytes.Equal(msg, message.Message) {
+				messageMatchFailed = true
+			}
 		})
-		server.Stop(nil)
-		close(serverStopChan)
-	}()
 
+		sessionClose.Done()
+	})
+
+	// test session start
+	sessionStart.Add(1)
 	client1, err1 := Dial("tcp", addr, proto)
 	if err1 != nil {
 		t.Fatal("Create client1 failed, Error = %v", err1)
 	}
 
+	sessionStart.Add(1)
 	client2, err2 := Dial("tcp", addr, proto)
 	if err2 != nil {
 		t.Fatal("Create client2 failed, Error = %v", err2)
 	}
 
+	t.Log("check session start")
+	sessionStart.Wait()
+
+	// test session request
+	sessionRequest.Add(1)
 	if err := client1.Send(message); err != nil {
 		t.Fatal("Send message failed, Error = %v", err)
 	}
 
+	sessionRequest.Add(1)
 	if err := client2.Send(message); err != nil {
 		t.Fatal("Send message failed, Error = %v", err)
 	}
 
+	sessionRequest.Add(1)
 	if err := client1.Send(message); err != nil {
 		t.Fatal("Send message failed, Error = %v", err)
 	}
 
+	sessionRequest.Add(1)
 	if err := client2.Send(message); err != nil {
 		t.Fatal("Send message failed, Error = %v", err)
 	}
 
-	// close by manual
-	client1.Close(nil)
-	time.Sleep(time.Second)
-
-	server.Stop(nil)
-	<-serverStopChan
-
-	if sessionStartCount != 2 {
-		t.Fatal("Session start count not match")
-	}
-
-	if sessionCloseCount != 2 {
-		t.Fatal("Session close count not match")
-	}
-
-	if messageCount != 4 {
-		t.Logf("Message count: %d", messageCount)
-		t.Fatal("Message count not match")
-	}
+	t.Log("check session request")
+	sessionRequest.Wait()
 
 	if messageMatchFailed {
 		t.Fatal("Message match failed")
 	}
 
+	// test session close
+	sessionClose.Add(1)
+	client1.Close(nil)
+
+	sessionClose.Add(1)
 	client2.Close(nil)
+
+	t.Log("check session close")
+	sessionClose.Wait()
+
 	MakeSureSessionGoroutineExit(t)
 }
 
