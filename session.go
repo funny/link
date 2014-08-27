@@ -3,6 +3,7 @@ package link
 import (
 	"bufio"
 	"net"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -43,6 +44,7 @@ type Session struct {
 	sendPacketChan chan []byte
 	readBuff       []byte
 	sendBuff       []byte
+	sendMutex      sync.Mutex
 	messageHandler MessageHandler
 
 	// About session close
@@ -144,7 +146,7 @@ func (session *Session) Close(reason interface{}) {
 
 		session.conn.Close()
 
-		// exit send loop
+		// exit send loop and cancel async send
 		close(session.closeChan)
 
 		// if this is a server side session
@@ -189,10 +191,10 @@ func (session *Session) Packet(message Message, buff []byte) []byte {
 }
 
 // Sync send a message. This method will block on IO.
-// NOTE: This method reuse a send buffer to decrease memory allocation.
-// If you want to send message to a session in multi-thread situation,
-// you need to lock the session by yourself.
 func (session *Session) Send(message Message) error {
+	session.sendMutex.Lock()
+	defer session.sendMutex.Unlock()
+
 	session.sendBuff = session.Packet(message, session.sendBuff)
 	return session.writer.WritePacket(session.conn, session.sendBuff)
 }
@@ -213,12 +215,16 @@ func (session *Session) TrySend(message Message, timeout time.Duration) error {
 	if timeout > 0 {
 		select {
 		case session.sendChan <- message:
+		case <-session.closeChan:
+			return SendToClosedError
 		case <-time.After(timeout):
 			return BlockingError
 		}
 	} else {
 		select {
 		case session.sendChan <- message:
+		case <-session.closeChan:
+			return SendToClosedError
 		default:
 			return BlockingError
 		}
@@ -239,12 +245,16 @@ func (session *Session) TrySendPacket(packet []byte, timeout time.Duration) erro
 	if timeout > 0 {
 		select {
 		case session.sendPacketChan <- packet:
+		case <-session.closeChan:
+			return SendToClosedError
 		case <-time.After(timeout):
 			return BlockingError
 		}
 	} else {
 		select {
 		case session.sendPacketChan <- packet:
+		case <-session.closeChan:
+			return SendToClosedError
 		default:
 			return BlockingError
 		}

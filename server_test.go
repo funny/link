@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"runtime/pprof"
 	"sync"
+	"sync/atomic"
 	"testing"
 )
 
@@ -32,25 +33,34 @@ func Test_Server(t *testing.T) {
 		addr    = server.Listener().Addr().String()
 		message = TestMessage{[]byte{0, 1, 2, 3, 4, 45, 6, 7, 8, 9}}
 
-		sessionStart       sync.WaitGroup
-		sessionClose       sync.WaitGroup
-		sessionRequest     sync.WaitGroup
-		messageMatchFailed bool
+		sessionStart   sync.WaitGroup
+		sessionClose   sync.WaitGroup
+		sessionRequest sync.WaitGroup
+
+		sessionStartCount   int32
+		sessionRequestCount int32
+		sessionCloseCount   int32
+		messageMatchFailed  bool
 	)
 
-	go server.AcceptLoop(func(session *Session) {
-		sessionStart.Done()
+	go func() {
+		server.AcceptLoop(func(session *Session) {
+			atomic.AddInt32(&sessionStartCount, 1)
+			sessionStart.Done()
 
-		session.ReadLoop(func(msg []byte) {
-			sessionRequest.Done()
+			session.ReadLoop(func(msg []byte) {
+				if !bytes.Equal(msg, message.Message) {
+					messageMatchFailed = true
+				}
 
-			if !bytes.Equal(msg, message.Message) {
-				messageMatchFailed = true
-			}
+				atomic.AddInt32(&sessionRequestCount, 1)
+				sessionRequest.Done()
+			})
+
+			atomic.AddInt32(&sessionCloseCount, 1)
+			sessionClose.Done()
 		})
-
-		sessionClose.Done()
-	})
+	}()
 
 	// test session start
 	sessionStart.Add(1)
@@ -67,6 +77,9 @@ func Test_Server(t *testing.T) {
 
 	t.Log("check session start")
 	sessionStart.Wait()
+	if sessionStartCount != 2 {
+		t.Fatal("session start count != 2")
+	}
 
 	// test session request
 	sessionRequest.Add(1)
@@ -91,6 +104,9 @@ func Test_Server(t *testing.T) {
 
 	t.Log("check session request")
 	sessionRequest.Wait()
+	if sessionRequestCount != 4 {
+		t.Fatal("session request count != 4")
+	}
 
 	if messageMatchFailed {
 		t.Fatal("Message match failed")
@@ -105,6 +121,9 @@ func Test_Server(t *testing.T) {
 
 	t.Log("check session close")
 	sessionClose.Wait()
+	if sessionCloseCount != 2 {
+		t.Fatal("session close count != 2")
+	}
 
 	MakeSureSessionGoroutineExit(t)
 }
