@@ -3,7 +3,6 @@ package link
 import (
 	"bufio"
 	"net"
-	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -91,7 +90,6 @@ func (q *SendQueue) AppendToPacket(packet []byte) []byte {
 // A broadcast sender. The broadcast message only encoded once
 // so the performance it's better then send message one by one.
 type Broadcaster struct {
-	mutex  sync.RWMutex
 	writer PacketWriter
 }
 
@@ -110,9 +108,6 @@ func (server *Server) NewBroadcaster() *Broadcaster {
 // Broadcast to sessions. The message only encoded once
 // so the performance it's better then send message one by one.
 func (b *Broadcaster) Broadcast(sessions SessionCollection, message Message) {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-
 	size := message.RecommendPacketSize()
 	packet := b.writer.BeginPacket(size, nil)
 	packet = message.AppendToPacket(packet)
@@ -126,9 +121,6 @@ func (b *Broadcaster) Broadcast(sessions SessionCollection, message Message) {
 // Broadcast to sessions. The message only encoded once
 // so the performance it's better then send message one by one.
 func (b *Broadcaster) MustBroadcast(sessions SessionCollection, message Message) {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-
 	size := message.RecommendPacketSize()
 	packet := b.writer.BeginPacket(size, nil)
 	packet = message.AppendToPacket(packet)
