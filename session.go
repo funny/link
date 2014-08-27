@@ -212,12 +212,12 @@ func (session *Session) TrySend(message Message, timeout time.Duration) error {
 		return SendToClosedError
 	}
 
-	if timeout > 0 {
+	if timeout == 0 {
 		select {
 		case session.sendChan <- message:
 		case <-session.closeChan:
 			return SendToClosedError
-		case <-time.After(timeout):
+		default:
 			return BlockingError
 		}
 	} else {
@@ -225,7 +225,7 @@ func (session *Session) TrySend(message Message, timeout time.Duration) error {
 		case session.sendChan <- message:
 		case <-session.closeChan:
 			return SendToClosedError
-		default:
+		case <-time.After(timeout):
 			return BlockingError
 		}
 	}
@@ -242,12 +242,12 @@ func (session *Session) TrySendPacket(packet []byte, timeout time.Duration) erro
 		return SendToClosedError
 	}
 
-	if timeout > 0 {
+	if timeout == 0 {
 		select {
 		case session.sendPacketChan <- packet:
 		case <-session.closeChan:
 			return SendToClosedError
-		case <-time.After(timeout):
+		default:
 			return BlockingError
 		}
 	} else {
@@ -255,7 +255,7 @@ func (session *Session) TrySendPacket(packet []byte, timeout time.Duration) erro
 		case session.sendPacketChan <- packet:
 		case <-session.closeChan:
 			return SendToClosedError
-		default:
+		case <-time.After(timeout):
 			return BlockingError
 		}
 	}
