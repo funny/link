@@ -58,15 +58,15 @@ func (s *SimpleSettings) SetMaxSize(maxsize uint) {
 }
 
 // A simple send queue. Can used for buffered send.
-// For example, sometimes you have many Send() call during a request processing.
-// You can use the send queue to buffer those messages then call Send() once after request processing done.
-// The send queue type implemented Message interface. So you can pass it as the Send() method argument.
+// For example, sometimes you have many Session.Send() call during a request processing.
+// You can use the send queue to buffer those messages then call Session.Send() once after request processing done.
+// The send queue type implemented Message interface. So you can pass it as the Session.Send() method argument.
 type SendQueue struct {
 	messages []Message
 }
 
 // Push a message into send queue but not send it immediately.
-func (q *SendQueue) Send(message Message) {
+func (q *SendQueue) Push(message Message) {
 	q.messages = append(q.messages, message)
 }
 
