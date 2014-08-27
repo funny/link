@@ -1,6 +1,7 @@
 package link
 
 import (
+	"bufio"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -139,4 +140,21 @@ func (b *Broadcaster) MustBroadcast(sessions SessionCollection, message Message)
 	sessions.Fetch(func(session *Session) {
 		session.SendPacket(packet)
 	})
+}
+
+// Buffered connection.
+type BufferConn struct {
+	net.Conn
+	reader *bufio.Reader
+}
+
+func NewBufferConn(conn net.Conn, size int) *BufferConn {
+	return &BufferConn{
+		conn,
+		bufio.NewReaderSize(conn, size),
+	}
+}
+
+func (conn *BufferConn) Read(d []byte) (int, error) {
+	return conn.reader.Read(d)
 }

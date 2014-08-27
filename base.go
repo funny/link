@@ -7,15 +7,9 @@ import (
 
 // Errors
 var (
-	SendToClosedError          = errors.New("Send to closed session")
-	BlockingError              = errors.New("Blocking happened")
-	PacketTooLargeError        = errors.New("Packet too large")
-	SessionDuplicateStartError = errors.New("Session duplicate start")
-	ServerDuplicateStartError  = errors.New("Server duplicate start")
-	SyncSendTimeoutError       = errors.New("Sync send timeout")
-	TimeoutBlockingError       = errors.New("Timeout happens when blocking")
-	CloseBlockingError         = errors.New("Session closed after blocking")
-	DiscardBlockingError       = errors.New("Message is discarded after blocking")
+	SendToClosedError   = errors.New("Send to closed session")
+	BlockingError       = errors.New("Blocking happened")
+	PacketTooLargeError = errors.New("Packet too large")
 )
 
 type Settings interface {
@@ -69,18 +63,4 @@ type Message interface {
 
 	// Append the message to the packet buffer and returns the new buffer like append() function.
 	AppendToPacket([]byte) []byte
-}
-
-// Message handler.
-type MessageHandler interface {
-	// Handle a message from session.
-	Handle(*Session, []byte)
-}
-
-type messageHandlerFunc struct {
-	callback func(*Session, []byte)
-}
-
-func (handler messageHandlerFunc) Handle(session *Session, request []byte) {
-	handler.callback(session, request)
 }
