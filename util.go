@@ -92,7 +92,6 @@ func (q *SendQueue) AppendToPacket(packet []byte) []byte {
 // so the performance it's better then send message one by one.
 type Broadcaster struct {
 	mutex  sync.RWMutex
-	buff   []byte
 	writer PacketWriter
 }
 
@@ -115,10 +114,9 @@ func (b *Broadcaster) Broadcast(sessions SessionCollection, message Message) {
 	defer b.mutex.Unlock()
 
 	size := message.RecommendPacketSize()
-	packet := b.writer.BeginPacket(size, b.buff)
+	packet := b.writer.BeginPacket(size, nil)
 	packet = message.AppendToPacket(packet)
 	packet = b.writer.EndPacket(packet)
-	b.buff = packet
 
 	sessions.Fetch(func(session *Session) {
 		session.TrySendPacket(packet, 0)
@@ -132,10 +130,9 @@ func (b *Broadcaster) MustBroadcast(sessions SessionCollection, message Message)
 	defer b.mutex.Unlock()
 
 	size := message.RecommendPacketSize()
-	packet := b.writer.BeginPacket(size, b.buff)
+	packet := b.writer.BeginPacket(size, nil)
 	packet = message.AppendToPacket(packet)
 	packet = b.writer.EndPacket(packet)
-	b.buff = packet
 
 	sessions.Fetch(func(session *Session) {
 		session.SendPacket(packet)
