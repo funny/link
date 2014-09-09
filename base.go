@@ -62,5 +62,5 @@ type Message interface {
 	RecommendPacketSize() uint
 
 	// Append the message to the packet buffer and returns the new buffer like append() function.
-	AppendToPacket([]byte) []byte
+	AppendToPacket([]byte) ([]byte, error)
 }

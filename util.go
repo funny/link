@@ -2,6 +2,10 @@ package link
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/gob"
+	"encoding/json"
+	"encoding/xml"
 	"net"
 	"sync/atomic"
 	"time"
@@ -80,11 +84,15 @@ func (q *SendQueue) RecommendPacketSize() uint {
 }
 
 // Implement the Message interface.
-func (q *SendQueue) AppendToPacket(packet []byte) []byte {
+func (q *SendQueue) AppendToPacket(packet []byte) ([]byte, error) {
+	var err error
 	for _, message := range q.messages {
-		packet = message.AppendToPacket(packet)
+		packet, err = message.AppendToPacket(packet)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return packet
+	return packet, nil
 }
 
 // A broadcast sender. The broadcast message only encoded once
@@ -105,30 +113,41 @@ func (server *Server) NewBroadcaster() *Broadcaster {
 	}
 }
 
-// Broadcast to sessions. The message only encoded once
-// so the performance it's better then send message one by one.
-func (b *Broadcaster) Broadcast(sessions SessionCollection, message Message) {
+func (b *Broadcaster) packet(message Message) (packet []byte, err error) {
 	size := message.RecommendPacketSize()
-	packet := b.writer.BeginPacket(size, nil)
-	packet = message.AppendToPacket(packet)
+	packet = b.writer.BeginPacket(size, nil)
+	packet, err = message.AppendToPacket(packet)
+	if err != nil {
+		return nil, err
+	}
 	packet = b.writer.EndPacket(packet)
-
-	sessions.Fetch(func(session *Session) {
-		session.TrySendPacket(packet, 0)
-	})
+	return
 }
 
 // Broadcast to sessions. The message only encoded once
 // so the performance it's better then send message one by one.
-func (b *Broadcaster) MustBroadcast(sessions SessionCollection, message Message) {
-	size := message.RecommendPacketSize()
-	packet := b.writer.BeginPacket(size, nil)
-	packet = message.AppendToPacket(packet)
-	packet = b.writer.EndPacket(packet)
+func (b *Broadcaster) Broadcast(sessions SessionCollection, message Message) error {
+	packet, err := b.packet(message)
+	if err != nil {
+		return err
+	}
+	sessions.Fetch(func(session *Session) {
+		session.TrySendPacket(packet, 0)
+	})
+	return nil
+}
 
+// Broadcast to sessions. The message only encoded once
+// so the performance it's better then send message one by one.
+func (b *Broadcaster) MustBroadcast(sessions SessionCollection, message Message) error {
+	packet, err := b.packet(message)
+	if err != nil {
+		return err
+	}
 	sessions.Fetch(func(session *Session) {
 		session.SendPacket(packet)
 	})
+	return nil
 }
 
 // Buffered connection.
@@ -146,4 +165,80 @@ func NewBufferConn(conn net.Conn, size int) *BufferConn {
 
 func (conn *BufferConn) Read(d []byte) (int, error) {
 	return conn.reader.Read(d)
+}
+
+// JSON message
+type JSON struct {
+	V    interface{}
+	Size uint
+}
+
+// Implement the Message interface.
+func (j JSON) RecommendPacketSize() uint {
+	return j.Size
+}
+
+// Implement the Message interface.
+func (j JSON) AppendToPacket(packet []byte) ([]byte, error) {
+	w := bytes.NewBuffer(packet)
+	e := json.NewEncoder(w)
+	err := e.Encode(j.V)
+	if err != nil {
+		return nil, err
+	}
+	return w.Bytes(), nil
+}
+
+// XML message
+type XML struct {
+	V    interface{}
+	Size uint
+}
+
+// Implement the Message interface.
+func (x XML) RecommendPacketSize() uint {
+	return x.Size
+}
+
+// Implement the Message interface.
+func (x XML) AppendToPacket(packet []byte) ([]byte, error) {
+	w := bytes.NewBuffer(packet)
+	e := xml.NewEncoder(w)
+	err := e.Encode(x.V)
+	if err != nil {
+		return nil, err
+	}
+	return w.Bytes(), nil
+}
+
+// GOB message
+type GOB struct {
+	V    interface{}
+	Size uint
+}
+
+// Implement the Message interface.
+func (g GOB) RecommendPacketSize() uint {
+	return g.Size
+}
+
+// Implement the Message interface.
+func (g GOB) AppendToPacket(packet []byte) ([]byte, error) {
+	w := bytes.NewBuffer(packet)
+	e := gob.NewEncoder(w)
+	err := e.Encode(g.V)
+	if err != nil {
+		return nil, err
+	}
+	return w.Bytes(), nil
+}
+
+type Binary []byte
+
+func (bin Binary) RecommendPacketSize() uint {
+	return uint(len(bin))
+}
+
+func (bin Binary) AppendToPacket(packet []byte) ([]byte, error) {
+	return append(packet, bin...), nil
 }

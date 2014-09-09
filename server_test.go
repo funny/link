@@ -9,18 +9,6 @@ import (
 	"testing"
 )
 
-type TestMessage struct {
-	Message []byte
-}
-
-func (msg TestMessage) RecommendPacketSize() uint {
-	return uint(len(msg.Message))
-}
-
-func (msg TestMessage) AppendToPacket(packet []byte) []byte {
-	return append(packet, msg.Message...)
-}
-
 func Test_Server(t *testing.T) {
 	proto := PacketN(4, binary.BigEndian)
 
@@ -31,7 +19,7 @@ func Test_Server(t *testing.T) {
 
 	var (
 		addr    = server.Listener().Addr().String()
-		message = TestMessage{[]byte{0, 1, 2, 3, 4, 45, 6, 7, 8, 9}}
+		message = Binary{0, 1, 2, 3, 4, 45, 6, 7, 8, 9}
 
 		sessionStart   sync.WaitGroup
 		sessionClose   sync.WaitGroup
@@ -49,7 +37,7 @@ func Test_Server(t *testing.T) {
 			sessionStart.Done()
 
 			session.ReadLoop(func(msg []byte) {
-				if !bytes.Equal(msg, message.Message) {
+				if !bytes.Equal(msg, message) {
 					messageMatchFailed = true
 				}
 
