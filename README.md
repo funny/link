@@ -55,26 +55,10 @@ proto := link.PacketN(2, binary.BigEndian)
 client, _ := link.Dial("tcp", "127.0.0.1:8080", proto)
 ```
 
-Implement a message type.
-
-```go
-type TestMessage struct {
-	Message string
-}
-
-func (msg TestMessage) RecommendPacketSize() uint {
-	return uint(len(msg.Message))
-}
-
-func (msg TestMessage) AppendToPacket(packet []byte) []byte {
-	return append(packet, msg.Message...)
-}
-```
-
 Send a message to server.
 
 ```go
-client.Send(TestMessage{ "Hello World!" })
+client.Send(link.Binary("Hello World!"))
 ```
 
 Examples
