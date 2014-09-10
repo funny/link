@@ -23,6 +23,7 @@ type Session struct {
 	readBuff       []byte
 	sendBuff       []byte
 	sendMutex      sync.Mutex
+	OnSendFailed   func(*Session, error)
 
 	// About session close
 	closeChan   chan int
@@ -67,12 +68,20 @@ func (session *Session) sendLoop() {
 		select {
 		case message := <-session.sendChan:
 			if err := session.Send(message); err != nil {
-				session.Close(err)
+				if session.OnSendFailed != nil {
+					session.OnSendFailed(session, err)
+				} else {
+					session.Close(err)
+				}
 				return
 			}
 		case packet := <-session.sendPacketChan:
 			if err := session.SendPacket(packet); err != nil {
-				session.Close(err)
+				if session.OnSendFailed != nil {
+					session.OnSendFailed(session, err)
+				} else {
+					session.Close(err)
+				}
 				return
 			}
 		case <-session.closeChan:
