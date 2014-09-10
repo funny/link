@@ -3,9 +3,7 @@ package link
 import (
 	"bufio"
 	"bytes"
-	"encoding/gob"
 	"encoding/json"
-	"encoding/xml"
 	"net"
 	"sync/atomic"
 	"time"
@@ -167,6 +165,19 @@ func (conn *BufferConn) Read(d []byte) (int, error) {
 	return conn.reader.Read(d)
 }
 
+// Binary message
+type Binary []byte
+
+// Implement the Message interface.
+func (bin Binary) RecommendPacketSize() uint {
+	return uint(len(bin))
+}
+
+// Implement the Message interface.
+func (bin Binary) AppendToPacket(packet []byte) ([]byte, error) {
+	return append(packet, bin...), nil
+}
+
 // JSON message
 type JSON struct {
 	V    interface{}
@@ -187,58 +198,4 @@ func (j JSON) AppendToPacket(packet []byte) ([]byte, error) {
 		return nil, err
 	}
 	return w.Bytes(), nil
-}
-
-// XML message
-type XML struct {
-	V    interface{}
-	Size uint
-}
-
-// Implement the Message interface.
-func (x XML) RecommendPacketSize() uint {
-	return x.Size
-}
-
-// Implement the Message interface.
-func (x XML) AppendToPacket(packet []byte) ([]byte, error) {
-	w := bytes.NewBuffer(packet)
-	e := xml.NewEncoder(w)
-	err := e.Encode(x.V)
-	if err != nil {
-		return nil, err
-	}
-	return w.Bytes(), nil
-}
-
-// GOB message
-type GOB struct {
-	V    interface{}
-	Size uint
-}
-
-// Implement the Message interface.
-func (g GOB) RecommendPacketSize() uint {
-	return g.Size
-}
-
-// Implement the Message interface.
-func (g GOB) AppendToPacket(packet []byte) ([]byte, error) {
-	w := bytes.NewBuffer(packet)
-	e := gob.NewEncoder(w)
-	err := e.Encode(g.V)
-	if err != nil {
-		return nil, err
-	}
-	return w.Bytes(), nil
-}
-
-type Binary []byte
-
-func (bin Binary) RecommendPacketSize() uint {
-	return uint(len(bin))
-}
-
-func (bin Binary) AppendToPacket(packet []byte) ([]byte, error) {
-	return append(packet, bin...), nil
 }
