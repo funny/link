@@ -52,6 +52,11 @@ func (server *Server) Listener() net.Listener {
 	return server.listener
 }
 
+// Get packet protocol.
+func (server *Server) Protocol() PacketProtocol {
+	return server.protocol
+}
+
 // Set session send channel buffer size.
 // New setting will effect on new sessions.
 func (server *Server) SetSendChanSize(size uint) {

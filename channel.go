@@ -16,9 +16,9 @@ type channelSession struct {
 }
 
 // Create a channel instance.
-func (server *Server) NewChannel() *Channel {
+func NewChannel(writer PacketWriter) *Channel {
 	return &Channel{
-		broadcaster: server.NewBroadcaster(),
+		broadcaster: NewBroadcaster(writer),
 		sessions:    make(map[uint64]channelSession),
 	}
 }

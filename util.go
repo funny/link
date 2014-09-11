@@ -93,21 +93,21 @@ func (q *SendQueue) AppendToPacket(packet []byte) ([]byte, error) {
 	return packet, nil
 }
 
+// The session collection use to fetch session and send broadcast.
+type SessionCollection interface {
+	Fetch(func(*Session))
+}
+
 // A broadcast sender. The broadcast message only encoded once
 // so the performance it's better then send message one by one.
 type Broadcaster struct {
 	writer PacketWriter
 }
 
-// The session collection use to fetch session and send broadcast.
-type SessionCollection interface {
-	Fetch(func(*Session))
-}
-
 // Craete a broadcaster.
-func (server *Server) NewBroadcaster() *Broadcaster {
+func NewBroadcaster(writer PacketWriter) *Broadcaster {
 	return &Broadcaster{
-		writer: server.protocol.NewWriter(),
+		writer: writer,
 	}
 }
 

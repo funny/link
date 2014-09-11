@@ -13,9 +13,10 @@ type Session struct {
 	server *Server
 
 	// About network
-	conn   net.Conn
-	writer PacketWriter
-	reader PacketReader
+	conn     net.Conn
+	protocol PacketProtocol
+	writer   PacketWriter
+	reader   PacketReader
 
 	// About send and receive
 	sendChan       chan Message
@@ -43,6 +44,7 @@ func NewSession(id uint64, conn net.Conn, protocol PacketProtocol, sendChanSize 
 	session := &Session{
 		id:             id,
 		conn:           conn,
+		protocol:       protocol,
 		writer:         protocol.NewWriter(),
 		reader:         protocol.NewReader(),
 		sendChan:       make(chan Message, sendChanSize),
@@ -103,6 +105,11 @@ func (session *Session) Conn() net.Conn {
 // Get session owner.
 func (session *Session) Server() *Server {
 	return session.server
+}
+
+// Get packet protocol.
+func (session *Session) Protocol() PacketProtocol {
+	return session.protocol
 }
 
 // Get reader settings.
