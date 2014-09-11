@@ -105,9 +105,9 @@ type Broadcaster struct {
 }
 
 // Craete a broadcaster.
-func NewBroadcaster(writer PacketWriter) *Broadcaster {
+func NewBroadcaster(protocol PacketProtocol) *Broadcaster {
 	return &Broadcaster{
-		writer: writer,
+		writer: protocol.NewWriter(),
 	}
 }
 
