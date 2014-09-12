@@ -114,7 +114,7 @@ func NewPNReader(n uint, bo binary.ByteOrder) *PNReader {
 }
 
 // Read a packet from conn.
-func (r *PNReader) ReadPacket(conn net.Conn, b []byte) ([]byte, error) {
+func (r *PNReader) ReadPacket(conn net.Conn, buff []byte) ([]byte, error) {
 	if _, err := io.ReadFull(conn, r.head); err != nil {
 		return nil, err
 	}
@@ -140,8 +140,8 @@ func (r *PNReader) ReadPacket(conn net.Conn, b []byte) ([]byte, error) {
 
 	var data []byte
 
-	if uint(cap(b)) >= size {
-		data = b[0:size]
+	if uint(cap(buff)) >= size {
+		data = buff[0:size]
 	} else {
 		data = make([]byte, size)
 	}

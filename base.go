@@ -35,25 +35,23 @@ type PacketWriter interface {
 
 	// Begin a packet writing on the buff.
 	// If the size large than the buff capacity, the buff will be dropped and a new buffer will be created.
-	// This method give the session a way to reuse buffer and avoid invoke Conn.Writer() twice.
+	// This method give the session a way to reuse buffer and avoid invoke Write() twice.
 	BeginPacket(size uint, buff []byte) []byte
 
 	// Finish a packet writing.
 	// Give the protocol writer a chance to set packet head data after packet body writed.
-	EndPacket([]byte) []byte
+	EndPacket(packet []byte) []byte
 
 	// Write a packet to the conn.
-	WritePacket(net.Conn, []byte) error
+	WritePacket(conn net.Conn, packet []byte) error
 }
 
 // Packet reader.
 type PacketReader interface {
 	Settings
 
-	// Create a new instance of {packet, N} reader.
-	// The n means how many bytes of the packet header used to present packet length.
-	// The 'bo' used to define packet header's byte order.
-	ReadPacket(net.Conn, []byte) ([]byte, error)
+	// Read a packet from conn.
+	ReadPacket(conn net.Conn, buff []byte) ([]byte, error)
 }
 
 // Message.
