@@ -58,7 +58,7 @@ func (w *PNWriter) BeginPacket(size uint, buff []byte) []byte {
 	if uint(cap(buff)) < packetLen {
 		return make([]byte, w.n, packetLen)
 	}
-	return buff[0:w.n:packetLen]
+	return buff[0:w.n:cap(buff)]
 }
 
 // Finish a packet writing.
