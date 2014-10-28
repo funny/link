@@ -49,14 +49,12 @@ type SimpleSettings struct {
 	maxsize uint
 }
 
-// Get packet size limit
-func (s *SimpleSettings) GetMaxSize() uint {
-	return s.maxsize
-}
-
-// Limit packet size.
-func (s *SimpleSettings) SetMaxSize(maxsize uint) {
+// Set max packet size and returns old size limitation.
+// Set 0 means unlimit.
+func (s *SimpleSettings) MaxPacketSize(maxsize uint) (old uint) {
+	old = s.maxsize
 	s.maxsize = maxsize
+	return
 }
 
 // A simple send queue. Can used for buffered send.

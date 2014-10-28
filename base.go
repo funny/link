@@ -13,11 +13,9 @@ var (
 )
 
 type Settings interface {
-	// Get packet size limitation.
-	GetMaxSize() uint
-
-	// Limit packet size.
-	SetMaxSize(uint)
+	// Set max packet size and returns old size limitation.
+	// Set 0 means unlimit.
+	MaxPacketSize(uint) uint
 }
 
 // Packet spliting protocol.
