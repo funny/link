@@ -51,12 +51,3 @@ type PacketReader interface {
 	// Read a packet from conn.
 	ReadPacket(conn net.Conn, buff []byte) ([]byte, error)
 }
-
-// Message.
-type Message interface {
-	// Get a recommend packet size for packet buffer initialization.
-	RecommendPacketSize() uint
-
-	// Append the message to the packet buffer and returns the new buffer like append() function.
-	AppendToPacket([]byte) ([]byte, error)
-}
