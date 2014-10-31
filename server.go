@@ -127,6 +127,13 @@ func (server *Server) Stop(reason interface{}) {
 	}
 }
 
+func (server *Server) newSession(id uint64, conn net.Conn) *Session {
+	session := NewSession(id, conn, server.protocol, server.sendChanSize, server.readBufferSize)
+	session.server = server
+	session.server.putSession(session)
+	return session
+}
+
 // Put a session into session list.
 func (server *Server) putSession(session *Session) {
 	server.sessionMutex.Lock()

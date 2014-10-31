@@ -57,13 +57,6 @@ func NewSession(id uint64, conn net.Conn, protocol PacketProtocol, sendChanSize 
 	return session
 }
 
-func (server *Server) newSession(id uint64, conn net.Conn) *Session {
-	session := NewSession(id, conn, server.protocol, server.sendChanSize, server.readBufferSize)
-	session.server = server
-	session.server.putSession(session)
-	return session
-}
-
 // Loop and transport responses.
 func (session *Session) sendLoop() {
 	for {
