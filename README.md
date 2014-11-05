@@ -64,10 +64,10 @@ client.Send(link.Binary("Hello World!"))
 Examples
 ========
 
-* [Echo server](https://github.com/funny/link-demo/tree/master/echo_server/main.go)
-* [Echo client](https://github.com/funny/link-demo/tree/master/echo_client/main.go)
-* [Broadcast server](https://github.com/funny/link-demo/tree/master/broadcast/main.go)
-* [Benchmark tool](https://github.com/funny/link-demo/tree/master/benchmark/main.go)
+* [Echo server](https://github.com/funny/link/blob/master/examples/echo_server/main.go)
+* [Echo client](https://github.com/funny/link/blob/master/examples/echo_client/main.go)
+* [Broadcast server](https://github.com/funny/link/blob/master/examples/broadcast/main.go)
+* [Benchmark tool](https://github.com/funny/link/blob/master/examples/benchmark/main.go)
 
 Document
 ========
