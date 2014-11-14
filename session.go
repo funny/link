@@ -21,7 +21,6 @@ type Session struct {
 	// About send and receive
 	sendChan       chan Message
 	sendPacketChan chan []byte
-	readBuff       []byte
 	sendBuff       []byte
 	sendMutex      sync.Mutex
 	OnSendFailed   func(*Session, error)
@@ -145,26 +144,28 @@ func (session *Session) Close(reason interface{}) {
 
 // Loop and read message. NOTE: The callback argument point to internal read buffer.
 func (session *Session) ReadLoop(handler func([]byte)) {
+	var buffer []byte
 	for {
-		msg, err := session.Read()
+		msg, err := session.Read(buffer)
 		if err != nil {
 			session.Close(err)
 			break
 		}
 		handler(msg)
+		buffer = msg[0:0]
 	}
 }
 
-// Read message once. NOTE: The result of byte slice point to internal read buffer.
-// If you want to read from a session in multi-thread situation,
-// you need to lock the session and copy the result by yourself.
-func (session *Session) Read() ([]byte, error) {
-	var err error
-	session.readBuff, err = session.reader.ReadPacket(session.conn, session.readBuff)
+// Read message once (Can reuse buffer).
+func (session *Session) Read(buffer []byte) ([]byte, error) {
+	if len(buffer) != 0 {
+		buffer = buffer[0:0]
+	}
+	msg, err := session.reader.ReadPacket(session.conn, buffer)
 	if err != nil {
 		return nil, err
 	}
-	return session.readBuff, nil
+	return msg, nil
 }
 
 // Packet a message.
