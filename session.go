@@ -198,22 +198,12 @@ func (session *Session) TrySend(message Message, timeout time.Duration) error {
 		return SendToClosedError
 	}
 
-	if timeout == 0 {
-		select {
-		case session.sendChan <- message:
-		case <-session.closeChan:
-			return SendToClosedError
-		default:
-			return BlockingError
-		}
-	} else {
-		select {
-		case session.sendChan <- message:
-		case <-session.closeChan:
-			return SendToClosedError
-		case <-time.After(timeout):
-			return BlockingError
-		}
+	select {
+	case session.sendChan <- message:
+	case <-session.closeChan:
+		return SendToClosedError
+	case <-time.After(timeout):
+		return BlockingError
 	}
 
 	return nil
@@ -228,22 +218,12 @@ func (session *Session) TrySendPacket(packet []byte, timeout time.Duration) erro
 		return SendToClosedError
 	}
 
-	if timeout == 0 {
-		select {
-		case session.sendPacketChan <- packet:
-		case <-session.closeChan:
-			return SendToClosedError
-		default:
-			return BlockingError
-		}
-	} else {
-		select {
-		case session.sendPacketChan <- packet:
-		case <-session.closeChan:
-			return SendToClosedError
-		case <-time.After(timeout):
-			return BlockingError
-		}
+	select {
+	case session.sendPacketChan <- packet:
+	case <-session.closeChan:
+		return SendToClosedError
+	case <-time.After(timeout):
+		return BlockingError
 	}
 
 	return nil
