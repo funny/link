@@ -1,6 +1,7 @@
 package link
 
 import (
+	"container/list"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -9,8 +10,7 @@ import (
 
 // Session.
 type Session struct {
-	id     uint64
-	server *Server
+	id uint64
 
 	// About network
 	conn     net.Conn
@@ -26,9 +26,11 @@ type Session struct {
 	OnSendFailed   func(*Session, error)
 
 	// About session close
-	closeChan   chan int
-	closeFlag   int32
-	closeReason interface{}
+	closeChan               chan int
+	closeFlag               int32
+	closeReason             interface{}
+	closeEventListenerMutex sync.Mutex
+	closeEventListeners     *list.List
 
 	// Put your session state here.
 	State interface{}
@@ -41,14 +43,15 @@ func NewSession(id uint64, conn net.Conn, protocol PacketProtocol, sendChanSize 
 	}
 
 	session := &Session{
-		id:             id,
-		conn:           conn,
-		protocol:       protocol,
-		writer:         protocol.NewWriter(),
-		reader:         protocol.NewReader(),
-		sendChan:       make(chan Message, sendChanSize),
-		sendPacketChan: make(chan []byte, sendChanSize),
-		closeChan:      make(chan int),
+		id:                  id,
+		conn:                conn,
+		protocol:            protocol,
+		writer:              protocol.NewWriter(),
+		reader:              protocol.NewReader(),
+		sendChan:            make(chan Message, sendChanSize),
+		sendPacketChan:      make(chan []byte, sendChanSize),
+		closeChan:           make(chan int),
+		closeEventListeners: list.New(),
 	}
 
 	go session.sendLoop()
@@ -94,11 +97,6 @@ func (session *Session) Conn() net.Conn {
 	return session.conn
 }
 
-// Get session owner.
-func (session *Session) Server() *Server {
-	return session.server
-}
-
 // Get packet protocol.
 func (session *Session) Protocol() PacketProtocol {
 	return session.protocol
@@ -124,7 +122,7 @@ func (session *Session) CloseReason() interface{} {
 	return session.closeReason
 }
 
-// Close session and remove it from api server.
+// Close session.
 func (session *Session) Close(reason interface{}) {
 	if atomic.CompareAndSwapInt32(&session.closeFlag, 0, 1) {
 		session.closeReason = reason
@@ -134,11 +132,7 @@ func (session *Session) Close(reason interface{}) {
 		// exit send loop and cancel async send
 		close(session.closeChan)
 
-		// if this is a server side session
-		// remove it from sessin list
-		if session.server != nil {
-			session.server.delSession(session)
-		}
+		session.dispatchCloseEvent()
 	}
 }
 
@@ -253,4 +247,31 @@ func (session *Session) TrySendPacket(packet []byte, timeout time.Duration) erro
 	}
 
 	return nil
+}
+
+// The session close event listener interface.
+type SessionCloseEventListener interface {
+	OnSessionClose(*Session)
+}
+
+// Add close event listener.
+func (session *Session) AddCloseEventListener(listener SessionCloseEventListener) {
+	session.closeEventListeners.PushBack(listener)
+}
+
+// Remove close event listener.
+func (session *Session) RemoveCloseEventListener(listener SessionCloseEventListener) {
+	for i := session.closeEventListeners.Front(); i != nil; i = i.Next() {
+		if i.Value == listener {
+			session.closeEventListeners.Remove(i)
+			return
+		}
+	}
+}
+
+// Dispatch close event.
+func (session *Session) dispatchCloseEvent() {
+	for i := session.closeEventListeners.Front(); i != nil; i = i.Next() {
+		i.Value.(SessionCloseEventListener).OnSessionClose(session)
+	}
 }

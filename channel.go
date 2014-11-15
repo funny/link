@@ -34,13 +34,21 @@ func (channel *Channel) Len() int {
 func (channel *Channel) Join(session *Session, kickCallback func()) {
 	channel.mutex.Lock()
 	defer channel.mutex.Unlock()
+	session.AddCloseEventListener(channel)
 	channel.sessions[session.Id()] = channelSession{session, kickCallback}
+}
+
+// Implement the SessionCloseEventListener interface.
+func (channel *Channel) OnSessionClose(session *Session) {
+	channel.Exit(session)
 }
 
 // Exit the channel.
 func (channel *Channel) Exit(session *Session) {
 	channel.mutex.Lock()
 	defer channel.mutex.Unlock()
+
+	session.RemoveCloseEventListener(channel)
 	delete(channel.sessions, session.Id())
 }
 

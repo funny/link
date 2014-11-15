@@ -114,6 +114,11 @@ func (server *Server) Accept() (*Session, error) {
 	return session, nil
 }
 
+// Implement the SessionCloseEventListener interface.
+func (server *Server) OnSessionClose(session *Session) {
+	server.delSession(session)
+}
+
 // Stop server.
 func (server *Server) Stop(reason interface{}) {
 	if atomic.CompareAndSwapInt32(&server.stopFlag, 0, 1) {
@@ -129,36 +134,45 @@ func (server *Server) Stop(reason interface{}) {
 
 func (server *Server) newSession(id uint64, conn net.Conn) *Session {
 	session := NewSession(id, conn, server.protocol, server.sendChanSize, server.readBufferSize)
-	session.server = server
-	session.server.putSession(session)
+	server.putSession(session)
 	return session
 }
 
 // Put a session into session list.
 func (server *Server) putSession(session *Session) {
 	server.sessionMutex.Lock()
+	defer server.sessionMutex.Unlock()
+
+	session.AddCloseEventListener(server)
 	server.sessions[session.id] = session
-	session.server.stopWait.Add(1)
-	server.sessionMutex.Unlock()
+	server.stopWait.Add(1)
 }
 
 // Delete a session from session list.
 func (server *Server) delSession(session *Session) {
 	server.sessionMutex.Lock()
+	defer server.sessionMutex.Unlock()
+
+	session.RemoveCloseEventListener(server)
 	delete(server.sessions, session.id)
-	session.server.stopWait.Done()
-	server.sessionMutex.Unlock()
+	server.stopWait.Done()
 }
 
-// Close all sessions.
-func (server *Server) closeSessions() {
+// Copy sessions for close.
+func (server *Server) copySessions() []*Session {
 	server.sessionMutex.Lock()
+	defer server.sessionMutex.Unlock()
+
 	sessions := make([]*Session, 0, len(server.sessions))
 	for _, session := range server.sessions {
 		sessions = append(sessions, session)
 	}
-	server.sessionMutex.Unlock()
+	return sessions
+}
 
+// Close all sessions.
+func (server *Server) closeSessions() {
+	sessions := server.copySessions()
 	for _, session := range sessions {
 		session.Close(nil)
 	}
