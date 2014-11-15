@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"io"
 	"net"
-	"sync"
 )
 
 // The packet spliting protocol like Erlang's {packet, N}.
@@ -98,10 +97,9 @@ func (w *PNWriter) WritePacket(conn net.Conn, packet []byte) error {
 // The {packet, N} reader.
 type PNReader struct {
 	SimpleSettings
-	n     uint
-	bo    binary.ByteOrder
-	head  []byte
-	mutex sync.Mutex
+	n    uint
+	bo   binary.ByteOrder
+	head []byte
 }
 
 // Create a new instance of {packet, N} reader.
@@ -117,9 +115,6 @@ func NewPNReader(n uint, bo binary.ByteOrder) *PNReader {
 
 // Read a packet from conn.
 func (r *PNReader) ReadPacket(conn net.Conn, buff []byte) ([]byte, error) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
 	if _, err := io.ReadFull(conn, r.head); err != nil {
 		return nil, err
 	}

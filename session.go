@@ -150,7 +150,9 @@ func (session *Session) ReadLoop(handler func([]byte)) {
 	}
 }
 
-// Read message once.
+// Read message once. NOTE: Read() it's not thread-safe.
+// If you want to process request by multi-goroutine.
+// Please read request then dispatch it to different goroutine by chan.
 func (session *Session) Read() ([]byte, error) {
 	return session.Read2(nil)
 }
@@ -158,6 +160,9 @@ func (session *Session) Read() ([]byte, error) {
 // Read message once with buffer reusing.
 // You can reuse a buffer for reading or just set buffer as nil is OK.
 // About the buffer reusing, please see Read() and ReadLoop().
+// NOTE: Read() it's not thread-safe.
+// If you want to process request by multi-goroutine.
+// Please read request then dispatch it to different goroutine by chan.
 func (session *Session) Read2(buffer []byte) ([]byte, error) {
 	if len(buffer) != 0 {
 		buffer = buffer[0:0]
