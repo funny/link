@@ -21,6 +21,7 @@ type Session struct {
 	// About send and receive
 	sendChan       chan Message
 	sendPacketChan chan []byte
+	sendMutex      sync.Mutex
 	OnSendFailed   func(*Session, error)
 
 	// About session close
@@ -63,7 +64,7 @@ func (session *Session) sendLoop() {
 	for {
 		select {
 		case message := <-session.sendChan:
-			if newBuffer, err := session.Send2(message, buffer); err == nil {
+			if newBuffer, err := session.ReuseBufferSend(message, buffer); err == nil {
 				buffer = newBuffer
 			} else {
 				if session.OnSendFailed != nil {
@@ -141,7 +142,7 @@ func (session *Session) Close(reason interface{}) {
 func (session *Session) ReadLoop(handler func([]byte)) {
 	var buffer []byte
 	for {
-		msg, err := session.Read2(buffer)
+		msg, err := session.ReuseBufferRead(buffer)
 		if err != nil {
 			session.Close(err)
 			break
@@ -150,27 +151,27 @@ func (session *Session) ReadLoop(handler func([]byte)) {
 	}
 }
 
-// Read message once. NOTE: Read() it's not thread-safe.
-// If you want to process request by multi-goroutine.
-// Please read request then dispatch it to different goroutine by chan.
+// Read message once.
 func (session *Session) Read() ([]byte, error) {
-	return session.Read2(nil)
+	return session.ReuseBufferRead(nil)
 }
 
 // Read message once with buffer reusing.
 // You can reuse a buffer for reading or just set buffer as nil is OK.
 // About the buffer reusing, please see Read() and ReadLoop().
-// NOTE: Read() it's not thread-safe.
-// If you want to process request by multi-goroutine.
-// Please read request then dispatch it to different goroutine by chan.
-func (session *Session) Read2(buffer []byte) ([]byte, error) {
+func (session *Session) ReuseBufferRead(buffer []byte) ([]byte, error) {
+	session.sendMutex.Lock()
+	defer session.sendMutex.Unlock()
+
 	if len(buffer) != 0 {
 		buffer = buffer[0:0]
 	}
+
 	msg, err := session.reader.ReadPacket(session.conn, buffer)
 	if err != nil {
 		return nil, err
 	}
+
 	return msg, nil
 }
 
@@ -197,14 +198,16 @@ func (session *Session) SendPacket(packet []byte) error {
 
 // Sync send a message. Equals Packet() and SendPacket(). This method will block on IO.
 func (session *Session) Send(message Message) error {
-	_, err := session.Send2(message, nil)
+	_, err := session.ReuseBufferSend(message, nil)
 	return err
 }
 
-// Sync send a message with buffer resuing. Equals Packet() and SendPacket(). This method will block on IO.
-// You can reuse a buffer for sending or just set buffer as nil is OK.
+// Sync send a message with buffer resuing.
+// Equals Packet() and SendPacket().
+// NOTE 1: This method will block on IO.
+// NOTE 2: You can reuse a buffer for sending or just set buffer as nil is OK.
 // About the buffer reusing, please see Send() and sendLoop().
-func (session *Session) Send2(message Message, buffer []byte) ([]byte, error) {
+func (session *Session) ReuseBufferSend(message Message, buffer []byte) ([]byte, error) {
 	packet, err := session.Packet(message, buffer)
 	if err != nil {
 		return buffer, err
@@ -213,8 +216,8 @@ func (session *Session) Send2(message Message, buffer []byte) ([]byte, error) {
 	return packet, err
 }
 
-// Async send a message. This method will never block.
-// If blocking happens, this method returns BlockingError.
+// Try async send a message.
+// If send chan block until timeout happens, this method returns BlockingError.
 func (session *Session) TrySend(message Message, timeout time.Duration) error {
 	if session.IsClosed() {
 		return SendToClosedError
@@ -231,10 +234,9 @@ func (session *Session) TrySend(message Message, timeout time.Duration) error {
 	return nil
 }
 
-// Try send a message. This method will never block.
-// If blocking happens, this method returns BlockingError.
-// The packet must be properly formatted.
-// Please see Session.Packet().
+// Try async send a packet.
+// If send chan block until timeout happens, this method returns BlockingError.
+// The packet must be properly formatted. Please see Session.Packet().
 func (session *Session) TrySendPacket(packet []byte, timeout time.Duration) error {
 	if session.IsClosed() {
 		return SendToClosedError
