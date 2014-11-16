@@ -9,8 +9,8 @@ import (
 // Default send chan buffer size for sessions.
 var DefaultSendChanSize uint = 1024
 
-// Default read buffer size for session.
-var DefaultReadBufferSize int = 1024
+// Default connection buffer size for session.
+var DefaultConnBufferSize int = 1024
 
 // Server.
 type Server struct {
@@ -19,19 +19,18 @@ type Server struct {
 	protocol PacketProtocol
 
 	// About sessions
-	sendChanSize   uint
-	readBufferSize int
-	maxSessionId   uint64
-	sessions       map[uint64]*Session
-	sessionMutex   sync.Mutex
+	maxSessionId uint64
+	sessions     map[uint64]*Session
+	sessionMutex sync.Mutex
 
 	// About server start and stop
 	stopFlag   int32
 	stopWait   *sync.WaitGroup
 	stopReason interface{}
 
-	// Put your server state here.
-	State interface{}
+	SendChanSize   uint        // Session send chan buffer size.
+	ConnBufferSize int         // Session connection buffer size.
+	State          interface{} // server state.
 }
 
 // Create a server.
@@ -39,11 +38,11 @@ func NewServer(listener net.Listener, protocol PacketProtocol) *Server {
 	return &Server{
 		listener:       listener,
 		protocol:       protocol,
-		sendChanSize:   DefaultSendChanSize,
-		readBufferSize: DefaultReadBufferSize,
 		maxSessionId:   0,
 		sessions:       make(map[uint64]*Session),
 		stopWait:       new(sync.WaitGroup),
+		SendChanSize:   DefaultSendChanSize,
+		ConnBufferSize: DefaultConnBufferSize,
 	}
 }
 
@@ -55,28 +54,6 @@ func (server *Server) Listener() net.Listener {
 // Get packet protocol.
 func (server *Server) Protocol() PacketProtocol {
 	return server.protocol
-}
-
-// Set session send channel buffer size.
-// New setting will effect on new sessions.
-func (server *Server) SetSendChanSize(size uint) {
-	server.sendChanSize = size
-}
-
-// Get current session send chan buffer size setting.
-func (server *Server) GetSendChanSize() uint {
-	return server.sendChanSize
-}
-
-// Get current session read buffer size setting.
-func (server *Server) SetReadBufferSize(size int) {
-	server.readBufferSize = size
-}
-
-// Set session read buffer size.
-// New setting will effect on new sessions.
-func (server *Server) GetReadBufferSize() int {
-	return server.readBufferSize
 }
 
 // Check server is stoppped
@@ -133,7 +110,7 @@ func (server *Server) Stop(reason interface{}) {
 }
 
 func (server *Server) newSession(id uint64, conn net.Conn) *Session {
-	session := NewSession(id, conn, server.protocol, server.sendChanSize, server.readBufferSize)
+	session := NewSession(id, conn, server.protocol, server.SendChanSize, server.ConnBufferSize)
 	server.putSession(session)
 	return session
 }

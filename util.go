@@ -25,7 +25,7 @@ func Dial(network, address string, protocol PacketProtocol) (*Session, error) {
 		return nil, err
 	}
 	id := atomic.AddUint64(&dialSessionId, 1)
-	session := NewSession(id, conn, protocol, DefaultSendChanSize, DefaultReadBufferSize)
+	session := NewSession(id, conn, protocol, DefaultSendChanSize, DefaultConnBufferSize)
 	return session, nil
 }
 
@@ -36,7 +36,7 @@ func DialTimeout(network, address string, timeout time.Duration, protocol Packet
 		return nil, err
 	}
 	id := atomic.AddUint64(&dialSessionId, 1)
-	session := NewSession(id, conn, protocol, DefaultSendChanSize, DefaultReadBufferSize)
+	session := NewSession(id, conn, protocol, DefaultSendChanSize, DefaultConnBufferSize)
 	return session, nil
 }
 
