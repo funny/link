@@ -24,7 +24,7 @@ func log(v ...interface{}) {
 func main() {
 	flag.Parse()
 
-	link.DefaultReadBufferSize = *buffersize
+	link.DefaultConnBufferSize = *buffersize
 
 	protocol := link.PacketN(2, binary.BigEndian)
 
@@ -38,7 +38,7 @@ func main() {
 	server.AcceptLoop(func(session *link.Session) {
 		log("client", session.Conn().RemoteAddr().String(), "in")
 
-		session.ReadLoop(func(msg []byte) {
+		session.ReadLoop(func(msg link.InMessage) {
 			log("client", session.Conn().RemoteAddr().String(), "say:", string(msg))
 			session.Send(link.Binary(msg))
 		})

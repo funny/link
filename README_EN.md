@@ -36,10 +36,10 @@ server, _ := link.Listen("tcp", "0.0.0.0:8080", proto)
 Handle incoming connections. And setup a message handler on the new session.
 
 ```go
-server.AcceptLoop(func(session *Session) {
+server.AcceptLoop(func(session *link.Session) {
 	fmt.Println("session start")
 
-	session.ReadLoop(func(session *Session, msg []byte) {
+	session.ReadLoop(func(session *link.Session, msg link.InMessage) {
 		fmt.Printf("new message: %s\n", msg)
 	})
 

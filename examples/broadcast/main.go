@@ -31,7 +31,7 @@ func main() {
 		println("client", session.Conn().RemoteAddr().String(), "in")
 		channel.Join(session, nil)
 
-		session.ReadLoop(func(msg []byte) {
+		session.ReadLoop(func(msg link.InMessage) {
 			channel.Broadcast(link.Binary(
 				session.Conn().RemoteAddr().String() + " say: " + string(msg),
 			))

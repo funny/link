@@ -34,10 +34,10 @@ server, _ := link.Listen("tcp", "0.0.0.0:8080", proto)
 处理新进连接，并为新的Session设置消息处理器：
 
 ```go
-server.AcceptLoop(func(session *Session) {
+server.AcceptLoop(func(session *link.Session) {
 	fmt.Println("session start")
 
-	session.ReadLoop(func(session *Session, msg []byte) {
+	session.ReadLoop(func(session *link.Session, msg link.InMessage) {
 		fmt.Printf("new message: %s\n", msg)
 	})
 

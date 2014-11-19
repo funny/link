@@ -16,7 +16,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	go client.ReadLoop(func(msg []byte) {
+	go client.ReadLoop(func(msg link.InMessage) {
 		println("message:", string(msg))
 	})
 
