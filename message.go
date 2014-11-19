@@ -11,7 +11,7 @@ type Message interface {
 	RecommendPacketSize() uint
 
 	// Append the message to the packet buffer and returns the new buffer like append() function.
-	AppendToPacket([]byte) ([]byte, error)
+	AppendToPacket(buffer *OutMessage) error
 }
 
 // Binary message
@@ -23,8 +23,9 @@ func (bin Binary) RecommendPacketSize() uint {
 }
 
 // Implement the Message interface.
-func (bin Binary) AppendToPacket(packet []byte) ([]byte, error) {
-	return append(packet, bin...), nil
+func (bin Binary) AppendToPacket(buffer *OutMessage) error {
+	buffer.AppendBytes([]byte(bin))
+	return nil
 }
 
 // JSON message
@@ -39,14 +40,15 @@ func (j JSON) RecommendPacketSize() uint {
 }
 
 // Implement the Message interface.
-func (j JSON) AppendToPacket(packet []byte) ([]byte, error) {
-	w := bytes.NewBuffer(packet)
+func (j JSON) AppendToPacket(buffer *OutMessage) error {
+	w := bytes.NewBuffer(*buffer)
 	e := json.NewEncoder(w)
 	err := e.Encode(j.V)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return w.Bytes(), nil
+	*buffer = OutMessage(w.Bytes())
+	return nil
 }
 
 // A simple send queue. Can used for buffered send.
@@ -72,13 +74,11 @@ func (q *SendQueue) RecommendPacketSize() uint {
 }
 
 // Implement the Message interface.
-func (q *SendQueue) AppendToPacket(packet []byte) ([]byte, error) {
-	var err error
+func (q *SendQueue) AppendToPacket(buffer *OutMessage) error {
 	for _, message := range q.messages {
-		packet, err = message.AppendToPacket(packet)
-		if err != nil {
-			return nil, err
+		if err := message.AppendToPacket(buffer); err != nil {
+			return err
 		}
 	}
-	return packet, nil
+	return nil
 }

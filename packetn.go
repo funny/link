@@ -53,18 +53,19 @@ func NewPNWriter(n uint, bo binary.ByteOrder) *PNWriter {
 // Begin a packet writing on the buff.
 // If the size large than the buff capacity, the buff will be dropped and a new buffer will be created.
 // This method give the session a way to reuse buffer and avoid invoke Conn.Writer() twice.
-func (w *PNWriter) BeginPacket(size uint, buff []byte) []byte {
+func (w *PNWriter) BeginPacket(size uint, buffer *OutMessage) {
 	packetLen := w.n + size
-	if uint(cap(buff)) < packetLen {
-		return make([]byte, w.n, packetLen)
+	if uint(cap(*buffer)) < packetLen {
+		*buffer = make([]byte, w.n, packetLen)
+	} else {
+		*buffer = (*buffer)[0:w.n:cap(*buffer)]
 	}
-	return buff[0:w.n:cap(buff)]
 }
 
 // Finish a packet writing.
 // Give the protocol writer a chance to set packet head data after packet body writed.
-func (w *PNWriter) EndPacket(packet []byte) []byte {
-	size := uint(len(packet)) - w.n
+func (w *PNWriter) EndPacket(buffer *OutMessage) {
+	size := uint(len(*buffer)) - w.n
 
 	if w.maxsize > 0 && size > w.maxsize {
 		panic("too large packet")
@@ -72,22 +73,20 @@ func (w *PNWriter) EndPacket(packet []byte) []byte {
 
 	switch w.n {
 	case 1:
-		packet[0] = byte(size)
+		(*buffer)[0] = byte(size)
 	case 2:
-		w.bo.PutUint16(packet, uint16(size))
+		w.bo.PutUint16(*buffer, uint16(size))
 	case 4:
-		w.bo.PutUint32(packet, uint32(size))
+		w.bo.PutUint32(*buffer, uint32(size))
 	case 8:
-		w.bo.PutUint64(packet, uint64(size))
+		w.bo.PutUint64(*buffer, uint64(size))
 	default:
 		panic("unsupported packet head size")
 	}
-
-	return packet
 }
 
 // Write a packet to the conn.
-func (w *PNWriter) WritePacket(conn net.Conn, packet []byte) error {
+func (w *PNWriter) WritePacket(conn net.Conn, packet OutMessage) error {
 	if _, err := conn.Write(packet); err != nil {
 		return err
 	}
@@ -114,9 +113,9 @@ func NewPNReader(n uint, bo binary.ByteOrder) *PNReader {
 }
 
 // Read a packet from conn.
-func (r *PNReader) ReadPacket(conn net.Conn, buff []byte) ([]byte, error) {
+func (r *PNReader) ReadPacket(conn net.Conn, buffer *InMessage) error {
 	if _, err := io.ReadFull(conn, r.head); err != nil {
-		return nil, err
+		return err
 	}
 
 	size := uint(0)
@@ -135,25 +134,23 @@ func (r *PNReader) ReadPacket(conn net.Conn, buff []byte) ([]byte, error) {
 	}
 
 	if r.maxsize > 0 && size > r.maxsize {
-		return nil, PacketTooLargeError
+		return PacketTooLargeError
 	}
 
-	var data []byte
-
-	if uint(cap(buff)) >= size {
-		data = buff[0:size]
+	if uint(cap(*buffer)) >= size {
+		*buffer = (*buffer)[0:size]
 	} else {
-		data = make([]byte, size)
+		*buffer = make([]byte, size)
 	}
 
-	if len(data) == 0 {
-		return data, nil
+	if size == 0 {
+		return nil
 	}
 
-	_, err := io.ReadFull(conn, data)
+	_, err := io.ReadFull(conn, *buffer)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return data, nil
+	return nil
 }

@@ -1,9 +1,13 @@
 package link
 
+import "sync"
+
 // A broadcast sender. The broadcast message only encoded once
 // so the performance it's better then send message one by one.
 type Broadcaster struct {
+	mutex  sync.Mutex
 	writer PacketWriter
+	buffer OutMessage
 }
 
 // Craete a broadcaster.
@@ -13,15 +17,14 @@ func NewBroadcaster(protocol PacketProtocol) *Broadcaster {
 	}
 }
 
-func (b *Broadcaster) packet(message Message) (packet []byte, err error) {
+func (b *Broadcaster) packet(message Message) error {
 	size := message.RecommendPacketSize()
-	packet = b.writer.BeginPacket(size, nil)
-	packet, err = message.AppendToPacket(packet)
-	if err != nil {
-		return nil, err
+	b.writer.BeginPacket(size, &b.buffer)
+	if err := message.AppendToPacket(&b.buffer); err != nil {
+		return err
 	}
-	packet = b.writer.EndPacket(packet)
-	return
+	b.writer.EndPacket(&b.buffer)
+	return nil
 }
 
 // The session collection use to fetch session and send broadcast.
@@ -32,12 +35,13 @@ type SessionCollection interface {
 // Broadcast to sessions. The message only encoded once
 // so the performance it's better then send message one by one.
 func (b *Broadcaster) Broadcast(sessions SessionCollection, message Message) error {
-	packet, err := b.packet(message)
-	if err != nil {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+	if err := b.packet(message); err != nil {
 		return err
 	}
 	sessions.Fetch(func(session *Session) {
-		session.TrySendPacket(packet, 0)
+		session.TrySendPacket(b.buffer, 0)
 	})
 	return nil
 }
@@ -45,12 +49,13 @@ func (b *Broadcaster) Broadcast(sessions SessionCollection, message Message) err
 // Broadcast to sessions. The message only encoded once
 // so the performance it's better then send message one by one.
 func (b *Broadcaster) MustBroadcast(sessions SessionCollection, message Message) error {
-	packet, err := b.packet(message)
-	if err != nil {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+	if err := b.packet(message); err != nil {
 		return err
 	}
 	sessions.Fetch(func(session *Session) {
-		session.SendPacket(packet)
+		session.SendPacket(b.buffer)
 	})
 	return nil
 }

@@ -19,7 +19,7 @@ func Test_Server(t *testing.T) {
 
 	var (
 		addr    = server.Listener().Addr().String()
-		message = Binary{0, 1, 2, 3, 4, 45, 6, 7, 8, 9}
+		message = Binary{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
 
 		sessionStart   sync.WaitGroup
 		sessionClose   sync.WaitGroup
@@ -36,7 +36,7 @@ func Test_Server(t *testing.T) {
 			atomic.AddInt32(&sessionStartCount, 1)
 			sessionStart.Done()
 
-			session.ReadLoop(func(msg []byte) {
+			session.ReadLoop(func(msg InMessage) {
 				if !bytes.Equal(msg, message) {
 					messageMatchFailed = true
 				}
