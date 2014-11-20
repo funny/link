@@ -29,9 +29,9 @@ func (m *OutMessage) AppendString(s string) {
 
 // Append a rune into buffer.
 func (m *OutMessage) AppendRune(r rune) {
-	p := make([]byte, utf8.RuneLen(r))
-	utf8.EncodeRune(p, r)
-	*m = append(*m, p...)
+	p := []byte{0, 0, 0, 0}
+	n := utf8.EncodeRune(p, r)
+	*m = append(*m, p[:n]...)
 }
 
 // Append a byte value into buffer.
