@@ -12,7 +12,7 @@ import (
 func Test_Server(t *testing.T) {
 	proto := PacketN(4, binary.BigEndian)
 
-	server, err0 := Listen("tcp", "0.0.0.0:0", proto)
+	server, err0 := Listen("tcp", "0.0.0.0:0", proto, LittleEndian)
 	if err0 != nil {
 		t.Fatalf("Setup server failed, Error = %v", err0)
 	}
@@ -36,8 +36,8 @@ func Test_Server(t *testing.T) {
 			atomic.AddInt32(&sessionStartCount, 1)
 			sessionStart.Done()
 
-			session.ReadLoop(func(msg InMessage) {
-				if !bytes.Equal(msg, message) {
+			session.ReadLoop(func(msg InBuffer) {
+				if !bytes.Equal(msg.Get(), message) {
 					messageMatchFailed = true
 				}
 
@@ -52,13 +52,13 @@ func Test_Server(t *testing.T) {
 
 	// test session start
 	sessionStart.Add(1)
-	client1, err1 := Dial("tcp", addr, proto)
+	client1, err1 := Dial("tcp", addr, proto, LittleEndian)
 	if err1 != nil {
 		t.Fatal("Create client1 failed, Error = %v", err1)
 	}
 
 	sessionStart.Add(1)
-	client2, err2 := Dial("tcp", addr, proto)
+	client2, err2 := Dial("tcp", addr, proto, LittleEndian)
 	if err2 != nil {
 		t.Fatal("Create client2 failed, Error = %v", err2)
 	}

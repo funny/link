@@ -28,7 +28,7 @@ proto := link.PacketN(2, binary.BigEndian)
 在指定的端口启动一个服务器：
 
 ```go
-server, _ := link.Listen("tcp", "0.0.0.0:8080", proto)
+server, _ := link.Listen("tcp", "0.0.0.0:8080", proto, link.LittleEndian)
 ```
 
 处理新进连接，并为新的Session设置消息处理器：
@@ -37,8 +37,8 @@ server, _ := link.Listen("tcp", "0.0.0.0:8080", proto)
 server.AcceptLoop(func(session *link.Session) {
 	fmt.Println("session start")
 
-	session.ReadLoop(func(session *link.Session, msg link.InMessage) {
-		fmt.Printf("new message: %s\n", msg)
+	session.ReadLoop(func(session *link.Session, msg link.InBuffer) {
+		fmt.Printf("new message: %s\n", msg.Get())
 	})
 
 	fmt.Println("session closed")
@@ -50,7 +50,7 @@ server.AcceptLoop(func(session *link.Session) {
 ```go
 proto := link.PacketN(2, binary.BigEndian)
 
-client, _ := link.Dial("tcp", "127.0.0.1:8080", proto)
+client, _ := link.Dial("tcp", "127.0.0.1:8080", proto, link.LittleEndian)
 ```
 
 发送一个消息给服务端：

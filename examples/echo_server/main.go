@@ -28,7 +28,7 @@ func main() {
 
 	protocol := link.PacketN(2, binary.BigEndian)
 
-	server, err := link.Listen("tcp", "127.0.0.1:10010", protocol)
+	server, err := link.Listen("tcp", "127.0.0.1:10010", protocol, link.LittleEndian)
 	if err != nil {
 		panic(err)
 	}
@@ -38,9 +38,9 @@ func main() {
 	server.AcceptLoop(func(session *link.Session) {
 		log("client", session.Conn().RemoteAddr().String(), "in")
 
-		session.ReadLoop(func(msg link.InMessage) {
-			log("client", session.Conn().RemoteAddr().String(), "say:", string(msg))
-			session.Send(link.Binary(msg))
+		session.ReadLoop(func(msg link.InBuffer) {
+			log("client", session.Conn().RemoteAddr().String(), "say:", string(msg.Get()))
+			session.Send(link.Binary(msg.Get()))
 		})
 
 		log("client", session.Conn().RemoteAddr().String(), "close")

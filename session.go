@@ -13,14 +13,15 @@ type Session struct {
 	id uint64
 
 	// About network
-	conn     net.Conn
-	protocol PacketProtocol
-	writer   PacketWriter
-	reader   PacketReader
+	conn          net.Conn
+	protocol      PacketProtocol
+	writer        PacketWriter
+	reader        PacketReader
+	bufferFactory BufferFactory
 
 	// About send and receive
 	sendChan       chan Message
-	sendPacketChan chan OutMessage
+	sendPacketChan chan OutBuffer
 	sendMutex      sync.Mutex
 	OnSendFailed   func(*Session, error)
 
@@ -36,7 +37,7 @@ type Session struct {
 }
 
 // Create a new session instance.
-func NewSession(id uint64, conn net.Conn, protocol PacketProtocol, sendChanSize uint, connBufferSize int) *Session {
+func NewSession(id uint64, conn net.Conn, protocol PacketProtocol, bufferFactory BufferFactory, sendChanSize uint, connBufferSize int) *Session {
 	if connBufferSize > 0 {
 		conn = NewBufferConn(conn, connBufferSize)
 	}
@@ -47,8 +48,9 @@ func NewSession(id uint64, conn net.Conn, protocol PacketProtocol, sendChanSize 
 		protocol:            protocol,
 		writer:              protocol.NewWriter(),
 		reader:              protocol.NewReader(),
+		bufferFactory:       bufferFactory,
 		sendChan:            make(chan Message, sendChanSize),
-		sendPacketChan:      make(chan OutMessage, sendChanSize),
+		sendPacketChan:      make(chan OutBuffer, sendChanSize),
 		closeChan:           make(chan int),
 		closeEventListeners: list.New(),
 	}
@@ -108,19 +110,19 @@ func (session *Session) Close(reason interface{}) {
 }
 
 // Read message once.
-func (session *Session) Read() (InMessage, error) {
-	var buffer InMessage
-	if err := session.ReadReuseBuffer(&buffer); err != nil {
+func (session *Session) Read() (InBuffer, error) {
+	var buffer = session.bufferFactory.NewInBuffer()
+	if err := session.ReadReuseBuffer(buffer); err != nil {
 		return nil, err
 	}
 	return buffer, nil
 }
 
 // Loop and read message. NOTE: The callback argument point to internal read buffer.
-func (session *Session) ReadLoop(handler func(InMessage)) {
-	var buffer InMessage
+func (session *Session) ReadLoop(handler func(InBuffer)) {
+	var buffer = session.bufferFactory.NewInBuffer()
 	for {
-		if err := session.ReadReuseBuffer(&buffer); err != nil {
+		if err := session.ReadReuseBuffer(buffer); err != nil {
 			session.Close(err)
 			break
 		}
@@ -131,13 +133,9 @@ func (session *Session) ReadLoop(handler func(InMessage)) {
 // Read message once with buffer reusing.
 // You can reuse a buffer for reading or just set buffer as nil is OK.
 // About the buffer reusing, please see Read() and ReadLoop().
-func (session *Session) ReadReuseBuffer(buffer *InMessage) error {
+func (session *Session) ReadReuseBuffer(buffer InBuffer) error {
 	if buffer == nil {
 		panic(NilBufferError)
-	}
-
-	if len(*buffer) != 0 {
-		*buffer = (*buffer)[0:0]
 	}
 
 	session.sendMutex.Lock()
@@ -151,13 +149,9 @@ func (session *Session) ReadReuseBuffer(buffer *InMessage) error {
 }
 
 // Packet a message.
-func (session *Session) Packet(message Message, buffer *OutMessage) error {
+func (session *Session) Packet(message Message, buffer OutBuffer) error {
 	if buffer == nil {
 		panic(NilBufferError)
-	}
-
-	if len(*buffer) != 0 {
-		*buffer = (*buffer)[0:0]
 	}
 
 	size := message.RecommendPacketSize()
@@ -171,13 +165,13 @@ func (session *Session) Packet(message Message, buffer *OutMessage) error {
 
 // Sync send a message. Equals Packet() and SendPacket(). This method will block on IO.
 func (session *Session) Send(message Message) error {
-	var buffer OutMessage
-	return session.SendReuseBuffer(message, &buffer)
+	var buffer = session.bufferFactory.NewOutBuffer()
+	return session.SendReuseBuffer(message, buffer)
 }
 
 // Sync send a packet. The packet must be properly formatted.
 // Please see Packet().
-func (session *Session) SendPacket(packet OutMessage) error {
+func (session *Session) SendPacket(packet OutBuffer) error {
 	return session.writer.WritePacket(session.conn, packet)
 }
 
@@ -186,20 +180,20 @@ func (session *Session) SendPacket(packet OutMessage) error {
 // NOTE 1: This method will block on IO.
 // NOTE 2: You can reuse a buffer for sending or just set buffer as nil is OK.
 // About the buffer reusing, please see Send() and sendLoop().
-func (session *Session) SendReuseBuffer(message Message, buffer *OutMessage) error {
+func (session *Session) SendReuseBuffer(message Message, buffer OutBuffer) error {
 	if err := session.Packet(message, buffer); err != nil {
 		return err
 	}
-	return session.writer.WritePacket(session.conn, *buffer)
+	return session.writer.WritePacket(session.conn, buffer)
 }
 
 // Loop and transport responses.
 func (session *Session) sendLoop() {
-	var buffer OutMessage
+	var buffer = session.bufferFactory.NewOutBuffer()
 	for {
 		select {
 		case message := <-session.sendChan:
-			if err := session.SendReuseBuffer(message, &buffer); err != nil {
+			if err := session.SendReuseBuffer(message, buffer); err != nil {
 				if session.OnSendFailed != nil {
 					session.OnSendFailed(session, err)
 				} else {
@@ -243,7 +237,7 @@ func (session *Session) TrySend(message Message, timeout time.Duration) error {
 // Try async send a packet.
 // If send chan block until timeout happens, this method returns BlockingError.
 // The packet must be properly formatted. Please see Session.Packet().
-func (session *Session) TrySendPacket(packet OutMessage, timeout time.Duration) error {
+func (session *Session) TrySendPacket(packet OutBuffer, timeout time.Duration) error {
 	if session.IsClosed() {
 		return SendToClosedError
 	}

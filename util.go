@@ -10,33 +10,33 @@ import (
 var dialSessionId uint64
 
 // The easy way to setup a server.
-func Listen(network, address string, protocol PacketProtocol) (*Server, error) {
+func Listen(network, address string, protocol PacketProtocol, bufferFactory BufferFactory) (*Server, error) {
 	listener, err := net.Listen(network, address)
 	if err != nil {
 		return nil, err
 	}
-	return NewServer(listener, protocol), nil
+	return NewServer(listener, protocol, bufferFactory), nil
 }
 
 // The easy way to create a connection.
-func Dial(network, address string, protocol PacketProtocol) (*Session, error) {
+func Dial(network, address string, protocol PacketProtocol, bufferFactory BufferFactory) (*Session, error) {
 	conn, err := net.Dial(network, address)
 	if err != nil {
 		return nil, err
 	}
 	id := atomic.AddUint64(&dialSessionId, 1)
-	session := NewSession(id, conn, protocol, DefaultSendChanSize, DefaultConnBufferSize)
+	session := NewSession(id, conn, protocol, bufferFactory, DefaultSendChanSize, DefaultConnBufferSize)
 	return session, nil
 }
 
 // The easy way to create a connection with timeout setting.
-func DialTimeout(network, address string, timeout time.Duration, protocol PacketProtocol) (*Session, error) {
+func DialTimeout(network, address string, timeout time.Duration, protocol PacketProtocol, bufferFactory BufferFactory) (*Session, error) {
 	conn, err := net.DialTimeout(network, address, timeout)
 	if err != nil {
 		return nil, err
 	}
 	id := atomic.AddUint64(&dialSessionId, 1)
-	session := NewSession(id, conn, protocol, DefaultSendChanSize, DefaultConnBufferSize)
+	session := NewSession(id, conn, protocol, bufferFactory, DefaultSendChanSize, DefaultConnBufferSize)
 	return session, nil
 }
 
@@ -44,12 +44,12 @@ func DialTimeout(network, address string, timeout time.Duration, protocol Packet
 // It's simple way to make your custome protocol implement Settings interface.
 // See FixWriter and FixReader.
 type SimpleSettings struct {
-	maxsize uint
+	maxsize int
 }
 
 // Set max packet size and returns old size limitation.
 // Set 0 means unlimit.
-func (s *SimpleSettings) MaxPacketSize(maxsize uint) (old uint) {
+func (s *SimpleSettings) MaxPacketSize(maxsize int) (old int) {
 	old = s.maxsize
 	s.maxsize = maxsize
 	return

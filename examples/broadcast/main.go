@@ -12,7 +12,7 @@ import (
 func main() {
 	protocol := link.PacketN(2, binary.BigEndian)
 
-	server, err := link.Listen("tcp", "127.0.0.1:10010", protocol)
+	server, err := link.Listen("tcp", "127.0.0.1:10010", protocol, link.LittleEndian)
 	if err != nil {
 		panic(err)
 	}
@@ -31,9 +31,9 @@ func main() {
 		println("client", session.Conn().RemoteAddr().String(), "in")
 		channel.Join(session, nil)
 
-		session.ReadLoop(func(msg link.InMessage) {
+		session.ReadLoop(func(msg link.InBuffer) {
 			channel.Broadcast(link.Binary(
-				session.Conn().RemoteAddr().String() + " say: " + string(msg),
+				session.Conn().RemoteAddr().String() + " say: " + string(msg.Get()),
 			))
 		})
 

@@ -12,12 +12,12 @@ import (
 func main() {
 	protocol := link.PacketN(2, binary.BigEndian)
 
-	client, err := link.Dial("tcp", "127.0.0.1:10010", protocol)
+	client, err := link.Dial("tcp", "127.0.0.1:10010", protocol, link.LittleEndian)
 	if err != nil {
 		panic(err)
 	}
-	go client.ReadLoop(func(msg link.InMessage) {
-		println("message:", string(msg))
+	go client.ReadLoop(func(msg link.InBuffer) {
+		println("message:", string(msg.Get()))
 	})
 
 	for {

@@ -30,7 +30,7 @@ proto := link.PacketN(2, binary.BigEndian)
 Setup a server on port `8080` and set protocol.
 
 ```go
-server, _ := link.Listen("tcp", "0.0.0.0:8080", proto)
+server, _ := link.Listen("tcp", "0.0.0.0:8080", proto, link.LittleEndian)
 ```
 
 Handle incoming connections. And setup a message handler on the new session.
@@ -39,8 +39,8 @@ Handle incoming connections. And setup a message handler on the new session.
 server.AcceptLoop(func(session *link.Session) {
 	fmt.Println("session start")
 
-	session.ReadLoop(func(session *link.Session, msg link.InMessage) {
-		fmt.Printf("new message: %s\n", msg)
+	session.ReadLoop(func(session *link.Session, msg link.InBuffer) {
+		fmt.Printf("new message: %s\n", msg.Get())
 	})
 
 	fmt.Println("session closed")
@@ -52,7 +52,7 @@ Use the same protocol dial to the server.
 ```go
 proto := link.PacketN(2, binary.BigEndian)
 
-client, _ := link.Dial("tcp", "127.0.0.1:8080", proto)
+client, _ := link.Dial("tcp", "127.0.0.1:8080", proto, link.LittleEndian)
 ```
 
 Send a message to server.

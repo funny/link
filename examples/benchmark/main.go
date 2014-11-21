@@ -91,7 +91,7 @@ func client(initWait *sync.WaitGroup, startChan chan int, resultChan chan Client
 	}
 
 	conn = &CountConn{conn, 0, 0}
-	client := link.NewSession(0, conn, link.PacketN(2, binary.BigEndian), link.DefaultSendChanSize, *bufferSize)
+	client := link.NewSession(0, conn, link.PacketN(2, binary.BigEndian), link.LittleEndian, link.DefaultSendChanSize, *bufferSize)
 	defer client.Close(nil)
 
 	go func() {
