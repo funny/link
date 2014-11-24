@@ -244,11 +244,11 @@ func (m *OutBufferBase) Write(d []byte) (int, error) {
 }
 
 // Prepare buffer for next write.
-func (m *OutBufferBase) Prepare(head, size int) {
+func (m *OutBufferBase) Prepare(size int) {
 	if cap(m.b) >= size {
-		m.b = m.b[0:head]
+		m.b = m.b[0:0]
 	} else {
-		m.b = make([]byte, head, size)
+		m.b = make([]byte, 0, size)
 	}
 }
 

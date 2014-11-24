@@ -19,13 +19,8 @@ func NewBroadcaster(protocol PacketProtocol) *Broadcaster {
 }
 
 func (b *Broadcaster) packet(message Message) error {
-	size := message.RecommendBufferSize()
-	b.writer.BeginPacket(size, b.buffer)
-	if err := message.WriteBuffer(b.buffer); err != nil {
-		return err
-	}
-	b.writer.EndPacket(b.buffer)
-	return nil
+	b.buffer.Prepare(message.RecommendBufferSize())
+	return message.WriteBuffer(b.buffer)
 }
 
 // The session collection use to fetch session and send broadcast.

@@ -49,17 +49,6 @@ type PacketProtocol interface {
 type PacketWriter interface {
 	Settings
 
-	// Begin a packet writing on the buffer.
-	// If the packet size large than the buffer capacity, a new buffer will be created otherwise the buffer will be reused.
-	// The size no need to equals really packet size, some time we could not knows a message's packet size before it encoded,
-	// if the size less than really packet size, the buffer will auto grows when you append data into it.
-	// This method give the session a way to reuse buffer and avoid invoke Write() twice.
-	BeginPacket(size int, buffer OutBuffer)
-
-	// Finish a packet writing.
-	// Give the protocol writer a chance to set packet head data after packet body writed.
-	EndPacket(buffer OutBuffer)
-
 	// Write a packet to the conn.
 	WritePacket(conn net.Conn, buffer OutBuffer) error
 }
@@ -85,17 +74,24 @@ type BufferFactory interface {
 // Message buffer base interface.
 type Buffer interface {
 	// Get internal buffer data.
-	// DO NOT use this method in your application!
+	// DO NOT use this method in application!
 	Get() []byte
 
 	// Get buffer length.
+	// DO NOT use this method in application!
 	Len() int
 
 	// Get buffer capacity.
+	// DO NOT use this method in application!
 	Cap() int
 
 	// Copy buffer data.
+	// DO NOT use this method in application!
 	Copy() []byte
+
+	// Prepare buffer for next read.
+	// DO NOT use this method in application!
+	Prepare(size int)
 }
 
 // Incoming message buffer.
@@ -103,10 +99,6 @@ type InBuffer interface {
 	Buffer
 
 	io.Reader
-
-	// Prepare buffer for next read.
-	// DO NOT use this method in your application!
-	Prepare(size int)
 
 	// Slice some bytes from buffer.
 	ReadSlice(n int) []byte
@@ -156,7 +148,7 @@ type OutBuffer interface {
 
 	// Prepare buffer for next write.
 	// DO NOT use this method in your application!
-	Prepare(head, size int)
+	Prepare(size int)
 
 	// Write a byte slice into buffer.
 	WriteBytes(d []byte)

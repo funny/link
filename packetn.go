@@ -43,8 +43,9 @@ func (p PNProtocol) NewReader() PacketReader {
 // The {packet, N} writer.
 type PNWriter struct {
 	SimpleSettings
-	n  int
-	bo binary.ByteOrder
+	n    int
+	bo   binary.ByteOrder
+	head []byte
 }
 
 // Create a new instance of {packet, N} writer.
@@ -52,47 +53,39 @@ type PNWriter struct {
 // The 'bo' used to define packet header's byte order.
 func NewPNWriter(n int, bo binary.ByteOrder) *PNWriter {
 	return &PNWriter{
-		n:  n,
-		bo: bo,
-	}
-}
-
-// Begin a packet writing on the buff.
-// If the size large than the buff capacity, the buff will be dropped and a new buffer will be created.
-// This method give the session a way to reuse buffer and avoid invoke Conn.Writer() twice.
-func (w *PNWriter) BeginPacket(size int, buffer OutBuffer) {
-	packetLen := w.n + size
-	buffer.Prepare(w.n, packetLen)
-}
-
-// Finish a packet writing.
-// Give the protocol writer a chance to set packet head data after packet body writed.
-func (w *PNWriter) EndPacket(buffer OutBuffer) {
-	size := buffer.Len() - w.n
-
-	if w.maxsize > 0 && size > w.maxsize {
-		panic("too large packet")
-	}
-
-	switch w.n {
-	case 1:
-		buffer.Get()[0] = byte(size)
-	case 2:
-		w.bo.PutUint16(buffer.Get(), uint16(size))
-	case 4:
-		w.bo.PutUint32(buffer.Get(), uint32(size))
-	case 8:
-		w.bo.PutUint64(buffer.Get(), uint64(size))
-	default:
-		panic("unsupported packet head size")
+		n:    n,
+		bo:   bo,
+		head: make([]byte, n),
 	}
 }
 
 // Write a packet to the conn.
 func (w *PNWriter) WritePacket(conn net.Conn, buffer OutBuffer) error {
+	if w.maxsize > 0 && buffer.Len() > w.maxsize {
+		return PacketTooLargeError
+	}
+
+	switch w.n {
+	case 1:
+		w.head[0] = byte(buffer.Len())
+	case 2:
+		w.bo.PutUint16(w.head, uint16(buffer.Len()))
+	case 4:
+		w.bo.PutUint32(w.head, uint32(buffer.Len()))
+	case 8:
+		w.bo.PutUint64(w.head, uint64(buffer.Len()))
+	default:
+		panic("unsupported packet head size")
+	}
+
+	if _, err := conn.Write(w.head); err != nil {
+		return err
+	}
+
 	if _, err := conn.Write(buffer.Get()); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -146,8 +139,7 @@ func (r *PNReader) ReadPacket(conn net.Conn, buffer InBuffer) error {
 
 	buffer.Prepare(size)
 
-	_, err := io.ReadFull(conn, buffer.Get())
-	if err != nil {
+	if _, err := io.ReadFull(conn, buffer.Get()); err != nil {
 		return err
 	}
 

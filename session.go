@@ -22,15 +22,16 @@ type Session struct {
 	// About send and receive
 	sendChan       chan Message
 	sendPacketChan chan OutBuffer
+	readMutex      sync.Mutex
 	sendMutex      sync.Mutex
 	OnSendFailed   func(*Session, error)
 
 	// About session close
-	closeChan               chan int
-	closeFlag               int32
-	closeReason             interface{}
-	closeEventListenerMutex sync.Mutex
-	closeEventListeners     *list.List
+	closeChan           chan int
+	closeFlag           int32
+	closeReason         interface{}
+	closeEventMutex     sync.Mutex
+	closeEventListeners *list.List
 
 	// Put your session state here.
 	State interface{}
@@ -138,8 +139,8 @@ func (session *Session) ReadReuseBuffer(buffer InBuffer) error {
 		panic(NilBufferError)
 	}
 
-	session.sendMutex.Lock()
-	defer session.sendMutex.Unlock()
+	session.readMutex.Lock()
+	defer session.readMutex.Unlock()
 
 	if err := session.reader.ReadPacket(session.conn, buffer); err != nil {
 		return err
@@ -154,13 +155,8 @@ func (session *Session) Packet(message Message, buffer OutBuffer) error {
 		panic(NilBufferError)
 	}
 
-	size := message.RecommendBufferSize()
-	session.writer.BeginPacket(size, buffer)
-	if err := message.WriteBuffer(buffer); err != nil {
-		return err
-	}
-	session.writer.EndPacket(buffer)
-	return nil
+	buffer.Prepare(message.RecommendBufferSize())
+	return message.WriteBuffer(buffer)
 }
 
 // Sync send a message. Equals Packet() and SendPacket(). This method will block on IO.
@@ -181,9 +177,13 @@ func (session *Session) SendPacket(packet OutBuffer) error {
 // NOTE 2: You can reuse a buffer for sending or just set buffer as nil is OK.
 // About the buffer reusing, please see Send() and sendLoop().
 func (session *Session) SendReuseBuffer(message Message, buffer OutBuffer) error {
+	session.sendMutex.Lock()
+	defer session.sendMutex.Unlock()
+
 	if err := session.Packet(message, buffer); err != nil {
 		return err
 	}
+
 	return session.writer.WritePacket(session.conn, buffer)
 }
 
@@ -260,11 +260,25 @@ type SessionCloseEventListener interface {
 
 // Add close event listener.
 func (session *Session) AddCloseEventListener(listener SessionCloseEventListener) {
+	if session.IsClosed() {
+		return
+	}
+
+	session.closeEventMutex.Lock()
+	defer session.closeEventMutex.Unlock()
+
 	session.closeEventListeners.PushBack(listener)
 }
 
 // Remove close event listener.
 func (session *Session) RemoveCloseEventListener(listener SessionCloseEventListener) {
+	if session.IsClosed() {
+		return
+	}
+
+	session.closeEventMutex.Lock()
+	defer session.closeEventMutex.Unlock()
+
 	for i := session.closeEventListeners.Front(); i != nil; i = i.Next() {
 		if i.Value == listener {
 			session.closeEventListeners.Remove(i)
@@ -275,6 +289,13 @@ func (session *Session) RemoveCloseEventListener(listener SessionCloseEventListe
 
 // Dispatch close event.
 func (session *Session) dispatchCloseEvent() {
+	if session.IsClosed() {
+		return
+	}
+
+	session.closeEventMutex.Lock()
+	defer session.closeEventMutex.Unlock()
+
 	for i := session.closeEventListeners.Front(); i != nil; i = i.Next() {
 		i.Value.(SessionCloseEventListener).OnSessionClose(session)
 	}
