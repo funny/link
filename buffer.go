@@ -2,6 +2,7 @@ package link
 
 import (
 	"encoding/binary"
+	"io"
 	"unicode/utf8"
 )
 
@@ -70,6 +71,17 @@ type InBufferBase struct {
 	i int
 }
 
+// Implement io.Reader interface.
+func (m *InBufferBase) Read(p []byte) (int, error) {
+	if m.i == len(m.b) {
+		return 0, io.EOF
+	}
+	n := copy(p, m.b[m.i:])
+	m.i += n
+	return n, nil
+}
+
+// Prepare buffer for next read.
 func (m *InBufferBase) Prepare(size int) {
 	if cap(m.b) >= size {
 		m.b = m.b[0:size]
@@ -81,7 +93,7 @@ func (m *InBufferBase) Prepare(size int) {
 
 // Slice some bytes from buffer.
 func (m *InBufferBase) ReadSlice(n int) []byte {
-	r := m.b[m.i:n]
+	r := m.b[m.i : m.i+n]
 	m.i += n
 	return r
 }
@@ -223,6 +235,12 @@ Outgoing
 // The base type of outgoing message buffer.
 type OutBufferBase struct {
 	BufferBase
+}
+
+// Implement io.Writer interface.
+func (m *OutBufferBase) Write(d []byte) (int, error) {
+	m.b = append(m.b, d...)
+	return len(d), nil
 }
 
 // Prepare buffer for next write.

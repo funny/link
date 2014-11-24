@@ -1,7 +1,6 @@
 package link
 
 import (
-	"bytes"
 	"encoding/json"
 )
 
@@ -40,14 +39,7 @@ func (j JSON) RecommendBufferSize() int {
 
 // Implement the Message interface.
 func (j JSON) WriteBuffer(buffer OutBuffer) error {
-	w := new(bytes.Buffer)
-	e := json.NewEncoder(w)
-	err := e.Encode(j.V)
-	if err != nil {
-		return err
-	}
-	buffer.WriteBytes(w.Bytes())
-	return nil
+	return json.NewEncoder(buffer).Encode(j.V)
 }
 
 // A simple send queue. Can used for buffered send.

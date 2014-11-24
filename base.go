@@ -3,6 +3,7 @@ package link
 import (
 	"encoding/binary"
 	"errors"
+	"io"
 	"net"
 )
 
@@ -101,6 +102,8 @@ type Buffer interface {
 type InBuffer interface {
 	Buffer
 
+	io.Reader
+
 	// Prepare buffer for next read.
 	// DO NOT use this method in your application!
 	Prepare(size int)
@@ -148,6 +151,8 @@ type InBuffer interface {
 // Outgoing messsage buffer.
 type OutBuffer interface {
 	Buffer
+
+	io.Writer
 
 	// Prepare buffer for next write.
 	// DO NOT use this method in your application!
