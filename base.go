@@ -81,30 +81,110 @@ type BufferFactory interface {
 	NewOutBuffer() OutBuffer
 }
 
-// Big endian message buffer factory.
-type BufferFactoryBE struct {
+// Incoming message buffer.
+type InBuffer interface {
+	// Get internal buffer data.
+	Get() []byte
+
+	// Set internal buffer data.
+	Set([]byte)
+
+	// Prepare buffer for next read.
+	Prepare(size int)
+
+	// Copy data.
+	Copy() []byte
+
+	// Slice some bytes from buffer.
+	ReadSlice(n int) []byte
+
+	// Copy some bytes from buffer.
+	ReadBytes(n int) []byte
+
+	// Read a string from buffer.
+	ReadString(n int) string
+
+	// Read a rune from buffer.
+	ReadRune() rune
+
+	// Read a byte value from buffer.
+	ReadByte() byte
+
+	// Read a int8 value from buffer.
+	ReadInt8() int8
+
+	// Read a uint8 value from buffer.
+	ReadUint8() uint8
+
+	// Read a int16 value from buffer.
+	ReadInt16() int16
+
+	// Read a uint16 value from buffer.
+	ReadUint16() uint16
+
+	// Read a int32 value from buffer.
+	ReadInt32() int32
+
+	// Read a uint32 value from buffer.
+	ReadUint32() uint32
+
+	// Read a int64 value from buffer.
+	ReadInt64() int64
+
+	// Read a uint64 value from buffer.
+	ReadUint64() uint64
 }
 
-// Create a big endian incoming message buffer.
-func (_ BufferFactoryBE) NewInBuffer() InBuffer {
-	return new(InBufferBE)
-}
+// Outgoing messsage buffer.
+type OutBuffer interface {
+	// Get internal buffer.
+	Get() []byte
 
-// Create a big endian outgoing message buffer.
-func (_ BufferFactoryBE) NewOutBuffer() OutBuffer {
-	return new(OutBufferBE)
-}
+	// Set internal buffer.
+	Set([]byte)
 
-// Little endian message buffer factory.
-type BufferFactoryLE struct {
-}
+	// Get message length.
+	Len() int
 
-// Create a little endian incoming message buffer.
-func (_ BufferFactoryLE) NewInBuffer() InBuffer {
-	return new(InBufferLE)
-}
+	// Prepare buffer for next write.
+	Prepare(head, size int)
 
-// Create a little endian outgoing message buffer.
-func (_ BufferFactoryLE) NewOutBuffer() OutBuffer {
-	return new(OutBufferLE)
+	// Copy data.
+	Copy() []byte
+
+	// Append a byte slice into buffer.
+	AppendBytes(d []byte)
+
+	// Append a string into buffer.
+	AppendString(s string)
+
+	// Append a rune into buffer.
+	AppendRune(r rune)
+
+	// Append a byte value into buffer.
+	AppendByte(v byte)
+
+	// Append a int8 value into buffer.
+	AppendInt8(v int8)
+
+	// Append a uint8 value into buffer.
+	AppendUint8(v uint8)
+
+	// Append a int16 value into buffer.
+	AppendInt16(v int16)
+
+	// Append a uint16 value into buffer.
+	AppendUint16(v uint16)
+
+	// Append a int32 value into buffer.
+	AppendInt32(v int32)
+
+	// Append a uint32 value into buffer.
+	AppendUint32(v uint32)
+
+	// Append a int64 value into buffer.
+	AppendInt64(v int64)
+
+	// Append a uint64 value into buffer.
+	AppendUint64(v uint64)
 }
