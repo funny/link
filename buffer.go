@@ -33,24 +33,41 @@ func (_ BufferFactoryLE) NewOutBuffer() OutBuffer {
 	return new(OutBufferLE)
 }
 
+// In/Out message buffer base.
+type BufferBase struct {
+	b []byte
+}
+
+// Convert to byte slice.
+func (m *BufferBase) Get() []byte {
+	return []byte(m.b)
+}
+
+// Get message length.
+func (m *BufferBase) Len() int {
+	return len(m.b)
+}
+
+// Get buffer capacity.
+func (m *BufferBase) Cap() int {
+	return cap(m.b)
+}
+
+// Copy data.
+func (m *BufferBase) Copy() []byte {
+	b := make([]byte, len(m.b))
+	copy(b, m.b)
+	return b
+}
+
 /*
 Incoming
 */
 
 // The base type of incoming message buffer.
 type InBufferBase struct {
-	b []byte
+	BufferBase
 	i int
-}
-
-// Get internal buffer data.
-func (m *InBufferBase) Get() []byte {
-	return m.b
-}
-
-// Set internal buffer data.
-func (m *InBufferBase) Set(b []byte) {
-	m.b = b
 }
 
 func (m *InBufferBase) Prepare(size int) {
@@ -60,13 +77,6 @@ func (m *InBufferBase) Prepare(size int) {
 		m.b = make([]byte, size)
 	}
 	m.i = 0
-}
-
-// Copy data.
-func (m *InBufferBase) Copy() []byte {
-	b := make([]byte, len(m.b))
-	copy(b, m.b)
-	return b
 }
 
 // Slice some bytes from buffer.
@@ -212,22 +222,7 @@ Outgoing
 
 // The base type of outgoing message buffer.
 type OutBufferBase struct {
-	b []byte
-}
-
-// Convert to byte slice.
-func (m *OutBufferBase) Get() []byte {
-	return []byte(m.b)
-}
-
-// Get internal buffer.
-func (m *OutBufferBase) Set(b []byte) {
-	m.b = b
-}
-
-// Get message length.
-func (m *OutBufferBase) Len() int {
-	return len(m.b)
+	BufferBase
 }
 
 // Prepare buffer for next write.
@@ -239,42 +234,35 @@ func (m *OutBufferBase) Prepare(head, size int) {
 	}
 }
 
-// Copy data.
-func (m *OutBufferBase) Copy() []byte {
-	b := make([]byte, len(m.b))
-	copy(b, m.b)
-	return b
-}
-
-// Append a byte slice into buffer.
-func (m *OutBufferBase) AppendBytes(d []byte) {
+// Write a byte slice into buffer.
+func (m *OutBufferBase) WriteBytes(d []byte) {
 	m.b = append(m.b, d...)
 }
 
-// Append a string into buffer.
-func (m *OutBufferBase) AppendString(s string) {
+// Write a string into buffer.
+func (m *OutBufferBase) WriteString(s string) {
 	m.b = append(m.b, s...)
 }
 
-// Append a rune into buffer.
-func (m *OutBufferBase) AppendRune(r rune) {
+// Write a rune into buffer.
+func (m *OutBufferBase) WriteRune(r rune) {
 	p := []byte{0, 0, 0, 0}
 	n := utf8.EncodeRune(p, r)
 	m.b = append(m.b, p[:n]...)
 }
 
-// Append a byte value into buffer.
-func (m *OutBufferBase) AppendByte(v byte) {
+// Write a byte value into buffer.
+func (m *OutBufferBase) WriteByte(v byte) {
 	m.b = append(m.b, v)
 }
 
-// Append a int8 value into buffer.
-func (m *OutBufferBase) AppendInt8(v int8) {
+// Write a int8 value into buffer.
+func (m *OutBufferBase) WriteInt8(v int8) {
 	m.b = append(m.b, byte(v))
 }
 
-// Append a uint8 value into buffer.
-func (m *OutBufferBase) AppendUint8(v uint8) {
+// Write a uint8 value into buffer.
+func (m *OutBufferBase) WriteUint8(v uint8) {
 	m.b = append(m.b, byte(v))
 }
 
@@ -287,67 +275,55 @@ type OutBufferBE struct {
 	OutBufferBase
 }
 
-// Convert to byte slice.
-func (m *OutBufferBE) Bytes() []byte {
-	return []byte(m.b)
-}
-
-// Copy data.
-func (m *OutBufferBE) Copy() []byte {
-	b := make([]byte, len(m.b))
-	copy(b, m.b)
-	return b
-}
-
-// Append a byte slice into buffer.
-func (m *OutBufferBE) AppendBytes(d []byte) {
+// Write a byte slice into buffer.
+func (m *OutBufferBE) WriteBytes(d []byte) {
 	m.b = append(m.b, d...)
 }
 
-// Append a string into buffer.
-func (m *OutBufferBE) AppendString(s string) {
+// Write a string into buffer.
+func (m *OutBufferBE) WriteString(s string) {
 	m.b = append(m.b, s...)
 }
 
-// Append a rune into buffer.
-func (m *OutBufferBE) AppendRune(r rune) {
+// Write a rune into buffer.
+func (m *OutBufferBE) WriteRune(r rune) {
 	p := []byte{0, 0, 0, 0}
 	n := utf8.EncodeRune(p, r)
 	m.b = append(m.b, p[:n]...)
 }
 
-// Append a byte value into buffer.
-func (m *OutBufferBE) AppendByte(v byte) {
+// Write a byte value into buffer.
+func (m *OutBufferBE) WriteByte(v byte) {
 	m.b = append(m.b, v)
 }
 
-// Append a big endian int16 value into buffer.
-func (m *OutBufferBE) AppendInt16(v int16) {
-	m.AppendUint16(uint16(v))
+// Write a big endian int16 value into buffer.
+func (m *OutBufferBE) WriteInt16(v int16) {
+	m.WriteUint16(uint16(v))
 }
 
-// Append a big endian uint16 value into buffer.
-func (m *OutBufferBE) AppendUint16(v uint16) {
+// Write a big endian uint16 value into buffer.
+func (m *OutBufferBE) WriteUint16(v uint16) {
 	m.b = append(m.b, byte(v>>8), byte(v))
 }
 
-// Append a big endian int32 value into buffer.
-func (m *OutBufferBE) AppendInt32(v int32) {
-	m.AppendUint32(uint32(v))
+// Write a big endian int32 value into buffer.
+func (m *OutBufferBE) WriteInt32(v int32) {
+	m.WriteUint32(uint32(v))
 }
 
-// Append a big endian uint32 value into buffer.
-func (m *OutBufferBE) AppendUint32(v uint32) {
+// Write a big endian uint32 value into buffer.
+func (m *OutBufferBE) WriteUint32(v uint32) {
 	m.b = append(m.b, byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
 }
 
-// Append a big endian int64 value into buffer.
-func (m *OutBufferBE) AppendInt64(v int64) {
-	m.AppendUint64(uint64(v))
+// Write a big endian int64 value into buffer.
+func (m *OutBufferBE) WriteInt64(v int64) {
+	m.WriteUint64(uint64(v))
 }
 
-// Append a big endian uint64 value into buffer.
-func (m *OutBufferBE) AppendUint64(v uint64) {
+// Write a big endian uint64 value into buffer.
+func (m *OutBufferBE) WriteUint64(v uint64) {
 	m.b = append(m.b,
 		byte(v>>56),
 		byte(v>>48),
@@ -369,33 +345,33 @@ type OutBufferLE struct {
 	OutBufferBase
 }
 
-// Append a little endian int16 value into buffer.
-func (m *OutBufferLE) AppendInt16(v int16) {
-	m.AppendUint16(uint16(v))
+// Write a little endian int16 value into buffer.
+func (m *OutBufferLE) WriteInt16(v int16) {
+	m.WriteUint16(uint16(v))
 }
 
-// Append a little endian uint16 value into buffer.
-func (m *OutBufferLE) AppendUint16(v uint16) {
+// Write a little endian uint16 value into buffer.
+func (m *OutBufferLE) WriteUint16(v uint16) {
 	m.b = append(m.b, byte(v), byte(v>>8))
 }
 
-// Append a little endian int32 value into buffer.
-func (m *OutBufferLE) AppendInt32(v int32) {
-	m.AppendUint32(uint32(v))
+// Write a little endian int32 value into buffer.
+func (m *OutBufferLE) WriteInt32(v int32) {
+	m.WriteUint32(uint32(v))
 }
 
-// Append a little endian uint32 value into buffer.
-func (m *OutBufferLE) AppendUint32(v uint32) {
+// Write a little endian uint32 value into buffer.
+func (m *OutBufferLE) WriteUint32(v uint32) {
 	m.b = append(m.b, byte(v), byte(v>>8), byte(v>>16), byte(v>>24))
 }
 
-// Append a little endian int64 value into buffer.
-func (m *OutBufferLE) AppendInt64(v int64) {
-	m.AppendUint64(uint64(v))
+// Write a little endian int64 value into buffer.
+func (m *OutBufferLE) WriteInt64(v int64) {
+	m.WriteUint64(uint64(v))
 }
 
-// Append a little endian uint64 value into buffer.
-func (m *OutBufferLE) AppendUint64(v uint64) {
+// Write a little endian uint64 value into buffer.
+func (m *OutBufferLE) WriteUint64(v uint64) {
 	m.b = append(m.b,
 		byte(v),
 		byte(v>>8),

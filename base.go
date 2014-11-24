@@ -81,19 +81,29 @@ type BufferFactory interface {
 	NewOutBuffer() OutBuffer
 }
 
-// Incoming message buffer.
-type InBuffer interface {
+// Message buffer base interface.
+type Buffer interface {
 	// Get internal buffer data.
+	// DO NOT use this method in your application!
 	Get() []byte
 
-	// Set internal buffer data.
-	Set([]byte)
+	// Get buffer length.
+	Len() int
+
+	// Get buffer capacity.
+	Cap() int
+
+	// Copy buffer data.
+	Copy() []byte
+}
+
+// Incoming message buffer.
+type InBuffer interface {
+	Buffer
 
 	// Prepare buffer for next read.
+	// DO NOT use this method in your application!
 	Prepare(size int)
-
-	// Copy data.
-	Copy() []byte
 
 	// Slice some bytes from buffer.
 	ReadSlice(n int) []byte
@@ -137,54 +147,45 @@ type InBuffer interface {
 
 // Outgoing messsage buffer.
 type OutBuffer interface {
-	// Get internal buffer.
-	Get() []byte
-
-	// Set internal buffer.
-	Set([]byte)
-
-	// Get message length.
-	Len() int
+	Buffer
 
 	// Prepare buffer for next write.
+	// DO NOT use this method in your application!
 	Prepare(head, size int)
 
-	// Copy data.
-	Copy() []byte
+	// Write a byte slice into buffer.
+	WriteBytes(d []byte)
 
-	// Append a byte slice into buffer.
-	AppendBytes(d []byte)
+	// Write a string into buffer.
+	WriteString(s string)
 
-	// Append a string into buffer.
-	AppendString(s string)
+	// Write a rune into buffer.
+	WriteRune(r rune)
 
-	// Append a rune into buffer.
-	AppendRune(r rune)
+	// Write a byte value into buffer.
+	WriteByte(v byte)
 
-	// Append a byte value into buffer.
-	AppendByte(v byte)
+	// Write a int8 value into buffer.
+	WriteInt8(v int8)
 
-	// Append a int8 value into buffer.
-	AppendInt8(v int8)
+	// Write a uint8 value into buffer.
+	WriteUint8(v uint8)
 
-	// Append a uint8 value into buffer.
-	AppendUint8(v uint8)
+	// Write a int16 value into buffer.
+	WriteInt16(v int16)
 
-	// Append a int16 value into buffer.
-	AppendInt16(v int16)
+	// Write a uint16 value into buffer.
+	WriteUint16(v uint16)
 
-	// Append a uint16 value into buffer.
-	AppendUint16(v uint16)
+	// Write a int32 value into buffer.
+	WriteInt32(v int32)
 
-	// Append a int32 value into buffer.
-	AppendInt32(v int32)
+	// Write a uint32 value into buffer.
+	WriteUint32(v uint32)
 
-	// Append a uint32 value into buffer.
-	AppendUint32(v uint32)
+	// Write a int64 value into buffer.
+	WriteInt64(v int64)
 
-	// Append a int64 value into buffer.
-	AppendInt64(v int64)
-
-	// Append a uint64 value into buffer.
-	AppendUint64(v uint64)
+	// Write a uint64 value into buffer.
+	WriteUint64(v uint64)
 }

@@ -19,9 +19,9 @@ func NewBroadcaster(protocol PacketProtocol) *Broadcaster {
 }
 
 func (b *Broadcaster) packet(message Message) error {
-	size := message.RecommendPacketSize()
+	size := message.RecommendBufferSize()
 	b.writer.BeginPacket(size, b.buffer)
-	if err := message.AppendToPacket(b.buffer); err != nil {
+	if err := message.WriteBuffer(b.buffer); err != nil {
 		return err
 	}
 	b.writer.EndPacket(b.buffer)

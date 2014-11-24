@@ -154,9 +154,9 @@ func (session *Session) Packet(message Message, buffer OutBuffer) error {
 		panic(NilBufferError)
 	}
 
-	size := message.RecommendPacketSize()
+	size := message.RecommendBufferSize()
 	session.writer.BeginPacket(size, buffer)
-	if err := message.AppendToPacket(buffer); err != nil {
+	if err := message.WriteBuffer(buffer); err != nil {
 		return err
 	}
 	session.writer.EndPacket(buffer)

@@ -7,47 +7,46 @@ import (
 
 // Message.
 type Message interface {
-	// Get a recommend packet size for packet buffer initialization.
-	RecommendPacketSize() int
+	// Get a recommend packet size for buffer initialization.
+	RecommendBufferSize() int
 
-	// Append the message to the packet buffer and returns the new buffer like append() function.
-	AppendToPacket(buffer OutBuffer) error
+	// Write the message to the packet buffer and returns the new buffer like append() function.
+	WriteBuffer(buffer OutBuffer) error
 }
 
 // Binary message
 type Binary []byte
 
 // Implement the Message interface.
-func (bin Binary) RecommendPacketSize() int {
+func (bin Binary) RecommendBufferSize() int {
 	return len(bin)
 }
 
 // Implement the Message interface.
-func (bin Binary) AppendToPacket(buffer OutBuffer) error {
-	buffer.AppendBytes([]byte(bin))
+func (bin Binary) WriteBuffer(buffer OutBuffer) error {
+	buffer.WriteBytes([]byte(bin))
 	return nil
 }
 
 // JSON message
 type JSON struct {
-	V             interface{}
-	RecommandSize int
+	V interface{}
 }
 
 // Implement the Message interface.
-func (j JSON) RecommendPacketSize() int {
-	return j.RecommandSize
+func (j JSON) RecommendBufferSize() int {
+	return 0
 }
 
 // Implement the Message interface.
-func (j JSON) AppendToPacket(buffer OutBuffer) error {
-	w := bytes.NewBuffer(buffer.Get())
+func (j JSON) WriteBuffer(buffer OutBuffer) error {
+	w := new(bytes.Buffer)
 	e := json.NewEncoder(w)
 	err := e.Encode(j.V)
 	if err != nil {
 		return err
 	}
-	buffer.Set(w.Bytes())
+	buffer.WriteBytes(w.Bytes())
 	return nil
 }
 
@@ -65,18 +64,18 @@ func (q *SendQueue) Push(message Message) {
 }
 
 // Implement the Message interface.
-func (q *SendQueue) RecommendPacketSize() int {
+func (q *SendQueue) RecommendBufferSize() int {
 	size := 0
 	for _, message := range q.messages {
-		size += message.RecommendPacketSize()
+		size += message.RecommendBufferSize()
 	}
 	return size
 }
 
 // Implement the Message interface.
-func (q *SendQueue) AppendToPacket(buffer OutBuffer) error {
+func (q *SendQueue) WriteBuffer(buffer OutBuffer) error {
 	for _, message := range q.messages {
-		if err := message.AppendToPacket(buffer); err != nil {
+		if err := message.WriteBuffer(buffer); err != nil {
 			return err
 		}
 	}
