@@ -11,10 +11,10 @@ type Broadcaster struct {
 }
 
 // Craete a broadcaster.
-func NewBroadcaster(protocol PacketProtocol, bufferFactory BufferFactory) *Broadcaster {
+func NewBroadcaster(protocol PacketProtocol) *Broadcaster {
 	return &Broadcaster{
 		writer: protocol.NewWriter(),
-		buffer: bufferFactory.NewOutBuffer(),
+		buffer: protocol.BufferFactory().NewOutBuffer(),
 	}
 }
 

@@ -15,9 +15,8 @@ var DefaultConnBufferSize int = 1024
 // Server.
 type Server struct {
 	// About network
-	listener      net.Listener
-	protocol      PacketProtocol
-	bufferFactory BufferFactory
+	listener net.Listener
+	protocol PacketProtocol
 
 	// About sessions
 	maxSessionId uint64
@@ -35,11 +34,10 @@ type Server struct {
 }
 
 // Create a server.
-func NewServer(listener net.Listener, protocol PacketProtocol, bufferFactory BufferFactory) *Server {
+func NewServer(listener net.Listener, protocol PacketProtocol) *Server {
 	return &Server{
 		listener:       listener,
 		protocol:       protocol,
-		bufferFactory:  bufferFactory,
 		maxSessionId:   0,
 		sessions:       make(map[uint64]*Session),
 		stopWait:       new(sync.WaitGroup),
@@ -56,11 +54,6 @@ func (server *Server) Listener() net.Listener {
 // Get packet protocol.
 func (server *Server) Protocol() PacketProtocol {
 	return server.protocol
-}
-
-// Get message buffer factory.
-func (server *Server) BufferFactory() BufferFactory {
-	return server.bufferFactory
 }
 
 // Check server is stoppped
@@ -117,7 +110,7 @@ func (server *Server) Stop(reason interface{}) {
 }
 
 func (server *Server) newSession(id uint64, conn net.Conn) *Session {
-	session := NewSession(id, conn, server.protocol, server.bufferFactory, server.SendChanSize, server.ConnBufferSize)
+	session := NewSession(id, conn, server.protocol, server.SendChanSize, server.ConnBufferSize)
 	server.putSession(session)
 	return session
 }

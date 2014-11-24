@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/binary"
 	"flag"
 	"fmt"
 	"github.com/funny/link"
@@ -91,7 +90,7 @@ func client(initWait *sync.WaitGroup, startChan chan int, resultChan chan Client
 	}
 
 	conn = &CountConn{conn, 0, 0}
-	client := link.NewSession(0, conn, link.PacketN(2, binary.BigEndian), link.LittleEndian, link.DefaultSendChanSize, *bufferSize)
+	client := link.NewSession(0, conn, link.PacketN(2, link.BigEndianBO, link.LittleEndianBF), link.DefaultSendChanSize, *bufferSize)
 	defer client.Close(nil)
 
 	go func() {

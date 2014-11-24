@@ -11,16 +11,23 @@ import (
 type PNProtocol struct {
 	n  int
 	bo binary.ByteOrder
+	bf BufferFactory
 }
 
 // Create a {packet, N} protocol.
 // The n means how many bytes of the packet header.
 // The 'bo' used to define packet header's byte order.
-func PacketN(n int, bo binary.ByteOrder) *PNProtocol {
+func PacketN(n int, bo binary.ByteOrder, bf BufferFactory) *PNProtocol {
 	return &PNProtocol{
 		n:  n,
 		bo: bo,
+		bf: bf,
 	}
+}
+
+// Get buffer factory.
+func (p PNProtocol) BufferFactory() BufferFactory {
+	return p.bf
 }
 
 // Create a packet writer.

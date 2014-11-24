@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/binary"
 	"flag"
 	"fmt"
 	"github.com/funny/link"
@@ -26,9 +25,9 @@ func main() {
 
 	link.DefaultConnBufferSize = *buffersize
 
-	protocol := link.PacketN(2, binary.BigEndian)
+	protocol := link.PacketN(2, link.BigEndianBO, link.LittleEndianBF)
 
-	server, err := link.Listen("tcp", "127.0.0.1:10010", protocol, link.LittleEndian)
+	server, err := link.Listen("tcp", "127.0.0.1:10010", protocol)
 	if err != nil {
 		panic(err)
 	}

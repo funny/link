@@ -37,7 +37,7 @@ type Session struct {
 }
 
 // Create a new session instance.
-func NewSession(id uint64, conn net.Conn, protocol PacketProtocol, bufferFactory BufferFactory, sendChanSize uint, connBufferSize int) *Session {
+func NewSession(id uint64, conn net.Conn, protocol PacketProtocol, sendChanSize uint, connBufferSize int) *Session {
 	if connBufferSize > 0 {
 		conn = NewBufferConn(conn, connBufferSize)
 	}
@@ -48,7 +48,7 @@ func NewSession(id uint64, conn net.Conn, protocol PacketProtocol, bufferFactory
 		protocol:            protocol,
 		writer:              protocol.NewWriter(),
 		reader:              protocol.NewReader(),
-		bufferFactory:       bufferFactory,
+		bufferFactory:       protocol.BufferFactory(),
 		sendChan:            make(chan Message, sendChanSize),
 		sendPacketChan:      make(chan OutBuffer, sendChanSize),
 		closeChan:           make(chan int),

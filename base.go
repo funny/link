@@ -1,6 +1,7 @@
 package link
 
 import (
+	"encoding/binary"
 	"errors"
 	"net"
 )
@@ -14,8 +15,15 @@ var (
 )
 
 var (
-	BigEndian    = BufferFactoryBE{}
-	LittleEndian = BufferFactoryLE{}
+	// Big endian byte order.
+	BigEndianBO = binary.BigEndian
+	// Big endian buffer factory.
+	BigEndianBF = BufferFactoryBE{}
+
+	// Little endian byte order.
+	LittleEndianBO = binary.LittleEndian
+	// Little endian buffer factory.
+	LittleEndianBF = BufferFactoryLE{}
 )
 
 type Settings interface {
@@ -26,6 +34,9 @@ type Settings interface {
 
 // Packet spliting protocol.
 type PacketProtocol interface {
+	// Get buffer factory.
+	BufferFactory() BufferFactory
+
 	// Create a packet writer.
 	NewWriter() PacketWriter
 

@@ -22,13 +22,13 @@ go get github.com/funny/link
 首先，为您的项目选择一个分包协议，这里我们使用大端格式的2个字节长度包头：
 
 ```go
-proto := link.PacketN(2, binary.BigEndian)
+proto := link.PacketN(2, link.BigEndianBO, link.LittleEndianBF)
 ```
 
 在指定的端口启动一个服务器：
 
 ```go
-server, _ := link.Listen("tcp", "0.0.0.0:8080", proto, link.LittleEndian)
+server, _ := link.Listen("tcp", "0.0.0.0:8080", proto)
 ```
 
 处理新进连接，并为新的Session设置消息处理器：
@@ -48,9 +48,9 @@ server.AcceptLoop(func(session *link.Session) {
 在客户端，使用同样的分包协议连接到服务器：
 
 ```go
-proto := link.PacketN(2, binary.BigEndian)
+proto := link.PacketN(2, link.BigEndianBO, link.LittleEndianBF)
 
-client, _ := link.Dial("tcp", "127.0.0.1:8080", proto, link.LittleEndian)
+client, _ := link.Dial("tcp", "127.0.0.1:8080", proto)
 ```
 
 发送一个消息给服务端：

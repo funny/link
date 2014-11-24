@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/binary"
 	"fmt"
 	"github.com/funny/link"
 )
@@ -10,9 +9,9 @@ import (
 // usage:
 //     go run echo_client/main.go
 func main() {
-	protocol := link.PacketN(2, binary.BigEndian)
+	protocol := link.PacketN(2, link.BigEndianBO, link.LittleEndianBF)
 
-	client, err := link.Dial("tcp", "127.0.0.1:10010", protocol, link.LittleEndian)
+	client, err := link.Dial("tcp", "127.0.0.1:10010", protocol)
 	if err != nil {
 		panic(err)
 	}

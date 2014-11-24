@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/binary"
 	"github.com/funny/link"
 	"time"
 )
@@ -10,14 +9,14 @@ import (
 // usage:
 //     go run broadcast/main.go
 func main() {
-	protocol := link.PacketN(2, binary.BigEndian)
+	protocol := link.PacketN(2, link.BigEndianBO, link.LittleEndianBF)
 
-	server, err := link.Listen("tcp", "127.0.0.1:10010", protocol, link.LittleEndian)
+	server, err := link.Listen("tcp", "127.0.0.1:10010", protocol)
 	if err != nil {
 		panic(err)
 	}
 
-	channel := link.NewChannel(server.Protocol(), server.BufferFactory())
+	channel := link.NewChannel(server.Protocol())
 	go func() {
 		for {
 			time.Sleep(time.Second)

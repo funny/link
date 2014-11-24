@@ -10,33 +10,33 @@ import (
 var dialSessionId uint64
 
 // The easy way to setup a server.
-func Listen(network, address string, protocol PacketProtocol, bufferFactory BufferFactory) (*Server, error) {
+func Listen(network, address string, protocol PacketProtocol) (*Server, error) {
 	listener, err := net.Listen(network, address)
 	if err != nil {
 		return nil, err
 	}
-	return NewServer(listener, protocol, bufferFactory), nil
+	return NewServer(listener, protocol), nil
 }
 
 // The easy way to create a connection.
-func Dial(network, address string, protocol PacketProtocol, bufferFactory BufferFactory) (*Session, error) {
+func Dial(network, address string, protocol PacketProtocol) (*Session, error) {
 	conn, err := net.Dial(network, address)
 	if err != nil {
 		return nil, err
 	}
 	id := atomic.AddUint64(&dialSessionId, 1)
-	session := NewSession(id, conn, protocol, bufferFactory, DefaultSendChanSize, DefaultConnBufferSize)
+	session := NewSession(id, conn, protocol, DefaultSendChanSize, DefaultConnBufferSize)
 	return session, nil
 }
 
 // The easy way to create a connection with timeout setting.
-func DialTimeout(network, address string, timeout time.Duration, protocol PacketProtocol, bufferFactory BufferFactory) (*Session, error) {
+func DialTimeout(network, address string, timeout time.Duration, protocol PacketProtocol) (*Session, error) {
 	conn, err := net.DialTimeout(network, address, timeout)
 	if err != nil {
 		return nil, err
 	}
 	id := atomic.AddUint64(&dialSessionId, 1)
-	session := NewSession(id, conn, protocol, bufferFactory, DefaultSendChanSize, DefaultConnBufferSize)
+	session := NewSession(id, conn, protocol, DefaultSendChanSize, DefaultConnBufferSize)
 	return session, nil
 }
 
