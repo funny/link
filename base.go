@@ -146,10 +146,6 @@ type OutBuffer interface {
 
 	io.Writer
 
-	// Prepare buffer for next write.
-	// DO NOT use this method in your application!
-	Prepare(size int)
-
 	// Write a byte slice into buffer.
 	WriteBytes(d []byte)
 
