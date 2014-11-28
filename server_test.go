@@ -2,7 +2,7 @@ package link
 
 import (
 	"bytes"
-	"github.com/funny/ceshi"
+	"github.com/funny/unitest"
 	"runtime/pprof"
 	"sync"
 	"sync/atomic"
@@ -13,7 +13,7 @@ func Test_Server(t *testing.T) {
 	proto := PacketN(4, BigEndianBO, LittleEndianBF)
 
 	server, err0 := Listen("tcp", "0.0.0.0:0", proto)
-	ceshi.NotError(t, err0)
+	unitest.NotError(t, err0)
 
 	var (
 		addr    = server.Listener().Addr().String()
@@ -51,34 +51,34 @@ func Test_Server(t *testing.T) {
 	// test session start
 	sessionStart.Add(1)
 	client1, err1 := Dial("tcp", addr, proto)
-	ceshi.NotError(t, err1)
+	unitest.NotError(t, err1)
 
 	sessionStart.Add(1)
 	client2, err2 := Dial("tcp", addr, proto)
-	ceshi.NotError(t, err2)
+	unitest.NotError(t, err2)
 
 	t.Log("check session start")
 	sessionStart.Wait()
-	ceshi.Pass(t, sessionStartCount == 2)
+	unitest.Pass(t, sessionStartCount == 2)
 
 	// test session request
 	sessionRequest.Add(1)
-	ceshi.NotError(t, client1.Send(message))
+	unitest.NotError(t, client1.Send(message))
 
 	sessionRequest.Add(1)
-	ceshi.NotError(t, client2.Send(message))
+	unitest.NotError(t, client2.Send(message))
 
 	sessionRequest.Add(1)
-	ceshi.NotError(t, client1.Send(message))
+	unitest.NotError(t, client1.Send(message))
 
 	sessionRequest.Add(1)
-	ceshi.NotError(t, client2.Send(message))
+	unitest.NotError(t, client2.Send(message))
 
 	t.Log("check session request")
 	sessionRequest.Wait()
 
-	ceshi.Pass(t, sessionRequestCount == 4)
-	ceshi.Pass(t, messageMatchFailed == false)
+	unitest.Pass(t, sessionRequestCount == 4)
+	unitest.Pass(t, messageMatchFailed == false)
 
 	// test session close
 	sessionClose.Add(1)
@@ -89,7 +89,7 @@ func Test_Server(t *testing.T) {
 
 	t.Log("check session close")
 	sessionClose.Wait()
-	ceshi.Pass(t, sessionCloseCount == 2)
+	unitest.Pass(t, sessionCloseCount == 2)
 
 	MakeSureSessionGoroutineExit(t)
 }

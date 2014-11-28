@@ -39,12 +39,12 @@ type BufferBase struct {
 	b []byte
 }
 
-// Convert to byte slice.
+// Get internal buffer.
 func (m *BufferBase) Get() []byte {
 	return []byte(m.b)
 }
 
-// Get message length.
+// Get buffer length.
 func (m *BufferBase) Len() int {
 	return len(m.b)
 }
@@ -54,7 +54,7 @@ func (m *BufferBase) Cap() int {
 	return cap(m.b)
 }
 
-// Copy data.
+// Copy buffer data.
 func (m *BufferBase) Copy() []byte {
 	b := make([]byte, len(m.b))
 	copy(b, m.b)

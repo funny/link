@@ -73,20 +73,16 @@ type BufferFactory interface {
 
 // Message buffer base interface.
 type Buffer interface {
-	// Get internal buffer data.
-	// DO NOT use this method in application!
+	// Get internal buffer.
 	Get() []byte
 
 	// Get buffer length.
-	// DO NOT use this method in application!
 	Len() int
 
 	// Get buffer capacity.
-	// DO NOT use this method in application!
 	Cap() int
 
 	// Copy buffer data.
-	// DO NOT use this method in application!
 	Copy() []byte
 
 	// Prepare buffer for next read.

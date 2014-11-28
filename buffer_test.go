@@ -2,13 +2,9 @@ package link
 
 import (
 	"bytes"
-	"github.com/funny/ceshi"
+	"github.com/funny/unitest"
 	"testing"
 )
-
-func init() {
-	ceshi.StartMonitor(nil)
-}
 
 func Test_BigEndianBuffer(t *testing.T) {
 	outBuffer := new(OutBufferBE)
@@ -45,17 +41,17 @@ func PrepareBuffer(buffer OutBuffer) {
 }
 
 func VerifyBuffer(t *testing.T, buffer InBuffer) {
-	ceshi.Pass(t, buffer.ReadByte() == 99)
-	ceshi.Pass(t, buffer.ReadInt8() == -2)
-	ceshi.Pass(t, buffer.ReadUint8() == 1)
-	ceshi.Pass(t, buffer.ReadInt16() == 0x7FEE)
-	ceshi.Pass(t, buffer.ReadUint16() == 0xFFEE)
-	ceshi.Pass(t, buffer.ReadInt32() == 0x7FEEDDCC)
-	ceshi.Pass(t, buffer.ReadUint32() == 0xFFEEDDCC)
-	ceshi.Pass(t, buffer.ReadInt64() == 0x7FEEDDCCBBAA9988)
-	ceshi.Pass(t, buffer.ReadUint64() == 0xFFEEDDCCBBAA9988)
-	ceshi.Pass(t, buffer.ReadRune() == '好')
-	ceshi.Pass(t, buffer.ReadString(6) == "Hello1")
-	ceshi.Pass(t, bytes.Equal(buffer.ReadBytes(6), []byte("Hello2")))
-	ceshi.Pass(t, bytes.Equal(buffer.ReadSlice(6), []byte("Hello3")))
+	unitest.Pass(t, buffer.ReadByte() == 99)
+	unitest.Pass(t, buffer.ReadInt8() == -2)
+	unitest.Pass(t, buffer.ReadUint8() == 1)
+	unitest.Pass(t, buffer.ReadInt16() == 0x7FEE)
+	unitest.Pass(t, buffer.ReadUint16() == 0xFFEE)
+	unitest.Pass(t, buffer.ReadInt32() == 0x7FEEDDCC)
+	unitest.Pass(t, buffer.ReadUint32() == 0xFFEEDDCC)
+	unitest.Pass(t, buffer.ReadInt64() == 0x7FEEDDCCBBAA9988)
+	unitest.Pass(t, buffer.ReadUint64() == 0xFFEEDDCCBBAA9988)
+	unitest.Pass(t, buffer.ReadRune() == '好')
+	unitest.Pass(t, buffer.ReadString(6) == "Hello1")
+	unitest.Pass(t, bytes.Equal(buffer.ReadBytes(6), []byte("Hello2")))
+	unitest.Pass(t, bytes.Equal(buffer.ReadSlice(6), []byte("Hello3")))
 }
