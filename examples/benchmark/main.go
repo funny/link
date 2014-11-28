@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	serverAddr  = flag.String("addr", "", "target server address")
+	serverAddr  = flag.String("addr", "127.0.0.1:10010", "server address")
 	clientNum   = flag.Int("num", 1, "client number")
 	messageSize = flag.Int("size", 64, "test message size")
 	runTime     = flag.Int("time", 10, "benchmark run time in seconds")

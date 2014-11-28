@@ -9,19 +9,21 @@ import (
 // The packet spliting protocol like Erlang's {packet, N}.
 // Each packet has a fix length packet header to present packet length.
 type PNProtocol struct {
-	n  int
-	bo binary.ByteOrder
-	bf BufferFactory
+	n   int
+	bo  binary.ByteOrder
+	bf  BufferFactory
+	pid int
 }
 
 // Create a {packet, N} protocol.
 // The n means how many bytes of the packet header.
 // The 'bo' used to define packet header's byte order.
-func PacketN(n int, bo binary.ByteOrder, bf BufferFactory) *PNProtocol {
+func PacketN(n int, bo binary.ByteOrder, bf BufferFactory, protocolid int) *PNProtocol {
 	return &PNProtocol{
-		n:  n,
-		bo: bo,
-		bf: bf,
+		n:   n,
+		bo:  bo,
+		bf:  bf,
+		pid: protocolid,
 	}
 }
 
@@ -32,12 +34,12 @@ func (p PNProtocol) BufferFactory() BufferFactory {
 
 // Create a packet writer.
 func (p PNProtocol) NewWriter() PacketWriter {
-	return NewPNWriter(p.n, p.bo)
+	return NewPNWriter(p.n, p.bo, p.pid)
 }
 
 // Create a packet reader.
 func (p PNProtocol) NewReader() PacketReader {
-	return NewPNReader(p.n, p.bo)
+	return NewPNReader(p.n, p.bo, p.pid)
 }
 
 // The {packet, N} writer.
@@ -45,17 +47,19 @@ type PNWriter struct {
 	SimpleSettings
 	n    int
 	bo   binary.ByteOrder
+	pid  int
 	head []byte
 }
 
 // Create a new instance of {packet, N} writer.
 // The n means how many bytes of the packet header.
 // The 'bo' used to define packet header's byte order.
-func NewPNWriter(n int, bo binary.ByteOrder) *PNWriter {
+func NewPNWriter(n int, bo binary.ByteOrder, pid int) *PNWriter {
 	return &PNWriter{
 		n:    n,
 		bo:   bo,
 		head: make([]byte, n),
+		pid:  pid,
 	}
 }
 
@@ -69,11 +73,14 @@ func (w *PNWriter) WritePacket(conn net.Conn, buffer OutBuffer) error {
 	case 1:
 		w.head[0] = byte(buffer.Len())
 	case 2:
-		w.bo.PutUint16(w.head, uint16(buffer.Len()))
+		w.head[0] = byte(w.pid)
+		w.head[1] = byte(buffer.Len())
 	case 4:
-		w.bo.PutUint32(w.head, uint32(buffer.Len()))
+		w.bo.PutUint16(w.head, uint16(w.pid))
+		w.bo.PutUint16(w.head[2:], uint16(buffer.Len()))
 	case 8:
-		w.bo.PutUint64(w.head, uint64(buffer.Len()))
+		w.bo.PutUint32(w.head, uint32(w.pid))
+		w.bo.PutUint32(w.head[4:], uint32(buffer.Len()))
 	default:
 		panic("unsupported packet head size")
 	}
@@ -94,16 +101,18 @@ type PNReader struct {
 	SimpleSettings
 	n    int
 	bo   binary.ByteOrder
+	pid  int
 	head []byte
 }
 
 // Create a new instance of {packet, N} reader.
 // The n means how many bytes of the packet header.
 // The 'bo' used to define packet header's byte order.
-func NewPNReader(n int, bo binary.ByteOrder) *PNReader {
+func NewPNReader(n int, bo binary.ByteOrder, pid int) *PNReader {
 	return &PNReader{
 		n:    n,
 		bo:   bo,
+		pid:  pid,
 		head: make([]byte, n),
 	}
 }
@@ -115,20 +124,27 @@ func (r *PNReader) ReadPacket(conn net.Conn, buffer InBuffer) error {
 	}
 
 	size := 0
-
+	pid := r.pid
+	var pidInHeader int
 	switch r.n {
 	case 1:
 		size = int(r.head[0])
+		pidInHeader = pid
 	case 2:
-		size = int(r.bo.Uint16(r.head))
+		pidInHeader = int(r.bo.Uint16(r.head[:1]))
+		size = int(r.bo.Uint16(r.head[1:]))
 	case 4:
-		size = int(r.bo.Uint32(r.head))
+		pidInHeader = int(r.bo.Uint32(r.head[:2]))
+		size = int(r.bo.Uint32(r.head[2:]))
 	case 8:
-		size = int(r.bo.Uint64(r.head))
+		pidInHeader = int(r.bo.Uint64(r.head[:4]))
+		size = int(r.bo.Uint64(r.head[4:]))
 	default:
 		panic("unsupported packet head size")
 	}
-
+	if pid != pidInHeader {
+		panic("unsupported packet protocol id")
+	}
 	if r.maxsize > 0 && size > r.maxsize {
 		return PacketTooLargeError
 	}
