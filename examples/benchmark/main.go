@@ -40,7 +40,7 @@ func main() {
 		startChan  = make(chan int)
 		resultChan = make(chan ClientResult)
 	)
-
+	fmt.Printf("client num:%d\n", *clientNum)
 	for i := 0; i < *clientNum; i++ {
 		initWait.Add(1)
 		go client(initWait, startChan, resultChan, timeout, msg)

@@ -12,13 +12,13 @@ type PNProtocol struct {
 	n   int
 	bo  binary.ByteOrder
 	bf  BufferFactory
-	pid int
+	pid uint32
 }
 
 // Create a {packet, N} protocol.
 // The n means how many bytes of the packet header.
 // The 'bo' used to define packet header's byte order.
-func PacketN(n int, bo binary.ByteOrder, bf BufferFactory, protocolid int) *PNProtocol {
+func PacketN(n int, bo binary.ByteOrder, bf BufferFactory, protocolid uint32) *PNProtocol {
 	return &PNProtocol{
 		n:   n,
 		bo:  bo,
@@ -47,19 +47,19 @@ type PNWriter struct {
 	SimpleSettings
 	n    int
 	bo   binary.ByteOrder
-	pid  int
+	pid  uint32
 	head []byte
 }
 
 // Create a new instance of {packet, N} writer.
 // The n means how many bytes of the packet header.
 // The 'bo' used to define packet header's byte order.
-func NewPNWriter(n int, bo binary.ByteOrder, pid int) *PNWriter {
+func NewPNWriter(n int, bo binary.ByteOrder, pid uint32) *PNWriter {
 	return &PNWriter{
 		n:    n,
 		bo:   bo,
-		head: make([]byte, n),
 		pid:  pid,
+		head: make([]byte, n),
 	}
 }
 
@@ -101,14 +101,14 @@ type PNReader struct {
 	SimpleSettings
 	n    int
 	bo   binary.ByteOrder
-	pid  int
+	pid  uint32
 	head []byte
 }
 
 // Create a new instance of {packet, N} reader.
 // The n means how many bytes of the packet header.
 // The 'bo' used to define packet header's byte order.
-func NewPNReader(n int, bo binary.ByteOrder, pid int) *PNReader {
+func NewPNReader(n int, bo binary.ByteOrder, pid uint32) *PNReader {
 	return &PNReader{
 		n:    n,
 		bo:   bo,
@@ -125,20 +125,20 @@ func (r *PNReader) ReadPacket(conn net.Conn, buffer InBuffer) error {
 
 	size := 0
 	pid := r.pid
-	var pidInHeader int
+	var pidInHeader uint32
 	switch r.n {
 	case 1:
 		size = int(r.head[0])
-		pidInHeader = pid
+		pidInHeader = uint32(pid)
 	case 2:
-		pidInHeader = int(r.bo.Uint16(r.head[:1]))
-		size = int(r.bo.Uint16(r.head[1:]))
+		pidInHeader = uint32(r.head[0])
+		size = int(r.head[1])
 	case 4:
-		pidInHeader = int(r.bo.Uint32(r.head[:2]))
+		pidInHeader = uint32(r.bo.Uint16(r.head[:2]))
 		size = int(r.bo.Uint32(r.head[2:]))
 	case 8:
-		pidInHeader = int(r.bo.Uint64(r.head[:4]))
-		size = int(r.bo.Uint64(r.head[4:]))
+		pidInHeader = uint32(r.bo.Uint32(r.head[:4]))
+		size = int(r.bo.Uint32(r.head[4:]))
 	default:
 		panic("unsupported packet head size")
 	}
