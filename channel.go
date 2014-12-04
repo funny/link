@@ -1,6 +1,6 @@
 package link
 
-import "sync"
+import "github.com/funny/sync"
 
 // The channel type. Used to maintain a group of session.
 // Normally used for broadcast classify purpose.

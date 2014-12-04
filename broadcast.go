@@ -1,6 +1,6 @@
 package link
 
-import "sync"
+import "github.com/funny/sync"
 
 // A broadcast sender. The broadcast message only encoded once
 // so the performance it's better then send message one by one.

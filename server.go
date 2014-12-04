@@ -1,8 +1,8 @@
 package link
 
 import (
+	"github.com/funny/sync"
 	"net"
-	"sync"
 	"sync/atomic"
 )
 

@@ -2,8 +2,8 @@ package link
 
 import (
 	"container/list"
+	"github.com/funny/sync"
 	"net"
-	"sync"
 	"sync/atomic"
 	"time"
 )
