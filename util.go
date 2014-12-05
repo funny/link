@@ -62,11 +62,11 @@ type BufferConn struct {
 	writer *bufio.Writer
 }
 
-func NewBufferConn(conn net.Conn, readBuffSize, writeBuffSize int) *BufferConn {
+func NewBufferConn(conn net.Conn, readBufferSize, writeBufferSize int) *BufferConn {
 	return &BufferConn{
 		conn,
-		bufio.NewReaderSize(conn, readBuffSize),
-		bufio.NewWriterSize(conn, writeBuffSize),
+		bufio.NewReaderSize(conn, readBufferSize),
+		bufio.NewWriterSize(conn, writeBufferSize),
 	}
 }
 

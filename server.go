@@ -28,23 +28,23 @@ type Server struct {
 	stopWait   *sync.WaitGroup
 	stopReason interface{}
 
-	SendChanSize           int         // Session send chan buffer size.
-	SessionReadBufferSize  int         // Session read buffer size.
-	SessionWriteBufferSize int         // Session write buffer size.
-	State                  interface{} // server state.
+	SendChanSize    int         // Session send chan buffer size.
+	ReadBufferSize  int         // Session read buffer size.
+	WriteBufferSize int         // Session write buffer size.
+	State           interface{} // server state.
 }
 
 // Create a server.
 func NewServer(listener net.Listener, protocol PacketProtocol) *Server {
 	return &Server{
-		listener:               listener,
-		protocol:               protocol,
-		maxSessionId:           0,
-		sessions:               make(map[uint64]*Session),
-		stopWait:               new(sync.WaitGroup),
-		SendChanSize:           DefaultSendChanSize,
-		SessionReadBufferSize:  DefaultReadBufferSize,
-		SessionWriteBufferSize: DefaultWriteBufferSize,
+		listener:        listener,
+		protocol:        protocol,
+		maxSessionId:    0,
+		sessions:        make(map[uint64]*Session),
+		stopWait:        new(sync.WaitGroup),
+		SendChanSize:    DefaultSendChanSize,
+		ReadBufferSize:  DefaultReadBufferSize,
+		WriteBufferSize: DefaultWriteBufferSize,
 	}
 }
 
@@ -112,7 +112,7 @@ func (server *Server) Stop(reason interface{}) {
 }
 
 func (server *Server) newSession(id uint64, conn net.Conn) *Session {
-	session := NewSession(id, conn, server.protocol, server.SendChanSize, server.SessionReadBufferSize, server.SessionWriteBufferSize)
+	session := NewSession(id, conn, server.protocol, server.SendChanSize, server.ReadBufferSize, server.WriteBufferSize)
 	server.putSession(session)
 	return session
 }
