@@ -6,11 +6,11 @@ import (
 	"sync/atomic"
 )
 
-// Default send chan buffer size for sessions.
-var DefaultSendChanSize uint = 1024
-
-// Default connection buffer size for session.
-var DefaultConnBufferSize int = 1024
+var (
+	DefaultSendChanSize    int = 1024 // Default session send chan buffer size.
+	DefaultReadBufferSize  int = 1024 // Default session read buffer size.
+	DefaultWriteBufferSize int = 1024 // Default session write buffer size.
+)
 
 // Server.
 type Server struct {
@@ -28,21 +28,23 @@ type Server struct {
 	stopWait   *sync.WaitGroup
 	stopReason interface{}
 
-	SendChanSize   uint        // Session send chan buffer size.
-	ConnBufferSize int         // Session connection buffer size.
-	State          interface{} // server state.
+	SendChanSize           int         // Session send chan buffer size.
+	SessionReadBufferSize  int         // Session read buffer size.
+	SessionWriteBufferSize int         // Session write buffer size.
+	State                  interface{} // server state.
 }
 
 // Create a server.
 func NewServer(listener net.Listener, protocol PacketProtocol) *Server {
 	return &Server{
-		listener:       listener,
-		protocol:       protocol,
-		maxSessionId:   0,
-		sessions:       make(map[uint64]*Session),
-		stopWait:       new(sync.WaitGroup),
-		SendChanSize:   DefaultSendChanSize,
-		ConnBufferSize: DefaultConnBufferSize,
+		listener:               listener,
+		protocol:               protocol,
+		maxSessionId:           0,
+		sessions:               make(map[uint64]*Session),
+		stopWait:               new(sync.WaitGroup),
+		SendChanSize:           DefaultSendChanSize,
+		SessionReadBufferSize:  DefaultReadBufferSize,
+		SessionWriteBufferSize: DefaultWriteBufferSize,
 	}
 }
 
@@ -110,7 +112,7 @@ func (server *Server) Stop(reason interface{}) {
 }
 
 func (server *Server) newSession(id uint64, conn net.Conn) *Session {
-	session := NewSession(id, conn, server.protocol, server.SendChanSize, server.ConnBufferSize)
+	session := NewSession(id, conn, server.protocol, server.SendChanSize, server.SessionReadBufferSize, server.SessionWriteBufferSize)
 	server.putSession(session)
 	return session
 }

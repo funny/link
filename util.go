@@ -25,7 +25,7 @@ func Dial(network, address string, protocol PacketProtocol) (*Session, error) {
 		return nil, err
 	}
 	id := atomic.AddUint64(&dialSessionId, 1)
-	session := NewSession(id, conn, protocol, DefaultSendChanSize, DefaultConnBufferSize)
+	session := NewSession(id, conn, protocol, DefaultSendChanSize, DefaultReadBufferSize, DefaultWriteBufferSize)
 	return session, nil
 }
 
@@ -36,7 +36,7 @@ func DialTimeout(network, address string, timeout time.Duration, protocol Packet
 		return nil, err
 	}
 	id := atomic.AddUint64(&dialSessionId, 1)
-	session := NewSession(id, conn, protocol, DefaultSendChanSize, DefaultConnBufferSize)
+	session := NewSession(id, conn, protocol, DefaultSendChanSize, DefaultReadBufferSize, DefaultWriteBufferSize)
 	return session, nil
 }
 
@@ -59,15 +59,25 @@ func (s *SimpleSettings) MaxPacketSize(maxsize int) (old int) {
 type BufferConn struct {
 	net.Conn
 	reader *bufio.Reader
+	writer *bufio.Writer
 }
 
-func NewBufferConn(conn net.Conn, size int) *BufferConn {
+func NewBufferConn(conn net.Conn, readBuffSize, writeBuffSize int) *BufferConn {
 	return &BufferConn{
 		conn,
-		bufio.NewReaderSize(conn, size),
+		bufio.NewReaderSize(conn, readBuffSize),
+		bufio.NewWriterSize(conn, writeBuffSize),
 	}
 }
 
 func (conn *BufferConn) Read(d []byte) (int, error) {
 	return conn.reader.Read(d)
+}
+
+func (conn *BufferConn) Write(p []byte) (int, error) {
+	return conn.writer.Write(p)
+}
+
+func (conn *BufferConn) Flush() error {
+	return conn.writer.Flush()
 }

@@ -20,11 +20,12 @@ type Session struct {
 	bufferFactory BufferFactory
 
 	// About send and receive
-	sendChan       chan Message
-	sendPacketChan chan OutBuffer
-	readMutex      sync.Mutex
-	sendMutex      sync.Mutex
-	OnSendFailed   func(*Session, error)
+	usingBufferConn bool
+	sendChan        chan Message
+	sendPacketChan  chan OutBuffer
+	readMutex       sync.Mutex
+	sendMutex       sync.Mutex
+	OnSendFailed    func(*Session, error)
 
 	// About session close
 	closeChan           chan int
@@ -38,9 +39,11 @@ type Session struct {
 }
 
 // Create a new session instance.
-func NewSession(id uint64, conn net.Conn, protocol PacketProtocol, sendChanSize uint, connBufferSize int) *Session {
-	if connBufferSize > 0 {
-		conn = NewBufferConn(conn, connBufferSize)
+func NewSession(id uint64, conn net.Conn, protocol PacketProtocol, sendChanSize int, readBuffSize, writeBuffSize int) *Session {
+	usingBufferConn := false
+	if readBuffSize > 0 || writeBuffSize > 0 {
+		conn = NewBufferConn(conn, readBuffSize, writeBuffSize)
+		usingBufferConn = true
 	}
 
 	session := &Session{
@@ -50,6 +53,7 @@ func NewSession(id uint64, conn net.Conn, protocol PacketProtocol, sendChanSize 
 		writer:              protocol.NewWriter(),
 		reader:              protocol.NewReader(),
 		bufferFactory:       protocol.BufferFactory(),
+		usingBufferConn:     usingBufferConn,
 		sendChan:            make(chan Message, sendChanSize),
 		sendPacketChan:      make(chan OutBuffer, sendChanSize),
 		closeChan:           make(chan int),
@@ -154,7 +158,6 @@ func (session *Session) Packet(message Message, buffer OutBuffer) error {
 	if buffer == nil {
 		panic(NilBufferError)
 	}
-
 	buffer.Prepare(message.RecommendBufferSize())
 	return message.WriteBuffer(buffer)
 }
@@ -168,7 +171,14 @@ func (session *Session) Send(message Message) error {
 // Sync send a packet. The packet must be properly formatted.
 // Please see Packet().
 func (session *Session) SendPacket(packet OutBuffer) error {
-	return session.writer.WritePacket(session.conn, packet)
+	session.sendMutex.Lock()
+	defer session.sendMutex.Unlock()
+
+	err := session.writer.WritePacket(session.conn, packet)
+	if err == nil && session.usingBufferConn {
+		return session.conn.(*BufferConn).Flush()
+	}
+	return err
 }
 
 // Sync send a message with buffer resuing.
@@ -177,14 +187,10 @@ func (session *Session) SendPacket(packet OutBuffer) error {
 // NOTE 2: You can reuse a buffer for sending or just set buffer as nil is OK.
 // About the buffer reusing, please see Send() and sendLoop().
 func (session *Session) SendReuseBuffer(message Message, buffer OutBuffer) error {
-	session.sendMutex.Lock()
-	defer session.sendMutex.Unlock()
-
 	if err := session.Packet(message, buffer); err != nil {
 		return err
 	}
-
-	return session.writer.WritePacket(session.conn, buffer)
+	return session.SendPacket(buffer)
 }
 
 // Loop and transport responses.
