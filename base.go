@@ -134,6 +134,12 @@ type InBuffer interface {
 
 	// Read a uint64 value from buffer.
 	ReadUint64() uint64
+
+	// Read a float32 value from buffer.
+	ReadFloat32() float32
+
+	// Read a float64 value from buffer.
+	ReadFloat64() float64
 }
 
 // Outgoing messsage buffer.
@@ -177,4 +183,10 @@ type OutBuffer interface {
 
 	// Write a uint64 value into buffer.
 	WriteUint64(v uint64)
+
+	// Write a float32 value into buffer.
+	WriteFloat32(v float32)
+
+	// Write a float64 value into buffer.
+	WriteFloat64(v float64)
 }

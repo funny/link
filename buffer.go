@@ -3,6 +3,7 @@ package link
 import (
 	"encoding/binary"
 	"io"
+	"math"
 	"unicode/utf8"
 )
 
@@ -183,6 +184,16 @@ func (m *InBufferBE) ReadUint64() uint64 {
 	return r
 }
 
+// Read a float32 value from buffer.
+func (m *InBufferBE) ReadFloat32() float32 {
+	return math.Float32frombits(m.ReadUint32())
+}
+
+// Read a float64 value from buffer.
+func (m *InBufferBE) ReadFloat64() float64 {
+	return math.Float64frombits(m.ReadUint64())
+}
+
 /*
 little endian
 */
@@ -226,6 +237,16 @@ func (m *InBufferLE) ReadUint64() uint64 {
 	r := binary.LittleEndian.Uint64(m.b[m.i:])
 	m.i += 8
 	return r
+}
+
+// Read a float32 value from buffer.
+func (m *InBufferLE) ReadFloat32() float32 {
+	return math.Float32frombits(m.ReadUint32())
+}
+
+// Read a float64 value from buffer.
+func (m *InBufferLE) ReadFloat64() float64 {
+	return math.Float64frombits(m.ReadUint64())
 }
 
 /*
@@ -354,6 +375,16 @@ func (m *OutBufferBE) WriteUint64(v uint64) {
 	)
 }
 
+// Write a float32 value into buffer.
+func (m *OutBufferBE) WriteFloat32(v float32) {
+	m.WriteUint32(math.Float32bits(v))
+}
+
+// Write a float64 value into buffer.
+func (m *OutBufferBE) WriteFloat64(v float64) {
+	m.WriteUint64(math.Float64bits(v))
+}
+
 /*
 little endian
 */
@@ -400,4 +431,14 @@ func (m *OutBufferLE) WriteUint64(v uint64) {
 		byte(v>>48),
 		byte(v>>56),
 	)
+}
+
+// Write a float32 value into buffer.
+func (m *OutBufferLE) WriteFloat32(v float32) {
+	m.WriteUint32(math.Float32bits(v))
+}
+
+// Write a float64 value into buffer.
+func (m *OutBufferLE) WriteFloat64(v float64) {
+	m.WriteUint64(math.Float64bits(v))
 }
