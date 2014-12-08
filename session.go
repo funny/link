@@ -295,10 +295,6 @@ func (session *Session) RemoveCloseEventListener(listener SessionCloseEventListe
 
 // Dispatch close event.
 func (session *Session) dispatchCloseEvent() {
-	if session.IsClosed() {
-		return
-	}
-
 	session.closeEventMutex.Lock()
 	defer session.closeEventMutex.Unlock()
 
