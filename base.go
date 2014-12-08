@@ -34,6 +34,7 @@ type Settings interface {
 }
 
 // Packet spliting protocol.
+// You can implement custom packet protocol for special protocol.
 type PacketProtocol interface {
 	// Get buffer factory.
 	BufferFactory() BufferFactory
@@ -46,6 +47,7 @@ type PacketProtocol interface {
 }
 
 // Packet writer.
+// You can implement custom packet protocol for special protocol.
 type PacketWriter interface {
 	Settings
 
@@ -54,6 +56,7 @@ type PacketWriter interface {
 }
 
 // Packet reader.
+// You can implement custom packet protocol for special protocol.
 type PacketReader interface {
 	Settings
 
@@ -63,6 +66,7 @@ type PacketReader interface {
 }
 
 // Message buffer factory.
+// You can implement custom buffer type for message encrypt or check sum calculate.
 type BufferFactory interface {
 	// Create a incoming message buffer.
 	NewInBuffer() InBuffer
@@ -72,6 +76,7 @@ type BufferFactory interface {
 }
 
 // Message buffer base interface.
+// You can implement custom buffer type for message encrypt or check sum calculate.
 type Buffer interface {
 	// Get internal buffer.
 	Get() []byte
@@ -91,6 +96,7 @@ type Buffer interface {
 }
 
 // Incoming message buffer.
+// You can implement custom buffer type for message encrypt or check sum calculate.
 type InBuffer interface {
 	Buffer
 
@@ -143,6 +149,7 @@ type InBuffer interface {
 }
 
 // Outgoing messsage buffer.
+// You can implement custom buffer type for message encrypt or check sum calculate.
 type OutBuffer interface {
 	Buffer
 
