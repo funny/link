@@ -41,18 +41,22 @@ func DialTimeout(network, address string, timeout time.Duration, protocol Packet
 }
 
 // This type implement the Settings interface.
-// It's simple way to make your custome protocol implement Settings interface.
-// See FixWriter and FixReader.
-type SimpleSettings struct {
+// It's a simple way to make your custom protocol have package size limiting ability.
+// See PNWriter and PNReader.
+type SizeLimit struct {
 	maxsize int
 }
 
 // Set max packet size and returns old size limitation.
 // Set 0 means unlimit.
-func (s *SimpleSettings) MaxPacketSize(maxsize int) (old int) {
-	old = s.maxsize
+func (s *SizeLimit) GetMaxPacketSize() int {
+	return s.maxsize
+}
+
+// Set max packet size.
+// Set 0 means unlimit.
+func (s *SizeLimit) SetMaxPacketSize(maxsize int) {
 	s.maxsize = maxsize
-	return
 }
 
 // Buffered connection.

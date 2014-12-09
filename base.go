@@ -27,12 +27,6 @@ var (
 	LittleEndianBF = BufferFactoryLE{}
 )
 
-type Settings interface {
-	// Set max packet size and returns old size limitation.
-	// Set 0 means unlimit.
-	MaxPacketSize(int) int
-}
-
 // Packet spliting protocol.
 // You can implement custom packet protocol for special protocol.
 type PacketProtocol interface {
@@ -49,8 +43,6 @@ type PacketProtocol interface {
 // Packet writer.
 // You can implement custom packet protocol for special protocol.
 type PacketWriter interface {
-	Settings
-
 	// Write a packet to the conn.
 	WritePacket(conn net.Conn, buffer OutBuffer) error
 }
@@ -58,8 +50,6 @@ type PacketWriter interface {
 // Packet reader.
 // You can implement custom packet protocol for special protocol.
 type PacketReader interface {
-	Settings
-
 	// Read a packet from conn.
 	// If the packet size large than the buffer capacity, a new buffer will be created otherwise the buffer will be reused.
 	ReadPacket(conn net.Conn, buffer InBuffer) error

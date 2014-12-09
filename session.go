@@ -80,13 +80,13 @@ func (session *Session) Protocol() PacketProtocol {
 	return session.protocol
 }
 
-// Get reader settings.
-func (session *Session) ReaderSettings() Settings {
+// Get packet reader.
+func (session *Session) Reader() PacketReader {
 	return session.reader
 }
 
-// Get writer settings.
-func (session *Session) WriterSettings() Settings {
+// Get packet writer.
+func (session *Session) Writer() PacketWriter {
 	return session.writer
 }
 

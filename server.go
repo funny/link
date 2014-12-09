@@ -25,7 +25,7 @@ type Server struct {
 
 	// About server start and stop
 	stopFlag   int32
-	stopWait   *sync.WaitGroup
+	stopWait   sync.WaitGroup
 	stopReason interface{}
 
 	SendChanSize    int         // Session send chan buffer size.
@@ -39,9 +39,7 @@ func NewServer(listener net.Listener, protocol PacketProtocol) *Server {
 	return &Server{
 		listener:        listener,
 		protocol:        protocol,
-		maxSessionId:    0,
 		sessions:        make(map[uint64]*Session),
-		stopWait:        new(sync.WaitGroup),
 		SendChanSize:    DefaultSendChanSize,
 		ReadBufferSize:  DefaultReadBufferSize,
 		WriteBufferSize: DefaultWriteBufferSize,
