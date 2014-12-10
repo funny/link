@@ -40,24 +40,6 @@ func DialTimeout(network, address string, timeout time.Duration, protocol Packet
 	return session, nil
 }
 
-// It's a simple way to make your custom protocol have package size limiting ability.
-// See PNWriter and PNReader.
-type MaxPacketSize struct {
-	size int
-}
-
-// Set max packet size and returns old size limitation.
-// Set 0 means unlimit.
-func (s *MaxPacketSize) Get() int {
-	return s.size
-}
-
-// Set max packet size.
-// Set 0 means unlimit.
-func (s *MaxPacketSize) Set(size int) {
-	s.size = size
-}
-
 // Buffered connection.
 type BufferConn struct {
 	net.Conn
