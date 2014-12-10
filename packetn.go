@@ -66,25 +66,31 @@ func NewPNWriter(n int, bo binary.ByteOrder) *PNWriter {
 
 // Write a packet to the conn.
 func (w *PNWriter) WritePacket(conn net.Conn, buffer OutBuffer) error {
-	if maxsize := w.MaxPacketSize.Get(); maxsize > 0 && buffer.Len() > maxsize {
+	size := buffer.Len()
+
+	if maxsize := w.MaxPacketSize.Get(); maxsize > 0 && size > maxsize {
 		return PacketTooLargeError
 	}
 
 	switch w.n {
 	case 1:
-		w.head[0] = byte(buffer.Len())
+		w.head[0] = byte(size)
 	case 2:
-		w.bo.PutUint16(w.head, uint16(buffer.Len()))
+		w.bo.PutUint16(w.head, uint16(size))
 	case 4:
-		w.bo.PutUint32(w.head, uint32(buffer.Len()))
+		w.bo.PutUint32(w.head, uint32(size))
 	case 8:
-		w.bo.PutUint64(w.head, uint64(buffer.Len()))
+		w.bo.PutUint64(w.head, uint64(size))
 	default:
 		panic("unsupported packet head size")
 	}
 
 	if _, err := conn.Write(w.head); err != nil {
 		return err
+	}
+
+	if size == 0 {
+		return nil
 	}
 
 	if _, err := conn.Write(buffer.Get()); err != nil {
@@ -134,12 +140,12 @@ func (r *PNReader) ReadPacket(conn net.Conn, buffer InBuffer) error {
 		panic("unsupported packet head size")
 	}
 
-	if maxsize := r.MaxPacketSize.Get(); maxsize > 0 && size > maxsize {
-		return PacketTooLargeError
-	}
-
 	if size == 0 {
 		return nil
+	}
+
+	if maxsize := r.MaxPacketSize.Get(); maxsize > 0 && size > maxsize {
+		return PacketTooLargeError
 	}
 
 	buffer.Prepare(size)
