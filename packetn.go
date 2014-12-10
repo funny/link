@@ -66,7 +66,7 @@ func NewPNWriter(n int, bo binary.ByteOrder) *PNWriter {
 
 // Write a packet to the conn.
 func (w *PNWriter) WritePacket(conn net.Conn, buffer OutBuffer) error {
-	if w.MaxPacketSize.Get() > 0 && buffer.Len() > w.MaxPacketSize.Get() {
+	if maxsize := w.MaxPacketSize.Get(); maxsize > 0 && buffer.Len() > maxsize {
 		return PacketTooLargeError
 	}
 
@@ -134,7 +134,7 @@ func (r *PNReader) ReadPacket(conn net.Conn, buffer InBuffer) error {
 		panic("unsupported packet head size")
 	}
 
-	if r.MaxPacketSize.Get() > 0 && size > r.MaxPacketSize.Get() {
+	if maxsize := r.MaxPacketSize.Get(); maxsize > 0 && size > maxsize {
 		return PacketTooLargeError
 	}
 
