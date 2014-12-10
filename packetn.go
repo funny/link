@@ -9,7 +9,7 @@ import (
 // The packet spliting protocol like Erlang's {packet, N}.
 // Each packet has a fix length packet header to present packet length.
 type PNProtocol struct {
-	SizeLimit
+	MaxPacketSize
 	n  int
 	bo binary.ByteOrder
 	bf BufferFactory
@@ -34,20 +34,20 @@ func (p PNProtocol) BufferFactory() BufferFactory {
 // Create a packet writer.
 func (p PNProtocol) NewWriter() PacketWriter {
 	w := NewPNWriter(p.n, p.bo)
-	w.SizeLimit = p.SizeLimit
+	w.MaxPacketSize = p.MaxPacketSize
 	return w
 }
 
 // Create a packet reader.
 func (p PNProtocol) NewReader() PacketReader {
 	r := NewPNReader(p.n, p.bo)
-	r.SizeLimit = p.SizeLimit
+	r.MaxPacketSize = p.MaxPacketSize
 	return r
 }
 
 // The {packet, N} writer.
 type PNWriter struct {
-	SizeLimit
+	MaxPacketSize
 	n    int
 	bo   binary.ByteOrder
 	head []byte
@@ -66,7 +66,7 @@ func NewPNWriter(n int, bo binary.ByteOrder) *PNWriter {
 
 // Write a packet to the conn.
 func (w *PNWriter) WritePacket(conn net.Conn, buffer OutBuffer) error {
-	if w.GetMaxPacketSize() > 0 && buffer.Len() > w.maxsize {
+	if w.MaxPacketSize.Get() > 0 && buffer.Len() > w.MaxPacketSize.Get() {
 		return PacketTooLargeError
 	}
 
@@ -96,7 +96,7 @@ func (w *PNWriter) WritePacket(conn net.Conn, buffer OutBuffer) error {
 
 // The {packet, N} reader.
 type PNReader struct {
-	SizeLimit
+	MaxPacketSize
 	n    int
 	bo   binary.ByteOrder
 	head []byte
@@ -134,7 +134,7 @@ func (r *PNReader) ReadPacket(conn net.Conn, buffer InBuffer) error {
 		panic("unsupported packet head size")
 	}
 
-	if r.GetMaxPacketSize() > 0 && size > r.maxsize {
+	if r.MaxPacketSize.Get() > 0 && size > r.MaxPacketSize.Get() {
 		return PacketTooLargeError
 	}
 
