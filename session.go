@@ -20,12 +20,11 @@ type Session struct {
 	bufferFactory BufferFactory
 
 	// About send and receive
-	usingBufferConn bool
-	sendChan        chan Message
-	sendPacketChan  chan OutBuffer
-	readMutex       sync.Mutex
-	sendMutex       sync.Mutex
-	OnSendFailed    func(*Session, error)
+	sendChan       chan Message
+	sendPacketChan chan OutBuffer
+	readMutex      sync.Mutex
+	sendMutex      sync.Mutex
+	OnSendFailed   func(*Session, error)
 
 	// About session close
 	closeChan           chan int
@@ -40,10 +39,8 @@ type Session struct {
 
 // Create a new session instance.
 func NewSession(id uint64, conn net.Conn, protocol PacketProtocol, sendChanSize int, readBufferSize, writeBufferSize int) *Session {
-	usingBufferConn := false
 	if readBufferSize > 0 || writeBufferSize > 0 {
 		conn = NewBufferConn(conn, readBufferSize, writeBufferSize)
-		usingBufferConn = true
 	}
 
 	session := &Session{
@@ -53,7 +50,6 @@ func NewSession(id uint64, conn net.Conn, protocol PacketProtocol, sendChanSize 
 		writer:              protocol.NewWriter(),
 		reader:              protocol.NewReader(),
 		bufferFactory:       protocol.BufferFactory(),
-		usingBufferConn:     usingBufferConn,
 		sendChan:            make(chan Message, sendChanSize),
 		sendPacketChan:      make(chan OutBuffer, sendChanSize),
 		closeChan:           make(chan int),
@@ -174,11 +170,15 @@ func (session *Session) SendPacket(packet OutBuffer) error {
 	session.sendMutex.Lock()
 	defer session.sendMutex.Unlock()
 
-	err := session.writer.WritePacket(session.conn, packet)
-	if err == nil && session.usingBufferConn {
-		return session.conn.(*BufferConn).Flush()
+	if err := session.writer.WritePacket(session.conn, packet); err != nil {
+		return err
 	}
-	return err
+
+	if conn, isBufferConn := session.conn.(*BufferConn); isBufferConn {
+		return conn.Flush()
+	}
+
+	return nil
 }
 
 // Sync send a message with buffer resuing.
