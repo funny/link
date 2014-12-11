@@ -66,3 +66,8 @@ func (conn *BufferConn) Write(p []byte) (int, error) {
 func (conn *BufferConn) Flush() error {
 	return conn.writer.Flush()
 }
+
+func (conn *BufferConn) Close() error {
+	conn.writer.Flush()
+	return conn.Conn.Close()
+}
