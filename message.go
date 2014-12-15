@@ -1,7 +1,9 @@
 package link
 
 import (
+	"encoding/gob"
 	"encoding/json"
+	"encoding/xml"
 )
 
 // Message.
@@ -40,6 +42,36 @@ func (j JSON) RecommendBufferSize() int {
 // Implement the Message interface.
 func (j JSON) WriteBuffer(buffer OutBuffer) error {
 	return json.NewEncoder(buffer).Encode(j.V)
+}
+
+// GOB message
+type GOB struct {
+	V interface{}
+}
+
+// Implement the Message interface.
+func (g GOB) RecommendBufferSize() int {
+	return 0
+}
+
+// Implement the Message interface.
+func (g GOB) WriteBuffer(buffer OutBuffer) error {
+	return gob.NewEncoder(buffer).Encode(g.V)
+}
+
+// XML message
+type XML struct {
+	V interface{}
+}
+
+// Implement the Message interface.
+func (x XML) RecommendBufferSize() int {
+	return 0
+}
+
+// Implement the Message interface.
+func (x XML) WriteBuffer(buffer OutBuffer) error {
+	return xml.NewEncoder(buffer).Encode(x.V)
 }
 
 // A simple send queue. Can used for buffered send.

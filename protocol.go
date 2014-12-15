@@ -8,7 +8,7 @@ import (
 
 // The packet spliting protocol like Erlang's {packet, N}.
 // Each packet has a fix length packet header to present packet length.
-type PNProtocol struct {
+type SimpleProtocol struct {
 	MaxPacketSize int
 	n             int
 	bo            binary.ByteOrder
@@ -18,8 +18,8 @@ type PNProtocol struct {
 // Create a {packet, N} protocol.
 // The n means how many bytes of the packet header.
 // The 'bo' used to define packet header's byte order.
-func PacketN(n int, bo binary.ByteOrder, bf BufferFactory) *PNProtocol {
-	return &PNProtocol{
+func PacketN(n int, bo binary.ByteOrder, bf BufferFactory) *SimpleProtocol {
+	return &SimpleProtocol{
 		n:  n,
 		bo: bo,
 		bf: bf,
@@ -27,26 +27,26 @@ func PacketN(n int, bo binary.ByteOrder, bf BufferFactory) *PNProtocol {
 }
 
 // Get buffer factory.
-func (p PNProtocol) BufferFactory() BufferFactory {
+func (p SimpleProtocol) BufferFactory() BufferFactory {
 	return p.bf
 }
 
 // Create a packet writer.
-func (p PNProtocol) NewWriter() PacketWriter {
-	w := NewPNWriter(p.n, p.bo)
+func (p SimpleProtocol) NewWriter() PacketWriter {
+	w := NewSimplePacketWriter(p.n, p.bo)
 	w.MaxPacketSize = p.MaxPacketSize
 	return w
 }
 
 // Create a packet reader.
-func (p PNProtocol) NewReader() PacketReader {
-	r := NewPNReader(p.n, p.bo)
+func (p SimpleProtocol) NewReader() PacketReader {
+	r := NewSimplePacketReader(p.n, p.bo)
 	r.MaxPacketSize = p.MaxPacketSize
 	return r
 }
 
 // The {packet, N} writer.
-type PNWriter struct {
+type SimplePacketWriter struct {
 	MaxPacketSize int
 	head          []byte
 	encodeHead    func(int)
@@ -55,8 +55,8 @@ type PNWriter struct {
 // Create a new instance of {packet, N} writer.
 // The n means how many bytes of the packet header.
 // The 'byteOrder' used to define packet header's byte order.
-func NewPNWriter(n int, byteOrder binary.ByteOrder) *PNWriter {
-	w := &PNWriter{
+func NewSimplePacketWriter(n int, byteOrder binary.ByteOrder) *SimplePacketWriter {
+	w := &SimplePacketWriter{
 		head: make([]byte, n),
 	}
 
@@ -85,7 +85,7 @@ func NewPNWriter(n int, byteOrder binary.ByteOrder) *PNWriter {
 }
 
 // Write a packet to the conn.
-func (w *PNWriter) WritePacket(conn net.Conn, buffer OutBuffer) error {
+func (w *SimplePacketWriter) WritePacket(conn net.Conn, buffer OutBuffer) error {
 	size := buffer.Len()
 
 	if w.MaxPacketSize > 0 && size > w.MaxPacketSize {
@@ -110,7 +110,7 @@ func (w *PNWriter) WritePacket(conn net.Conn, buffer OutBuffer) error {
 }
 
 // The {packet, N} reader.
-type PNReader struct {
+type SimplePacketReader struct {
 	MaxPacketSize int
 	head          []byte
 	decodeHead    func() int
@@ -119,8 +119,8 @@ type PNReader struct {
 // Create a new instance of {packet, N} reader.
 // The n means how many bytes of the packet header.
 // The 'byteOrder' used to define packet header's byte order.
-func NewPNReader(n int, byteOrder binary.ByteOrder) *PNReader {
-	r := &PNReader{
+func NewSimplePacketReader(n int, byteOrder binary.ByteOrder) *SimplePacketReader {
+	r := &SimplePacketReader{
 		head: make([]byte, n),
 	}
 
@@ -149,7 +149,7 @@ func NewPNReader(n int, byteOrder binary.ByteOrder) *PNReader {
 }
 
 // Read a packet from conn.
-func (r *PNReader) ReadPacket(conn net.Conn, buffer InBuffer) error {
+func (r *SimplePacketReader) ReadPacket(conn net.Conn, buffer InBuffer) error {
 	if _, err := io.ReadFull(conn, r.head); err != nil {
 		return err
 	}
