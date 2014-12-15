@@ -9,7 +9,7 @@ import (
 // usage:
 //     go run echo_client/main.go
 func main() {
-	protocol := link.PacketN(2, link.BigEndian)
+	protocol := link.PacketN(2, link.BigEndian, link.SimpleBuffer)
 
 	client, err := link.Dial("tcp", "127.0.0.1:10010", protocol)
 	if err != nil {

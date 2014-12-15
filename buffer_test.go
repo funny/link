@@ -6,34 +6,23 @@ import (
 	"testing"
 )
 
-func Test_BigEndianBuffer(t *testing.T) {
-	outBuffer := new(OutBufferBE)
+func Test_Buffer(t *testing.T) {
+	outBuffer := new(SimpleOutBuffer)
 	PrepareBuffer(outBuffer)
 
-	inBuffer := new(InBufferBE)
-	inBuffer.b = outBuffer.b
-	VerifyBuffer(t, inBuffer)
-}
-
-func Test_LittleEndianBuffer(t *testing.T) {
-	outBuffer := new(OutBufferLE)
-	PrepareBuffer(outBuffer)
-
-	inBuffer := new(InBufferLE)
+	inBuffer := new(SimpleInBuffer)
 	inBuffer.b = outBuffer.b
 	VerifyBuffer(t, inBuffer)
 }
 
 func PrepareBuffer(buffer OutBuffer) {
-	buffer.WriteByte(99)
-	buffer.WriteInt8(-2)
-	buffer.WriteUint8(1)
-	buffer.WriteInt16(0x7FEE)
-	buffer.WriteUint16(0xFFEE)
-	buffer.WriteInt32(0x7FEEDDCC)
-	buffer.WriteUint32(0xFFEEDDCC)
-	buffer.WriteInt64(0x7FEEDDCCBBAA9988)
-	buffer.WriteUint64(0xFFEEDDCCBBAA9988)
+	buffer.WriteUint8(123)
+	buffer.WriteUint16LE(0xFFEE)
+	buffer.WriteUint16BE(0xFFEE)
+	buffer.WriteUint32LE(0xFFEEDDCC)
+	buffer.WriteUint32BE(0xFFEEDDCC)
+	buffer.WriteUint64LE(0xFFEEDDCCBBAA9988)
+	buffer.WriteUint64BE(0xFFEEDDCCBBAA9988)
 	buffer.WriteFloat32(88.01)
 	buffer.WriteFloat64(99.02)
 	buffer.WriteRune('好')
@@ -43,15 +32,13 @@ func PrepareBuffer(buffer OutBuffer) {
 }
 
 func VerifyBuffer(t *testing.T, buffer InBuffer) {
-	unitest.Pass(t, buffer.ReadByte() == 99)
-	unitest.Pass(t, buffer.ReadInt8() == -2)
-	unitest.Pass(t, buffer.ReadUint8() == 1)
-	unitest.Pass(t, buffer.ReadInt16() == 0x7FEE)
-	unitest.Pass(t, buffer.ReadUint16() == 0xFFEE)
-	unitest.Pass(t, buffer.ReadInt32() == 0x7FEEDDCC)
-	unitest.Pass(t, buffer.ReadUint32() == 0xFFEEDDCC)
-	unitest.Pass(t, buffer.ReadInt64() == 0x7FEEDDCCBBAA9988)
-	unitest.Pass(t, buffer.ReadUint64() == 0xFFEEDDCCBBAA9988)
+	unitest.Pass(t, buffer.ReadUint8() == 123)
+	unitest.Pass(t, buffer.ReadUint16LE() == 0xFFEE)
+	unitest.Pass(t, buffer.ReadUint16BE() == 0xFFEE)
+	unitest.Pass(t, buffer.ReadUint32LE() == 0xFFEEDDCC)
+	unitest.Pass(t, buffer.ReadUint32BE() == 0xFFEEDDCC)
+	unitest.Pass(t, buffer.ReadUint64LE() == 0xFFEEDDCCBBAA9988)
+	unitest.Pass(t, buffer.ReadUint64BE() == 0xFFEEDDCCBBAA9988)
 	unitest.Pass(t, buffer.ReadFloat32() == 88.01)
 	unitest.Pass(t, buffer.ReadFloat64() == 99.02)
 	unitest.Pass(t, buffer.ReadRune() == '好')

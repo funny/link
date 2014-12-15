@@ -1,6 +1,7 @@
 package link
 
 import (
+	"encoding/binary"
 	"errors"
 	"io"
 	"net"
@@ -14,13 +15,10 @@ var (
 	NilBufferError      = errors.New("Buffer is nil")
 )
 
-type ByteOrder int
-
 var (
-	// Big endian byte order.
-	BigEndian ByteOrder = 0
-	// Little endian byte order.
-	LittleEndian ByteOrder = 1
+	BigEndian    = binary.BigEndian
+	LittleEndian = binary.LittleEndian
+	SimpleBuffer = SimpleBufferFactory{}
 )
 
 // Packet spliting protocol.
@@ -100,38 +98,32 @@ type InBuffer interface {
 	// Read a rune from buffer.
 	ReadRune() rune
 
-	// Read a byte value from buffer.
-	ReadByte() byte
-
-	// Read a int8 value from buffer.
-	ReadInt8() int8
-
-	// Read a uint8 value from buffer.
-	ReadUint8() uint8
-
-	// Read a int16 value from buffer.
-	ReadInt16() int16
-
-	// Read a uint16 value from buffer.
-	ReadUint16() uint16
-
-	// Read a int32 value from buffer.
-	ReadInt32() int32
-
-	// Read a uint32 value from buffer.
-	ReadUint32() uint32
-
-	// Read a int64 value from buffer.
-	ReadInt64() int64
-
-	// Read a uint64 value from buffer.
-	ReadUint64() uint64
-
 	// Read a float32 value from buffer.
 	ReadFloat32() float32
 
 	// Read a float64 value from buffer.
 	ReadFloat64() float64
+
+	// Read a uint8 value from buffer.
+	ReadUint8() uint8
+
+	// Read a uint16 value from buffer.
+	ReadUint16LE() uint16
+
+	// Read a uint16 value from buffer.
+	ReadUint16BE() uint16
+
+	// Read a uint32 value from buffer.
+	ReadUint32LE() uint32
+
+	// Read a uint32 value from buffer.
+	ReadUint32BE() uint32
+
+	// Read a uint64 value from buffer.
+	ReadUint64LE() uint64
+
+	// Read a uint64 value from buffer.
+	ReadUint64BE() uint64
 }
 
 // Outgoing messsage buffer.
@@ -150,36 +142,30 @@ type OutBuffer interface {
 	// Write a rune into buffer.
 	WriteRune(r rune)
 
-	// Write a byte value into buffer.
-	WriteByte(v byte)
-
-	// Write a int8 value into buffer.
-	WriteInt8(v int8)
-
-	// Write a uint8 value into buffer.
-	WriteUint8(v uint8)
-
-	// Write a int16 value into buffer.
-	WriteInt16(v int16)
-
-	// Write a uint16 value into buffer.
-	WriteUint16(v uint16)
-
-	// Write a int32 value into buffer.
-	WriteInt32(v int32)
-
-	// Write a uint32 value into buffer.
-	WriteUint32(v uint32)
-
-	// Write a int64 value into buffer.
-	WriteInt64(v int64)
-
-	// Write a uint64 value into buffer.
-	WriteUint64(v uint64)
-
 	// Write a float32 value into buffer.
 	WriteFloat32(v float32)
 
 	// Write a float64 value into buffer.
 	WriteFloat64(v float64)
+
+	// Write a uint8 value into buffer.
+	WriteUint8(v uint8)
+
+	// Write a uint16 value into buffer.
+	WriteUint16LE(v uint16)
+
+	// Write a uint16 value into buffer.
+	WriteUint16BE(v uint16)
+
+	// Write a uint32 value into buffer.
+	WriteUint32LE(v uint32)
+
+	// Write a uint32 value into buffer.
+	WriteUint32BE(v uint32)
+
+	// Write a uint64 value into buffer.
+	WriteUint64LE(v uint64)
+
+	// Write a uint64 value into buffer.
+	WriteUint64BE(v uint64)
 }

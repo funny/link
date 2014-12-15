@@ -18,19 +18,12 @@ type PNProtocol struct {
 // Create a {packet, N} protocol.
 // The n means how many bytes of the packet header.
 // The 'bo' used to define packet header's byte order.
-func PacketN(n int, bo ByteOrder) *PNProtocol {
-	protocol := &PNProtocol{
-		n: n,
+func PacketN(n int, bo binary.ByteOrder, bf BufferFactory) *PNProtocol {
+	return &PNProtocol{
+		n:  n,
+		bo: bo,
+		bf: bf,
 	}
-	switch bo {
-	case BigEndian:
-		protocol.bo = binary.BigEndian
-		protocol.bf = BufferFactoryBE{}
-	case LittleEndian:
-		protocol.bo = binary.LittleEndian
-		protocol.bf = BufferFactoryLE{}
-	}
-	return protocol
 }
 
 // Get buffer factory.
