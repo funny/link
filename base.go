@@ -1,7 +1,6 @@
 package link
 
 import (
-	"encoding/binary"
 	"errors"
 	"io"
 	"net"
@@ -15,16 +14,13 @@ var (
 	NilBufferError      = errors.New("Buffer is nil")
 )
 
+type ByteOrder int
+
 var (
 	// Big endian byte order.
-	BigEndianBO = binary.BigEndian
-	// Big endian buffer factory.
-	BigEndianBF = BufferFactoryBE{}
-
+	BigEndian ByteOrder = 0
 	// Little endian byte order.
-	LittleEndianBO = binary.LittleEndian
-	// Little endian buffer factory.
-	LittleEndianBF = BufferFactoryLE{}
+	LittleEndian ByteOrder = 1
 )
 
 // Packet spliting protocol.

@@ -10,7 +10,7 @@ import (
 )
 
 func Test_Server(t *testing.T) {
-	proto := PacketN(4, BigEndianBO, LittleEndianBF)
+	proto := PacketN(4, BigEndian)
 
 	server, err0 := Listen("tcp", "0.0.0.0:0", proto)
 	unitest.NotError(t, err0)
