@@ -156,15 +156,15 @@ func (r *SimplePacketReader) ReadPacket(conn net.Conn, buffer InBuffer) error {
 
 	size := r.decodeHead()
 
-	if size == 0 {
-		return nil
-	}
-
 	if r.MaxPacketSize > 0 && size > r.MaxPacketSize {
 		return PacketTooLargeError
 	}
 
 	buffer.Prepare(size)
+
+	if size == 0 {
+		return nil
+	}
 
 	if _, err := io.ReadFull(conn, buffer.Get()); err != nil {
 		return err
