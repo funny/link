@@ -24,7 +24,7 @@ How to use
 Choose a protocol for your project.
 
 ```go
-proto := link.PacketN(2, link.BigEndianBO, link.LittleEndianBF)
+proto := link.PacketN(2, link.BigEndian, link.SimpleBuffer)
 ```
 
 Setup a server on port `8080` and set protocol.
@@ -50,7 +50,7 @@ server.AcceptLoop(func(session *link.Session) {
 Use the same protocol dial to the server.
 
 ```go
-proto := link.PacketN(2, link.BigEndianBO, link.LittleEndianBF)
+proto := link.PacketN(2, link.BigEndian, link.SimpleBuffer)
 
 client, _ := link.Dial("tcp", "127.0.0.1:8080", proto)
 ```
