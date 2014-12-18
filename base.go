@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
-	"net"
 )
 
 // Errors
@@ -23,30 +22,19 @@ var (
 
 // Packet spliting protocol.
 // You can implement custom packet protocol for special protocol.
-type PacketProtocol interface {
+type Protocol interface {
 	// Get buffer factory.
 	BufferFactory() BufferFactory
 
-	// Create a packet writer.
-	NewWriter() PacketWriter
+	// Prepare out buffer.
+	Prepare(buffer OutBuffer, message Message)
 
-	// Create a packet reader.
-	NewReader() PacketReader
-}
-
-// Packet writer.
-// You can implement custom packet protocol for special protocol.
-type PacketWriter interface {
 	// Write a packet to the conn.
-	WritePacket(conn net.Conn, buffer OutBuffer) error
-}
+	Write(writer io.Writer, buffer OutBuffer) error
 
-// Packet reader.
-// You can implement custom packet protocol for special protocol.
-type PacketReader interface {
 	// Read a packet from conn.
 	// If the packet size large than the buffer capacity, a new buffer will be created otherwise the buffer will be reused.
-	ReadPacket(conn net.Conn, buffer InBuffer) error
+	Read(reader io.Reader, buffer InBuffer) error
 }
 
 // Message buffer factory.
@@ -135,6 +123,9 @@ type OutBuffer interface {
 	Buffer
 
 	io.Writer
+
+	// Ignore some bytes.
+	Ignore(n int)
 
 	// Write a byte slice into buffer.
 	WriteBytes(d []byte)

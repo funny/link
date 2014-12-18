@@ -182,6 +182,14 @@ func (m *SimpleOutBuffer) Prepare(size int) {
 	}
 }
 
+func (m *SimpleOutBuffer) Ignore(n int) {
+	if len(m.b)+n <= cap(m.b) {
+		m.b = m.b[:len(m.b)+n]
+	} else {
+		m.b = append(m.b, make([]byte, n)...)
+	}
+}
+
 // Write a byte slice into buffer.
 func (m *SimpleOutBuffer) WriteBytes(d []byte) {
 	m.b = append(m.b, d...)

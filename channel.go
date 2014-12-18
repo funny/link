@@ -5,9 +5,9 @@ import "github.com/funny/sync"
 // The channel type. Used to maintain a group of session.
 // Normally used for broadcast classify purpose.
 type Channel struct {
-	broadcaster *Broadcaster
-	mutex       sync.RWMutex
-	sessions    map[uint64]channelSession
+	mutex    sync.RWMutex
+	protocol Protocol
+	sessions map[uint64]channelSession
 }
 
 type channelSession struct {
@@ -16,10 +16,10 @@ type channelSession struct {
 }
 
 // Create a channel instance.
-func NewChannel(protocol PacketProtocol) *Channel {
+func NewChannel(protocol Protocol) *Channel {
 	return &Channel{
-		broadcaster: NewBroadcaster(protocol),
-		sessions:    make(map[uint64]channelSession),
+		protocol: protocol,
+		sessions: make(map[uint64]channelSession),
 	}
 }
 
@@ -27,6 +27,7 @@ func NewChannel(protocol PacketProtocol) *Channel {
 func (channel *Channel) Len() int {
 	channel.mutex.RLock()
 	defer channel.mutex.RUnlock()
+
 	return len(channel.sessions)
 }
 
@@ -34,6 +35,7 @@ func (channel *Channel) Len() int {
 func (channel *Channel) Join(session *Session, kickCallback func()) {
 	channel.mutex.Lock()
 	defer channel.mutex.Unlock()
+
 	session.AddCloseEventListener(channel)
 	channel.sessions[session.Id()] = channelSession{session, kickCallback}
 }
@@ -56,6 +58,7 @@ func (channel *Channel) Exit(session *Session) {
 func (channel *Channel) Kick(sessionId uint64) {
 	channel.mutex.Lock()
 	defer channel.mutex.Unlock()
+
 	if session, exists := channel.sessions[sessionId]; exists {
 		delete(channel.sessions, sessionId)
 		if session.KickCallback != nil {
@@ -68,17 +71,13 @@ func (channel *Channel) Kick(sessionId uint64) {
 func (channel *Channel) Fetch(callback func(*Session)) {
 	channel.mutex.RLock()
 	defer channel.mutex.RUnlock()
+
 	for _, sesssion := range channel.sessions {
 		callback(sesssion.Session)
 	}
 }
 
-// Broadcast to channel sessions.
-func (channel *Channel) Broadcast(message Message) error {
-	return channel.broadcaster.Broadcast(channel, message)
-}
-
-// Broadcast to channel sessions.
-func (channel *Channel) MustBroadcast(message Message) error {
-	return channel.broadcaster.MustBroadcast(channel, message)
+// Get channel protocol.
+func (channel *Channel) Protocol() Protocol {
+	return channel.protocol
 }

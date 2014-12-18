@@ -20,7 +20,7 @@ func main() {
 	go func() {
 		for {
 			time.Sleep(time.Second)
-			channel.Broadcast(link.Binary(time.Now().String()))
+			link.Broadcast(channel, link.Binary(time.Now().String()))
 		}
 	}()
 
@@ -31,8 +31,8 @@ func main() {
 		channel.Join(session, nil)
 
 		session.ReadLoop(func(msg link.InBuffer) {
-			channel.Broadcast(link.Binary(
-				session.Conn().RemoteAddr().String() + " say: " + string(msg.Get()),
+			link.Broadcast(channel, link.Binary(
+				session.Conn().RemoteAddr().String()+" say: "+string(msg.Get()),
 			))
 		})
 

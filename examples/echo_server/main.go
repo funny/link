@@ -24,7 +24,6 @@ func main() {
 	flag.Parse()
 
 	link.DefaultReadBufferSize = *buffersize
-	link.DefaultWriteBufferSize = *buffersize
 
 	protocol := link.PacketN(2, link.BigEndian, link.SimpleBuffer)
 

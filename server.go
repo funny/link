@@ -7,16 +7,15 @@ import (
 )
 
 var (
-	DefaultSendChanSize    int = 1024 // Default session send chan buffer size.
-	DefaultReadBufferSize  int = 1024 // Default session read buffer size.
-	DefaultWriteBufferSize int = 1024 // Default session write buffer size.
+	DefaultSendChanSize   int = 1024 // Default session send chan buffer size.
+	DefaultReadBufferSize int = 1024 // Default session read buffer size.
 )
 
 // Server.
 type Server struct {
 	// About network
 	listener net.Listener
-	protocol PacketProtocol
+	protocol Protocol
 
 	// About sessions
 	maxSessionId uint64
@@ -28,21 +27,19 @@ type Server struct {
 	stopWait   sync.WaitGroup
 	stopReason interface{}
 
-	SendChanSize    int         // Session send chan buffer size.
-	ReadBufferSize  int         // Session read buffer size.
-	WriteBufferSize int         // Session write buffer size.
-	State           interface{} // server state.
+	SendChanSize   int         // Session send chan buffer size.
+	ReadBufferSize int         // Session read buffer size.
+	State          interface{} // server state.
 }
 
 // Create a server.
-func NewServer(listener net.Listener, protocol PacketProtocol) *Server {
+func NewServer(listener net.Listener, protocol Protocol) *Server {
 	return &Server{
-		listener:        listener,
-		protocol:        protocol,
-		sessions:        make(map[uint64]*Session),
-		SendChanSize:    DefaultSendChanSize,
-		ReadBufferSize:  DefaultReadBufferSize,
-		WriteBufferSize: DefaultWriteBufferSize,
+		listener:       listener,
+		protocol:       protocol,
+		sessions:       make(map[uint64]*Session),
+		SendChanSize:   DefaultSendChanSize,
+		ReadBufferSize: DefaultReadBufferSize,
 	}
 }
 
@@ -52,7 +49,7 @@ func (server *Server) Listener() net.Listener {
 }
 
 // Get packet protocol.
-func (server *Server) Protocol() PacketProtocol {
+func (server *Server) Protocol() Protocol {
 	return server.protocol
 }
 
@@ -110,7 +107,7 @@ func (server *Server) Stop(reason interface{}) {
 }
 
 func (server *Server) newSession(id uint64, conn net.Conn) *Session {
-	session := NewSession(id, conn, server.protocol, server.SendChanSize, server.ReadBufferSize, server.WriteBufferSize)
+	session := NewSession(id, conn, server.protocol, server.SendChanSize, server.ReadBufferSize)
 	server.putSession(session)
 	return session
 }
