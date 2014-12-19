@@ -1,12 +1,37 @@
 package link
 
 import (
+	"bufio"
 	"container/list"
 	"github.com/funny/sync"
 	"net"
 	"sync/atomic"
 	"time"
 )
+
+var dialSessionId uint64
+
+// The easy way to create a connection.
+func Dial(network, address string, protocol Protocol) (*Session, error) {
+	conn, err := net.Dial(network, address)
+	if err != nil {
+		return nil, err
+	}
+	id := atomic.AddUint64(&dialSessionId, 1)
+	session := NewSession(id, conn, protocol, DefaultSendChanSize, DefaultConnBufferSize)
+	return session, nil
+}
+
+// The easy way to create a connection with timeout setting.
+func DialTimeout(network, address string, timeout time.Duration, protocol Protocol) (*Session, error) {
+	conn, err := net.DialTimeout(network, address, timeout)
+	if err != nil {
+		return nil, err
+	}
+	id := atomic.AddUint64(&dialSessionId, 1)
+	session := NewSession(id, conn, protocol, DefaultSendChanSize, DefaultConnBufferSize)
+	return session, nil
+}
 
 // Session.
 type Session struct {
@@ -35,10 +60,27 @@ type Session struct {
 	State interface{}
 }
 
+// Buffered connection.
+type bufferConn struct {
+	net.Conn
+	reader *bufio.Reader
+}
+
+func newBufferConn(conn net.Conn, readBufferSize int) *bufferConn {
+	return &bufferConn{
+		conn,
+		bufio.NewReaderSize(conn, readBufferSize),
+	}
+}
+
+func (conn *bufferConn) Read(d []byte) (int, error) {
+	return conn.reader.Read(d)
+}
+
 // Create a new session instance.
 func NewSession(id uint64, conn net.Conn, protocol Protocol, sendChanSize int, readBufferSize int) *Session {
 	if readBufferSize > 0 {
-		conn = NewBufferConn(conn, readBufferSize)
+		conn = newBufferConn(conn, readBufferSize)
 	}
 
 	session := &Session{

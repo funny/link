@@ -11,6 +11,15 @@ var (
 	DefaultConnBufferSize int = 1024 // Default session read buffer size.
 )
 
+// The easy way to setup a server.
+func Listen(network, address string, protocol Protocol) (*Server, error) {
+	listener, err := net.Listen(network, address)
+	if err != nil {
+		return nil, err
+	}
+	return NewServer(listener, protocol), nil
+}
+
 // Server.
 type Server struct {
 	// About network
