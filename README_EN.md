@@ -24,7 +24,7 @@ How to use
 Choose a protocol for your project.
 
 ```go
-proto := link.PacketN(2, link.BigEndian, link.DefaultBuffer)
+proto := link.PacketN(2, link.BigEndian)
 ```
 
 Setup a server on port `8080` and set protocol.
@@ -39,8 +39,8 @@ Handle incoming connections. And setup a message handler on the new session.
 server.Handle(func(session *link.Session) {
 	fmt.Println("session start")
 
-	session.Handle(func(session *link.Session, msg link.Buffer) {
-		fmt.Printf("new message: %s\n", msg.Data())
+	session.Handle(func(session *link.Session, msg []byte) {
+		fmt.Printf("new message: %s\n", msg)
 	})
 
 	fmt.Println("session closed")
@@ -50,7 +50,7 @@ server.Handle(func(session *link.Session) {
 Use the same protocol dial to the server.
 
 ```go
-proto := link.PacketN(2, link.BigEndian, link.DefaultBuffer)
+proto := link.PacketN(2, link.BigEndian)
 
 client, _ := link.Dial("tcp", "127.0.0.1:8080", proto)
 ```
