@@ -7,8 +7,8 @@ import (
 )
 
 var (
-	DefaultSendChanSize   int = 1024 // Default session send chan buffer size.
-	DefaultConnBufferSize int = 1024 // Default session read buffer size.
+	DefaultSendChanSize   = 1024 // Default session send chan buffer size.
+	DefaultConnBufferSize = 1024 // Default session read buffer size.
 )
 
 // The easy way to setup a server.
