@@ -69,16 +69,16 @@ func (p *SimpleProtocol) BufferFactory() BufferFactory {
 	return p.bf
 }
 
-func (p *SimpleProtocol) Prepare(buffer OutBuffer, message Message) {
-	buffer.Prepare(p.n + message.RecommendBufferSize())
+func (p *SimpleProtocol) Prepare(buffer Buffer, message Message) {
+	buffer.PrepareWrite(p.n + message.RecommendBufferSize())
 	buffer.Ignore(p.n)
 }
 
 // Write a packet to the conn.
-func (p *SimpleProtocol) Write(writer io.Writer, buffer OutBuffer) error {
+func (p *SimpleProtocol) Write(writer io.Writer, buffer Buffer) error {
 	var (
-		buff = buffer.Get()
 		size = buffer.Len()
+		buff = buffer.Data()
 	)
 
 	if p.MaxPacketSize > 0 && size > p.MaxPacketSize {
@@ -95,7 +95,7 @@ func (p *SimpleProtocol) Write(writer io.Writer, buffer OutBuffer) error {
 }
 
 // Read a packet into buffer.
-func (p *SimpleProtocol) Read(reader io.Reader, buffer InBuffer) error {
+func (p *SimpleProtocol) Read(reader io.Reader, buffer Buffer) error {
 	if _, err := io.ReadFull(reader, p.head); err != nil {
 		return err
 	}
@@ -106,13 +106,13 @@ func (p *SimpleProtocol) Read(reader io.Reader, buffer InBuffer) error {
 		return PacketTooLargeError
 	}
 
-	buffer.Prepare(size)
+	buffer.PrepareRead(size)
 
 	if size == 0 {
 		return nil
 	}
 
-	if _, err := io.ReadFull(reader, buffer.Get()); err != nil {
+	if _, err := io.ReadFull(reader, buffer.Data()); err != nil {
 		return err
 	}
 

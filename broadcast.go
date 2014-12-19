@@ -2,14 +2,14 @@ package link
 
 // The session collection use to fetch session and send broadcast.
 type SessionCollection interface {
-	Fetch(func(*Session))
 	Protocol() Protocol
+	Fetch(func(*Session))
 }
 
 // Broadcast to sessions. The message only encoded once
 // so the performance better then send message one by one.
 func Broadcast(sessions SessionCollection, message Message) error {
-	buffer := sessions.Protocol().BufferFactory().NewOutBuffer()
+	buffer := sessions.Protocol().BufferFactory().NewBuffer()
 	sessions.Protocol().Prepare(buffer, message)
 	if err := message.WriteBuffer(buffer); err != nil {
 		return err
@@ -23,7 +23,7 @@ func Broadcast(sessions SessionCollection, message Message) error {
 // Broadcast to sessions. The message only encoded once
 // so the performance better then send message one by one.
 func MustBroadcast(sessions SessionCollection, message Message) error {
-	buffer := sessions.Protocol().BufferFactory().NewOutBuffer()
+	buffer := sessions.Protocol().BufferFactory().NewBuffer()
 	sessions.Protocol().Prepare(buffer, message)
 	if err := message.WriteBuffer(buffer); err != nil {
 		return err

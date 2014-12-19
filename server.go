@@ -8,7 +8,7 @@ import (
 
 var (
 	DefaultSendChanSize   int = 1024 // Default session send chan buffer size.
-	DefaultReadBufferSize int = 1024 // Default session read buffer size.
+	DefaultConnBufferSize int = 1024 // Default session read buffer size.
 )
 
 // Server.
@@ -39,7 +39,7 @@ func NewServer(listener net.Listener, protocol Protocol) *Server {
 		protocol:       protocol,
 		sessions:       make(map[uint64]*Session),
 		SendChanSize:   DefaultSendChanSize,
-		ReadBufferSize: DefaultReadBufferSize,
+		ReadBufferSize: DefaultConnBufferSize,
 	}
 }
 

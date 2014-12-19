@@ -9,7 +9,7 @@ import (
 // usage:
 //     go run broadcast/main.go
 func main() {
-	protocol := link.PacketN(2, link.BigEndian, link.SimpleBuffer)
+	protocol := link.PacketN(2, link.BigEndian, link.DefaultBuffer)
 
 	server, err := link.Listen("tcp", "127.0.0.1:10010", protocol)
 	if err != nil {
@@ -30,9 +30,9 @@ func main() {
 		println("client", session.Conn().RemoteAddr().String(), "in")
 		channel.Join(session, nil)
 
-		session.Handle(func(msg link.InBuffer) {
+		session.Handle(func(msg link.Buffer) {
 			link.Broadcast(channel, link.Binary(
-				session.Conn().RemoteAddr().String()+" say: "+string(msg.Get()),
+				session.Conn().RemoteAddr().String()+" say: "+string(msg.Data()),
 			))
 		})
 

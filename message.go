@@ -12,7 +12,7 @@ type Message interface {
 	RecommendBufferSize() int
 
 	// Write the message to the packet buffer and returns the new buffer like append() function.
-	WriteBuffer(buffer OutBuffer) error
+	WriteBuffer(buffer Buffer) error
 }
 
 // Binary message
@@ -24,8 +24,8 @@ func (bin Binary) RecommendBufferSize() int {
 }
 
 // Implement the Message interface.
-func (bin Binary) WriteBuffer(buffer OutBuffer) error {
-	buffer.WriteBytes([]byte(bin))
+func (bin Binary) WriteBuffer(buffer Buffer) error {
+	buffer.Append(bin...)
 	return nil
 }
 
@@ -40,7 +40,7 @@ func (j JSON) RecommendBufferSize() int {
 }
 
 // Implement the Message interface.
-func (j JSON) WriteBuffer(buffer OutBuffer) error {
+func (j JSON) WriteBuffer(buffer Buffer) error {
 	return json.NewEncoder(buffer).Encode(j.V)
 }
 
@@ -55,7 +55,7 @@ func (g GOB) RecommendBufferSize() int {
 }
 
 // Implement the Message interface.
-func (g GOB) WriteBuffer(buffer OutBuffer) error {
+func (g GOB) WriteBuffer(buffer Buffer) error {
 	return gob.NewEncoder(buffer).Encode(g.V)
 }
 
@@ -70,7 +70,7 @@ func (x XML) RecommendBufferSize() int {
 }
 
 // Implement the Message interface.
-func (x XML) WriteBuffer(buffer OutBuffer) error {
+func (x XML) WriteBuffer(buffer Buffer) error {
 	return xml.NewEncoder(buffer).Encode(x.V)
 }
 
@@ -97,7 +97,7 @@ func (q *SendQueue) RecommendBufferSize() int {
 }
 
 // Implement the Message interface.
-func (q *SendQueue) WriteBuffer(buffer OutBuffer) error {
+func (q *SendQueue) WriteBuffer(buffer Buffer) error {
 	for _, message := range q.messages {
 		if err := message.WriteBuffer(buffer); err != nil {
 			return err
