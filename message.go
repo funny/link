@@ -1,6 +1,7 @@
 package link
 
 import (
+	"bytes"
 	"encoding/gob"
 	"encoding/json"
 	"encoding/xml"
@@ -12,7 +13,7 @@ type Message interface {
 	RecommendBufferSize() int
 
 	// Write the message to the packet buffer and returns the new buffer like append() function.
-	WriteBuffer(buffer Buffer) error
+	WriteBuffer(buffer []byte) ([]byte, error)
 }
 
 // Binary message
@@ -24,9 +25,8 @@ func (bin Binary) RecommendBufferSize() int {
 }
 
 // Implement the Message interface.
-func (bin Binary) WriteBuffer(buffer Buffer) error {
-	buffer.Append(bin...)
-	return nil
+func (bin Binary) WriteBuffer(buffer []byte) ([]byte, error) {
+	return append(buffer, []byte(bin)...), nil
 }
 
 // JSON message
@@ -40,8 +40,12 @@ func (j JSON) RecommendBufferSize() int {
 }
 
 // Implement the Message interface.
-func (j JSON) WriteBuffer(buffer Buffer) error {
-	return json.NewEncoder(buffer).Encode(j.V)
+func (j JSON) WriteBuffer(buffer []byte) ([]byte, error) {
+	var w bytes.Buffer
+	if err := json.NewEncoder(&w).Encode(j.V); err != nil {
+		return nil, err
+	}
+	return w.Bytes(), nil
 }
 
 // GOB message
@@ -55,8 +59,12 @@ func (g GOB) RecommendBufferSize() int {
 }
 
 // Implement the Message interface.
-func (g GOB) WriteBuffer(buffer Buffer) error {
-	return gob.NewEncoder(buffer).Encode(g.V)
+func (g GOB) WriteBuffer(buffer []byte) ([]byte, error) {
+	var w bytes.Buffer
+	if err := gob.NewEncoder(&w).Encode(g.V); err != nil {
+		return nil, err
+	}
+	return w.Bytes(), nil
 }
 
 // XML message
@@ -70,8 +78,12 @@ func (x XML) RecommendBufferSize() int {
 }
 
 // Implement the Message interface.
-func (x XML) WriteBuffer(buffer Buffer) error {
-	return xml.NewEncoder(buffer).Encode(x.V)
+func (x XML) WriteBuffer(buffer []byte) ([]byte, error) {
+	var w bytes.Buffer
+	if err := xml.NewEncoder(&w).Encode(x.V); err != nil {
+		return nil, err
+	}
+	return w.Bytes(), nil
 }
 
 // A simple send queue. Can used for buffered send.
@@ -97,11 +109,12 @@ func (q *SendQueue) RecommendBufferSize() int {
 }
 
 // Implement the Message interface.
-func (q *SendQueue) WriteBuffer(buffer Buffer) error {
+func (q *SendQueue) WriteBuffer(buffer []byte) ([]byte, error) {
+	var err error
 	for _, message := range q.messages {
-		if err := message.WriteBuffer(buffer); err != nil {
-			return err
+		if buffer, err = message.WriteBuffer(buffer); err != nil {
+			return nil, err
 		}
 	}
-	return nil
+	return buffer, nil
 }

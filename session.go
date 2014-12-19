@@ -38,13 +38,12 @@ type Session struct {
 	id uint64
 
 	// About network
-	conn          net.Conn
-	protocol      Protocol
-	bufferFactory BufferFactory
+	conn     net.Conn
+	protocol Protocol
 
 	// About send and receive
 	sendChan       chan Message
-	sendPacketChan chan Buffer
+	sendPacketChan chan []byte
 	readMutex      sync.Mutex
 	sendMutex      sync.Mutex
 	OnSendFailed   func(*Session, error)
@@ -87,9 +86,8 @@ func NewSession(id uint64, conn net.Conn, protocol Protocol, sendChanSize int, r
 		id:                  id,
 		conn:                conn,
 		protocol:            protocol,
-		bufferFactory:       protocol.BufferFactory(),
 		sendChan:            make(chan Message, sendChanSize),
-		sendPacketChan:      make(chan Buffer, sendChanSize),
+		sendPacketChan:      make(chan []byte, sendChanSize),
 		closeChan:           make(chan int),
 		closeEventListeners: list.New(),
 	}
@@ -134,30 +132,32 @@ func (session *Session) Close(reason interface{}) {
 }
 
 // Read message once.
-func (session *Session) Read() (Buffer, error) {
-	var buffer = session.bufferFactory.NewBuffer()
-	if err := session.ReadReuseBuffer(buffer); err != nil {
+func (session *Session) Read() ([]byte, error) {
+	buffer, err := session.ReadReuseBuffer(make([]byte, 0))
+	if err != nil {
 		return nil, err
 	}
 	return buffer, nil
 }
 
 // Loop and read message. NOTE: The callback argument point to internal read buffer.
-func (session *Session) Handle(handler func(Buffer)) {
-	var buffer = session.bufferFactory.NewBuffer()
+func (session *Session) Handle(handler func([]byte)) {
+	buffer := make([]byte, 0)
 	for {
-		if err := session.ReadReuseBuffer(buffer); err != nil {
+		buffer2, err := session.ReadReuseBuffer(buffer)
+		if err != nil {
 			session.Close(err)
 			break
 		}
-		handler(buffer)
+		buffer = buffer2
+		handler(buffer2)
 	}
 }
 
 // Read message once with buffer reusing.
 // You can reuse a buffer for reading or just set buffer as nil is OK.
 // About the buffer reusing, please see Read() and Handle().
-func (session *Session) ReadReuseBuffer(buffer Buffer) error {
+func (session *Session) ReadReuseBuffer(buffer []byte) ([]byte, error) {
 	if buffer == nil {
 		panic(NilBufferError)
 	}
@@ -165,31 +165,31 @@ func (session *Session) ReadReuseBuffer(buffer Buffer) error {
 	session.readMutex.Lock()
 	defer session.readMutex.Unlock()
 
-	if err := session.protocol.Read(session.conn, buffer); err != nil {
-		return err
+	buffer2, err := session.protocol.Read(session.conn, buffer)
+	if err != nil {
+		return nil, err
 	}
 
-	return nil
+	return buffer2, nil
 }
 
 // Packet a message.
-func (session *Session) Packet(message Message, buffer Buffer) error {
+func (session *Session) Packet(message Message, buffer []byte) ([]byte, error) {
 	if buffer == nil {
 		panic(NilBufferError)
 	}
-	session.protocol.Prepare(buffer, message)
-	return message.WriteBuffer(buffer)
+	return session.protocol.Packet(buffer, message)
 }
 
 // Sync send a message. Equals Packet() and SendPacket(). This method will block on IO.
 func (session *Session) Send(message Message) error {
-	var buffer = session.bufferFactory.NewBuffer()
-	return session.SendReuseBuffer(message, buffer)
+	_, err := session.SendReuseBuffer(message, make([]byte, 0))
+	return err
 }
 
 // Sync send a packet. The packet must be properly formatted.
 // Please see Packet().
-func (session *Session) SendPacket(packet Buffer) error {
+func (session *Session) SendPacket(packet []byte) ([]byte, error) {
 	session.sendMutex.Lock()
 	defer session.sendMutex.Unlock()
 	return session.protocol.Write(session.conn, packet)
@@ -200,29 +200,32 @@ func (session *Session) SendPacket(packet Buffer) error {
 // NOTE 1: This method will block on IO.
 // NOTE 2: You can reuse a buffer for sending or just set buffer as nil is OK.
 // About the buffer reusing, please see Send() and sendLoop().
-func (session *Session) SendReuseBuffer(message Message, buffer Buffer) error {
-	if err := session.Packet(message, buffer); err != nil {
-		return err
+func (session *Session) SendReuseBuffer(message Message, buffer []byte) ([]byte, error) {
+	buffer2, err := session.Packet(message, buffer)
+	if err != nil {
+		return nil, err
 	}
-	return session.SendPacket(buffer)
+	return session.SendPacket(buffer2)
 }
 
 // Loop and transport responses.
 func (session *Session) sendLoop() {
-	var buffer = session.bufferFactory.NewBuffer()
+	buffer := make([]byte, 0)
 	for {
 		select {
 		case message := <-session.sendChan:
-			if err := session.SendReuseBuffer(message, buffer); err != nil {
+			if buffer2, err := session.SendReuseBuffer(message, buffer); err != nil {
 				if session.OnSendFailed != nil {
 					session.OnSendFailed(session, err)
 				} else {
 					session.Close(err)
 				}
 				return
+			} else {
+				buffer = buffer2
 			}
 		case packet := <-session.sendPacketChan:
-			if err := session.SendPacket(packet); err != nil {
+			if _, err := session.SendPacket(packet); err != nil {
 				if session.OnSendFailed != nil {
 					session.OnSendFailed(session, err)
 				} else {
@@ -242,7 +245,6 @@ func (session *Session) TrySend(message Message, timeout time.Duration) error {
 	if session.IsClosed() {
 		return SendToClosedError
 	}
-
 	select {
 	case session.sendChan <- message:
 	case <-session.closeChan:
@@ -250,18 +252,16 @@ func (session *Session) TrySend(message Message, timeout time.Duration) error {
 	case <-time.After(timeout):
 		return BlockingError
 	}
-
 	return nil
 }
 
 // Try async send a packet.
 // If send chan block until timeout happens, this method returns BlockingError.
 // The packet must be properly formatted. Please see Session.Packet().
-func (session *Session) TrySendPacket(packet Buffer, timeout time.Duration) error {
+func (session *Session) TrySendPacket(packet []byte, timeout time.Duration) error {
 	if session.IsClosed() {
 		return SendToClosedError
 	}
-
 	select {
 	case session.sendPacketChan <- packet:
 	case <-session.closeChan:
@@ -269,7 +269,6 @@ func (session *Session) TrySendPacket(packet Buffer, timeout time.Duration) erro
 	case <-time.After(timeout):
 		return BlockingError
 	}
-
 	return nil
 }
 

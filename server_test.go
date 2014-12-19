@@ -10,7 +10,7 @@ import (
 )
 
 func Test_Server(t *testing.T) {
-	proto := PacketN(4, BigEndian, DefaultBuffer)
+	proto := PacketN(4, BigEndian)
 
 	server, err0 := Listen("tcp", "0.0.0.0:0", proto)
 	unitest.NotError(t, err0)
@@ -33,8 +33,8 @@ func Test_Server(t *testing.T) {
 		atomic.AddInt32(&sessionStartCount, 1)
 		sessionStart.Done()
 
-		session.Handle(func(msg Buffer) {
-			if !bytes.Equal(msg.Data(), message) {
+		session.Handle(func(msg []byte) {
+			if !bytes.Equal(msg, message) {
 				messageMatchFailed = true
 			}
 

@@ -10,7 +10,6 @@ import (
 type SimpleProtocol struct {
 	n             int
 	bo            binary.ByteOrder
-	bf            BufferFactory
 	head          []byte
 	encodeHead    func(int, []byte)
 	decodeHead    func() int
@@ -20,11 +19,10 @@ type SimpleProtocol struct {
 // Create a {packet, N} protocol.
 // The n means how many bytes of the packet header.
 // The 'bo' used to define packet header's byte order.
-func PacketN(n int, byteOrder binary.ByteOrder, bufferFactory BufferFactory) *SimpleProtocol {
+func PacketN(n int, byteOrder binary.ByteOrder) *SimpleProtocol {
 	protocol := &SimpleProtocol{
 		n:    n,
 		bo:   byteOrder,
-		bf:   bufferFactory,
 		head: make([]byte, n),
 	}
 
@@ -64,57 +62,53 @@ func PacketN(n int, byteOrder binary.ByteOrder, bufferFactory BufferFactory) *Si
 	return protocol
 }
 
-// Get buffer factory.
-func (p *SimpleProtocol) BufferFactory() BufferFactory {
-	return p.bf
-}
-
-func (p *SimpleProtocol) Prepare(buffer Buffer, message Message) {
-	buffer.PrepareWrite(p.n + message.RecommendBufferSize())
-	buffer.Ignore(p.n)
+func (p *SimpleProtocol) Packet(buffer []byte, message Message) ([]byte, error) {
+	if cap(buffer) < message.RecommendBufferSize() {
+		return message.WriteBuffer(make([]byte, p.n, message.RecommendBufferSize()))
+	}
+	return message.WriteBuffer(buffer[:p.n])
 }
 
 // Write a packet to the conn.
-func (p *SimpleProtocol) Write(writer io.Writer, buffer Buffer) error {
-	var (
-		size = buffer.Len()
-		buff = buffer.Data()
-	)
-
-	if p.MaxPacketSize > 0 && size > p.MaxPacketSize {
-		return PacketTooLargeError
+func (p *SimpleProtocol) Write(writer io.Writer, buffer []byte) ([]byte, error) {
+	if p.MaxPacketSize > 0 && len(buffer) > p.MaxPacketSize {
+		return nil, PacketTooLargeError
 	}
 
-	p.encodeHead(size, buff)
+	p.encodeHead(len(buffer), buffer)
 
-	if _, err := writer.Write(buff); err != nil {
-		return err
+	if _, err := writer.Write(buffer); err != nil {
+		return nil, err
 	}
 
-	return nil
+	return buffer, nil
 }
 
 // Read a packet into buffer.
-func (p *SimpleProtocol) Read(reader io.Reader, buffer Buffer) error {
+func (p *SimpleProtocol) Read(reader io.Reader, buffer []byte) ([]byte, error) {
 	if _, err := io.ReadFull(reader, p.head); err != nil {
-		return err
+		return nil, err
 	}
 
 	size := p.decodeHead()
 
 	if p.MaxPacketSize > 0 && size > p.MaxPacketSize {
-		return PacketTooLargeError
+		return nil, PacketTooLargeError
 	}
 
-	buffer.PrepareRead(size)
+	if cap(buffer) < size {
+		buffer = make([]byte, size)
+	} else {
+		buffer = buffer[0:size]
+	}
 
 	if size == 0 {
-		return nil
+		return buffer, nil
 	}
 
-	if _, err := io.ReadFull(reader, buffer.Data()); err != nil {
-		return err
+	if _, err := io.ReadFull(reader, buffer); err != nil {
+		return nil, err
 	}
 
-	return nil
+	return buffer, nil
 }
