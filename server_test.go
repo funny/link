@@ -29,11 +29,11 @@ func Test_Server(t *testing.T) {
 		messageMatchFailed  bool
 	)
 
-	go server.AcceptLoop(func(session *Session) {
+	go server.Handle(func(session *Session) {
 		atomic.AddInt32(&sessionStartCount, 1)
 		sessionStart.Done()
 
-		session.ReadLoop(func(msg InBuffer) {
+		session.Handle(func(msg InBuffer) {
 			if !bytes.Equal(msg.Get(), message) {
 				messageMatchFailed = true
 			}

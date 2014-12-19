@@ -34,10 +34,10 @@ func main() {
 
 	println("server start:", server.Listener().Addr().String())
 
-	server.AcceptLoop(func(session *link.Session) {
+	server.Handle(func(session *link.Session) {
 		log("client", session.Conn().RemoteAddr().String(), "in")
 
-		session.ReadLoop(func(msg link.InBuffer) {
+		session.Handle(func(msg link.InBuffer) {
 			log("client", session.Conn().RemoteAddr().String(), "say:", string(msg.Get()))
 			session.Send(link.Binary(msg.Get()))
 		})

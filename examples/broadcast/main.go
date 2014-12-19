@@ -26,11 +26,11 @@ func main() {
 
 	println("server start")
 
-	server.AcceptLoop(func(session *link.Session) {
+	server.Handle(func(session *link.Session) {
 		println("client", session.Conn().RemoteAddr().String(), "in")
 		channel.Join(session, nil)
 
-		session.ReadLoop(func(msg link.InBuffer) {
+		session.Handle(func(msg link.InBuffer) {
 			link.Broadcast(channel, link.Binary(
 				session.Conn().RemoteAddr().String()+" say: "+string(msg.Get()),
 			))

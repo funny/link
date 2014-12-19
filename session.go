@@ -101,7 +101,7 @@ func (session *Session) Read() (InBuffer, error) {
 }
 
 // Loop and read message. NOTE: The callback argument point to internal read buffer.
-func (session *Session) ReadLoop(handler func(InBuffer)) {
+func (session *Session) Handle(handler func(InBuffer)) {
 	var buffer = session.bufferFactory.NewInBuffer()
 	for {
 		if err := session.ReadReuseBuffer(buffer); err != nil {
@@ -114,7 +114,7 @@ func (session *Session) ReadLoop(handler func(InBuffer)) {
 
 // Read message once with buffer reusing.
 // You can reuse a buffer for reading or just set buffer as nil is OK.
-// About the buffer reusing, please see Read() and ReadLoop().
+// About the buffer reusing, please see Read() and Handle().
 func (session *Session) ReadReuseBuffer(buffer InBuffer) error {
 	if buffer == nil {
 		panic(NilBufferError)

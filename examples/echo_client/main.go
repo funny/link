@@ -15,7 +15,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	go client.ReadLoop(func(msg link.InBuffer) {
+	go client.Handle(func(msg link.InBuffer) {
 		println("message:", string(msg.Get()))
 	})
 

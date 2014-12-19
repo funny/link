@@ -64,7 +64,7 @@ func (server *Server) StopReason() interface{} {
 }
 
 // Loop and accept incoming connections. The callback will called asynchronously when each session start.
-func (server *Server) AcceptLoop(handler func(*Session)) {
+func (server *Server) Handle(handler func(*Session)) {
 	for {
 		session, err := server.Accept()
 		if err != nil {
