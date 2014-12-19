@@ -7,11 +7,11 @@ import (
 )
 
 func Test_Buffer(t *testing.T) {
-	var writer = NewBufferWriter(make([]byte, 0))
+	var buffer = &Buffer{}
 
-	PrepareBuffer(writer)
+	PrepareBuffer(NewBufferWriter(buffer))
 
-	VerifyBuffer(t, NewBufferReader(writer.Bytes()))
+	VerifyBuffer(t, NewBufferReader(buffer))
 }
 
 func PrepareBuffer(buffer *BufferWriter) {

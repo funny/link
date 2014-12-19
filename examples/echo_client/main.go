@@ -15,8 +15,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	go client.Handle(func(msg []byte) {
-		println("message:", string(msg))
+	go client.Handle(func(msg *link.Buffer) {
+		println("message:", string(msg.Data))
 	})
 
 	for {
