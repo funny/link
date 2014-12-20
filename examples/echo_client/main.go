@@ -15,7 +15,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	go client.Handle(func(msg *link.Buffer) {
+	go client.Handle(func(msg *link.InBuffer) {
 		println("message:", string(msg.Data))
 	})
 

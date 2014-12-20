@@ -7,14 +7,14 @@ import (
 )
 
 func Test_Buffer(t *testing.T) {
-	var buffer = &Buffer{}
+	var buffer = &OutBuffer{}
 
-	PrepareBuffer(NewBufferWriter(buffer))
+	PrepareBuffer(buffer)
 
-	VerifyBuffer(t, NewBufferReader(buffer))
+	VerifyBuffer(t, &InBuffer{buffer.Data, 0})
 }
 
-func PrepareBuffer(buffer *BufferWriter) {
+func PrepareBuffer(buffer *OutBuffer) {
 	buffer.WriteUint8(123)
 	buffer.WriteUint16LE(0xFFEE)
 	buffer.WriteUint16BE(0xFFEE)
@@ -32,7 +32,7 @@ func PrepareBuffer(buffer *BufferWriter) {
 	buffer.WriteBytes([]byte("Hello3"))
 }
 
-func VerifyBuffer(t *testing.T, buffer *BufferReader) {
+func VerifyBuffer(t *testing.T, buffer *InBuffer) {
 	unitest.Pass(t, buffer.ReadUint8() == 123)
 	unitest.Pass(t, buffer.ReadUint16LE() == 0xFFEE)
 	unitest.Pass(t, buffer.ReadUint16BE() == 0xFFEE)

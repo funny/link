@@ -14,13 +14,13 @@ var (
 // You can implement custom packet protocol for special protocol.
 type Protocol interface {
 	// Packet a message into buffer. The buffer maybe grows.
-	Packet(buffer *Buffer, message Message) error
+	Packet(message Message, buffer *OutBuffer) error
 
 	// Write a packet. The buffer maybe grows.
-	Write(writer io.Writer, buffer *Buffer) error
+	Write(writer io.Writer, buffer *OutBuffer) error
 
 	// Read a packet. The buffer maybe grows.
-	Read(reader io.Reader, buffer *Buffer) error
+	Read(reader io.Reader, buffer *InBuffer) error
 }
 
 // The packet spliting protocol like Erlang's {packet, N}.
@@ -80,49 +80,36 @@ func PacketN(n int, byteOrder binary.ByteOrder) *SimpleProtocol {
 }
 
 // Write a packet. The buffer maybe grows.
-func (p *SimpleProtocol) Packet(buffer *Buffer, message Message) error {
+func (p *SimpleProtocol) Packet(message Message, buffer *OutBuffer) error {
 	size := message.RecommendBufferSize()
-	if cap(buffer.Data) < size {
-		buffer.Data = make([]byte, p.n, size)
-	} else {
-		buffer.Data = buffer.Data[:p.n]
-	}
+	buffer.Prepare(size)
+	buffer.Data = buffer.Data[:p.n]
 	return message.WriteBuffer(buffer)
 }
 
 // Write a packet. The buffer maybe grows.
-func (p *SimpleProtocol) Write(writer io.Writer, buffer *Buffer) error {
+func (p *SimpleProtocol) Write(writer io.Writer, buffer *OutBuffer) error {
 	if p.MaxPacketSize > 0 && len(buffer.Data) > p.MaxPacketSize {
 		return PacketTooLargeError
 	}
-
 	p.encodeHead(buffer.Data)
-
 	if _, err := writer.Write(buffer.Data); err != nil {
 		return err
 	}
-
 	return nil
 }
 
 // Read a packet. The buffer maybe grows.
-func (p *SimpleProtocol) Read(reader io.Reader, buffer *Buffer) error {
+func (p *SimpleProtocol) Read(reader io.Reader, buffer *InBuffer) error {
 	if _, err := io.ReadFull(reader, p.head); err != nil {
 		return err
 	}
-
 	size := p.decodeHead()
-
 	if p.MaxPacketSize > 0 && size > p.MaxPacketSize {
 		return PacketTooLargeError
 	}
 
-	if cap(buffer.Data) < size {
-		buffer.Data = make([]byte, size)
-	} else {
-		buffer.Data = buffer.Data[0:size]
-	}
-
+	buffer.Prepare(size)
 	if size == 0 {
 		return nil
 	}
@@ -130,6 +117,5 @@ func (p *SimpleProtocol) Read(reader io.Reader, buffer *Buffer) error {
 	if _, err := io.ReadFull(reader, buffer.Data); err != nil {
 		return err
 	}
-
 	return nil
 }

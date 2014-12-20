@@ -30,7 +30,7 @@ func main() {
 		println("client", session.Conn().RemoteAddr().String(), "in")
 		channel.Join(session, nil)
 
-		session.Handle(func(msg *link.Buffer) {
+		session.Handle(func(msg *link.InBuffer) {
 			link.Broadcast(channel, link.Binary(
 				session.Conn().RemoteAddr().String()+" say: "+string(msg.Data),
 			))

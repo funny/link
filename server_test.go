@@ -33,7 +33,7 @@ func Test_Server(t *testing.T) {
 		atomic.AddInt32(&sessionStartCount, 1)
 		sessionStart.Done()
 
-		session.Handle(func(msg *Buffer) {
+		session.Handle(func(msg *InBuffer) {
 			if !bytes.Equal(msg.Data, message) {
 				messageMatchFailed = true
 			}

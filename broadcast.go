@@ -11,8 +11,8 @@ type SessionCollection interface {
 // Broadcast to sessions. The message only encoded once
 // so the performance better then send message one by one.
 func Broadcast(sessions SessionCollection, message Message) error {
-	var buffer = &Buffer{}
-	if err := sessions.Protocol().Packet(buffer, message); err != nil {
+	var buffer = &OutBuffer{}
+	if err := sessions.Protocol().Packet(message, buffer); err != nil {
 		return err
 	}
 	sessions.Fetch(func(session *Session) {
@@ -24,8 +24,8 @@ func Broadcast(sessions SessionCollection, message Message) error {
 // Broadcast to sessions. The message only encoded once
 // so the performance better then send message one by one.
 func MustBroadcast(sessions SessionCollection, message Message) error {
-	var buffer = &Buffer{}
-	if err := sessions.Protocol().Packet(buffer, message); err != nil {
+	var buffer = &OutBuffer{}
+	if err := sessions.Protocol().Packet(message, buffer); err != nil {
 		return err
 	}
 	sessions.Fetch(func(session *Session) {

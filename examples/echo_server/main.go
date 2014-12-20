@@ -37,7 +37,7 @@ func main() {
 	server.Handle(func(session *link.Session) {
 		log("client", session.Conn().RemoteAddr().String(), "in")
 
-		session.Handle(func(msg *link.Buffer) {
+		session.Handle(func(msg *link.InBuffer) {
 			log("client", session.Conn().RemoteAddr().String(), "say:", string(msg.Data))
 			session.Send(link.Binary(msg.Data))
 		})
