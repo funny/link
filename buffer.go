@@ -7,11 +7,15 @@ import (
 	"unicode/utf8"
 )
 
+// Incoming message buffer.
 type InBuffer struct {
 	Data []byte
 	ReadPos int
 }
 
+// Prepare buffer for next message.
+// This method is for custom protocol only.
+// Dont' use it in application logic.
 func (in *InBuffer) Prepare(size int) {
 	if cap(in.Data) < size {
 		in.Data = make([]byte, size)
@@ -20,12 +24,14 @@ func (in *InBuffer) Prepare(size int) {
 	}
 }
 
+// Slice some bytes from buffer.
 func (in *InBuffer) Slice(n int) []byte {
 	r := in.Data[in.ReadPos:in.ReadPos+n]
 	in.ReadPos += n
 	return r
 }
 
+// Implement io.Reader interface
 func (in *InBuffer) Read(b []byte) (int, error) {
 	if in.ReadPos == len(in.Data) {
 		return 0, io.EOF
@@ -39,7 +45,7 @@ func (in *InBuffer) Read(b []byte) (int, error) {
 	return n, nil
 }
 
-// Copy some bytes from buffer.
+// Read some bytes from buffer.
 func (in *InBuffer) ReadBytes(n int) []byte {
 	x := make([]byte, n)
 	copy(x, in.Slice(n))
@@ -113,10 +119,14 @@ func (in *InBuffer) ReadFloat64BE() float64 {
 	return math.Float64frombits(in.ReadUint64BE())
 }
 
+// Outgoing message buffer.
 type OutBuffer struct {
 	Data []byte
 }
 
+// Prepare for next message.
+// This method is for custom protocol only.
+// Don't use it in application logic.
 func (out *OutBuffer) Prepare(size int) {
 	if cap(out.Data) < size {
 		out.Data = make([]byte, 0, size)
@@ -125,11 +135,12 @@ func (out *OutBuffer) Prepare(size int) {
 	}
 }
 
+// Append some bytes into buffer.
 func (out *OutBuffer) Append(p ...byte) {
 	out.Data = append(out.Data, p...)
 }
 
-
+// Implement io.Writer interface.
 func (out *OutBuffer) Write(p []byte) (int, error) {
 	out.Data = append(out.Data, p...)
 	return len(p), nil

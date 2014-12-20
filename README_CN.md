@@ -37,7 +37,7 @@ server, _ := link.Listen("tcp", "0.0.0.0:8080", proto)
 server.Handle(func(session *link.Session) {
 	fmt.Println("session start")
 
-	session.Handle(func(session *link.Session, msg []byte) {
+	session.Handle(func(session *link.Session, msg *link.InBuffer) {
 		fmt.Printf("new message: %s\n", msg)
 	})
 

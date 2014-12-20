@@ -39,7 +39,7 @@ Handle incoming connections. And setup a message handler on the new session.
 server.Handle(func(session *link.Session) {
 	fmt.Println("session start")
 
-	session.Handle(func(session *link.Session, msg []byte) {
+	session.Handle(func(session *link.Session, msg *link.InBuffer) {
 		fmt.Printf("new message: %s\n", msg)
 	})
 
