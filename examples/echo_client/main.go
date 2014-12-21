@@ -16,7 +16,7 @@ func main() {
 		panic(err)
 	}
 	go client.Handle(func(msg *link.InBuffer) {
-		println("message:", string(msg.Data))
+		println(string(msg.Data))
 	})
 
 	for {

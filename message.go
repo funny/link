@@ -8,7 +8,7 @@ import (
 
 // Message.
 type Message interface {
-	// Get a recommend packet size for buffer initialization.
+	// Get a recommend buffer size.
 	RecommendBufferSize() int
 
 	// Write the message to the packet buffer and returns the new buffer like append() function.
@@ -36,7 +36,7 @@ type JSON struct {
 
 // Implement the Message interface.
 func (j JSON) RecommendBufferSize() int {
-	return 0
+	return 1024
 }
 
 // Implement the Message interface.
@@ -51,7 +51,7 @@ type GOB struct {
 
 // Implement the Message interface.
 func (g GOB) RecommendBufferSize() int {
-	return 0
+	return 1024
 }
 
 // Implement the Message interface.
@@ -66,7 +66,7 @@ type XML struct {
 
 // Implement the Message interface.
 func (x XML) RecommendBufferSize() int {
-	return 0
+	return 1024
 }
 
 // Implement the Message interface.

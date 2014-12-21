@@ -66,11 +66,6 @@ func (server *Server) Listener() net.Listener {
 	return server.listener
 }
 
-// Get packet protocol.
-func (server *Server) Protocol() Protocol {
-	return server.protocol
-}
-
 // Check server is stoppped
 func (server *Server) IsStopped() bool {
 	return atomic.LoadInt32(&server.stopFlag) == 1
@@ -167,5 +162,20 @@ func (server *Server) closeSessions() {
 	sessions := server.copySessions()
 	for _, session := range sessions {
 		session.Close(nil)
+	}
+}
+
+// Get packet protocol.
+// Implement SessionCollection interface.
+func (server *Server) Protocol() Protocol {
+	return server.protocol
+}
+
+// Fetch sessions.
+// Implement SessionCollection interface.
+func (server *Server) FetchSession(callback func(*Session)) {
+	sessions := server.copySessions()
+	for _, session := range sessions {
+		callback(session)
 	}
 }

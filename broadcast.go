@@ -5,7 +5,7 @@ import "github.com/funny/sync"
 // The session collection use to fetch session and send broadcast.
 type SessionCollection interface {
 	Protocol() Protocol
-	Fetch(func(*Session))
+	FetchSession(func(*Session))
 }
 
 // Broadcast to sessions. The message only encoded once
@@ -15,7 +15,7 @@ func Broadcast(sessions SessionCollection, message Message) error {
 	if err := sessions.Protocol().Packet(message, buffer); err != nil {
 		return err
 	}
-	sessions.Fetch(func(session *Session) {
+	sessions.FetchSession(func(session *Session) {
 		session.TrySendPacket(buffer, 0)
 	})
 	return nil
@@ -28,7 +28,7 @@ func MustBroadcast(sessions SessionCollection, message Message) error {
 	if err := sessions.Protocol().Packet(message, buffer); err != nil {
 		return err
 	}
-	sessions.Fetch(func(session *Session) {
+	sessions.FetchSession(func(session *Session) {
 		session.SendPacket(buffer)
 	})
 	return nil
@@ -99,17 +99,19 @@ func (channel *Channel) Kick(sessionId uint64) {
 	}
 }
 
+// Get channel protocol.
+// Implement SessionCollection interface.
+func (channel *Channel) Protocol() Protocol {
+	return channel.protocol
+}
+
 // Fetch the sessions. NOTE: Invoke Kick() or Exit() in fetch callback will dead lock.
-func (channel *Channel) Fetch(callback func(*Session)) {
+// Implement SessionCollection interface.
+func (channel *Channel) FetchSession(callback func(*Session)) {
 	channel.mutex.RLock()
 	defer channel.mutex.RUnlock()
 
 	for _, sesssion := range channel.sessions {
 		callback(sesssion.Session)
 	}
-}
-
-// Get channel protocol.
-func (channel *Channel) Protocol() Protocol {
-	return channel.protocol
 }

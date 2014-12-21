@@ -19,8 +19,11 @@ func main() {
 	channel := link.NewChannel(server.Protocol())
 	go func() {
 		for {
-			time.Sleep(time.Second)
-			link.Broadcast(channel, link.Binary(time.Now().String()))
+			time.Sleep(time.Second * 2)
+			// broadcast to server sessions
+			link.Broadcast(server, link.Binary("server say: "+time.Now().String()))
+			// broadcast to channel sessions
+			link.Broadcast(channel, link.Binary("channel say: "+time.Now().String()))
 		}
 	}()
 
@@ -32,7 +35,7 @@ func main() {
 
 		session.Handle(func(msg *link.InBuffer) {
 			link.Broadcast(channel, link.Binary(
-				session.Conn().RemoteAddr().String()+" say: "+string(msg.Data),
+				"client "+session.Conn().RemoteAddr().String()+" say: "+string(msg.Data),
 			))
 		})
 
