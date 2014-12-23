@@ -10,14 +10,16 @@ var (
 	LittleEndian = binary.LittleEndian
 )
 
+type Packet *OutBuffer
+
 // Packet spliting protocol.
 // You can implement custom packet protocol for special protocol.
 type Protocol interface {
 	// Packet a message into buffer. The buffer maybe grows.
-	Packet(message Message, buffer *OutBuffer) error
+	Packet(message Message, buffer *OutBuffer) (Packet, error)
 
 	// Write a packet. The buffer maybe grows.
-	Write(writer io.Writer, buffer *OutBuffer) error
+	Write(writer io.Writer, packet Packet) error
 
 	// Read a packet. The buffer maybe grows.
 	Read(reader io.Reader, buffer *InBuffer) error
@@ -80,15 +82,15 @@ func PacketN(n int, byteOrder binary.ByteOrder) *SimpleProtocol {
 }
 
 // Write a packet. The buffer maybe grows.
-func (p *SimpleProtocol) Packet(message Message, buffer *OutBuffer) error {
-	size := message.RecommendBufferSize()
-	buffer.Prepare(size)
+func (p *SimpleProtocol) Packet(message Message, buffer *OutBuffer) (Packet, error) {
+	buffer.Prepare(message.RecommendBufferSize())
 	buffer.Data = buffer.Data[:p.n]
-	return message.WriteBuffer(buffer)
+	err := message.WriteBuffer(buffer)
+	return Packet(buffer), err
 }
 
 // Write a packet. The buffer maybe grows.
-func (p *SimpleProtocol) Write(writer io.Writer, buffer *OutBuffer) error {
+func (p *SimpleProtocol) Write(writer io.Writer, buffer Packet) error {
 	if p.MaxPacketSize > 0 && len(buffer.Data) > p.MaxPacketSize {
 		return PacketTooLargeError
 	}

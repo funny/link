@@ -146,26 +146,22 @@ func (session *Session) Read() (*InBuffer, error) {
 
 // Sync send a message. Equals Packet() then SendPacket(). This method will block on IO.
 func (session *Session) Send(message Message) error {
-	buffer, err := session.Packet(message)
+	packet, err := session.Packet(message)
 	if err != nil {
 		return err
 	}
-	err = session.SendPacket(buffer)
-	buffer.Free()
+	err = session.SendPacket(packet)
+	((*OutBuffer)(packet)).Free()
 	return err
 }
 
 // Packet a message. The packet buffer need to free by manual.
-func (session *Session) Packet(message Message) (*OutBuffer, error) {
-	var buffer = NewOutBuffer()
-	if err := session.protocol.Packet(message, buffer); err != nil {
-		return nil, err
-	}
-	return buffer, nil
+func (session *Session) Packet(message Message) (Packet, error) {
+	return session.protocol.Packet(message, NewOutBuffer())
 }
 
 // Sync send a packet. See Packet() method.
-func (session *Session) SendPacket(packet *OutBuffer) error {
+func (session *Session) SendPacket(packet Packet) error {
 	session.sendMutex.Lock()
 	defer session.sendMutex.Unlock()
 	return session.protocol.Write(session.conn, packet)
