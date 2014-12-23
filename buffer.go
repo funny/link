@@ -1,16 +1,86 @@
 package link
 
 import (
-	"io"
 	"encoding/binary"
+	"io"
 	"math"
+	"sync"
 	"unicode/utf8"
 )
 
-// Incoming message buffer.
+var globalPool = newBufferPool()
+
+type bufferPool struct {
+	in   sync.Pool
+	out  sync.Pool
+	data sync.Pool
+}
+
+func newBufferPool() *bufferPool {
+	pool := new(bufferPool)
+
+	pool.in.New = func() interface{} {
+		return new(InBuffer)
+	}
+
+	pool.out.New = func() interface{} {
+		return new(OutBuffer)
+	}
+
+	pool.data.New = func() interface{} {
+		return make([]byte, 0, 4096)
+	}
+
+	return pool
+}
+
+func (pool *bufferPool) GetInBuffer() *InBuffer {
+	in := pool.in.Get().(*InBuffer)
+	in.isFreed = false
+	in.Data = pool.data.Get().([]byte)
+	return in
+}
+
+func (pool *bufferPool) GetOutBuffer() *OutBuffer {
+	out := pool.out.Get().(*OutBuffer)
+	out.isFreed = false
+	out.Data = pool.data.Get().([]byte)
+	return out
+}
+
+func (pool *bufferPool) PutInBuffer(in *InBuffer) {
+	pool.data.Put(in.Data[0:0])
+	in.Data = nil
+	in.ReadPos = 0
+	in.isFreed = true
+	pool.in.Put(in)
+}
+
+func (pool *bufferPool) PutOutBuffer(out *OutBuffer) {
+	pool.data.Put(out.Data[0:0])
+	out.Data = nil
+	out.isFreed = true
+	pool.out.Put(out)
+}
+
+// Incomming message buffer.
 type InBuffer struct {
-	Data []byte
-	ReadPos int
+	Data    []byte // Buffer data.
+	ReadPos int    // Read position.
+	isFreed bool
+}
+
+// Create a new incomming message buffer.
+func NewInBuffer() *InBuffer {
+	return globalPool.GetInBuffer()
+}
+
+// Return the buffer to buffer pool.
+func (in *InBuffer) Free() {
+	if in.isFreed {
+		panic("link.InBuffer: double free")
+	}
+	globalPool.PutInBuffer(in)
 }
 
 // Prepare buffer for next message.
@@ -26,7 +96,7 @@ func (in *InBuffer) Prepare(size int) {
 
 // Slice some bytes from buffer.
 func (in *InBuffer) Slice(n int) []byte {
-	r := in.Data[in.ReadPos:in.ReadPos+n]
+	r := in.Data[in.ReadPos : in.ReadPos+n]
 	in.ReadPos += n
 	return r
 }
@@ -37,7 +107,7 @@ func (in *InBuffer) Read(b []byte) (int, error) {
 		return 0, io.EOF
 	}
 	n := len(b)
-	if n + in.ReadPos > len(in.Data) {
+	if n+in.ReadPos > len(in.Data) {
 		n = len(in.Data) - in.ReadPos
 	}
 	copy(b, in.Data[in.ReadPos:])
@@ -121,7 +191,21 @@ func (in *InBuffer) ReadFloat64BE() float64 {
 
 // Outgoing message buffer.
 type OutBuffer struct {
-	Data []byte
+	Data    []byte // Buffer data.
+	isFreed bool
+}
+
+// Create a new outgoing message buffer.
+func NewOutBuffer() *OutBuffer {
+	return globalPool.GetOutBuffer()
+}
+
+// Return the buffer to buffer pool.
+func (out *OutBuffer) Free() {
+	if out.isFreed {
+		panic("link.OutBuffer: double free")
+	}
+	globalPool.PutOutBuffer(out)
 }
 
 // Prepare for next message.
