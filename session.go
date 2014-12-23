@@ -180,13 +180,13 @@ func (session *Session) Handle(handler func(*InBuffer)) {
 }
 
 type asyncMessage struct {
-	C   chan<- error
-	Msg Message
+	C chan<- error
+	M Message
 }
 
 type asyncPacket struct {
-	C   chan<- error
-	Pkt Packet
+	C chan<- error
+	P Packet
 }
 
 // Loop and transport responses.
@@ -194,10 +194,10 @@ func (session *Session) sendLoop() {
 	for {
 		select {
 		case packet := <-session.packetChan:
-			packet.C <- session.SendPacket(packet.Pkt)
-			((*OutBuffer)(packet.Pkt)).broadcastFree()
+			packet.C <- session.SendPacket(packet.P)
+			((*OutBuffer)(packet.P)).broadcastFree()
 		case message := <-session.messageChan:
-			message.C <- session.Send(message.Msg)
+			message.C <- session.Send(message.M)
 		case <-session.closeChan:
 			return
 		}
