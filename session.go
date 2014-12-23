@@ -195,6 +195,7 @@ func (session *Session) sendLoop() {
 		select {
 		case packet := <-session.packetChan:
 			packet.C <- session.SendPacket(packet.Pkt)
+			((*OutBuffer)(packet.Pkt)).broadcastFree()
 		case message := <-session.messageChan:
 			message.C <- session.Send(message.Msg)
 		case <-session.closeChan:

@@ -16,14 +16,19 @@ type BroadcastResult struct {
 // Broadcast to sessions. The message only encoded once
 // so the performance is better than send message one by one.
 func Broadcast(sessions SessionCollection, message Message) ([]BroadcastResult, error) {
-	buffer := &OutBuffer{Data: make([]byte, 0, 512)}
+	buffer := NewOutBuffer()
 	packet, err := sessions.Protocol().Packet(message, buffer)
 	if err != nil {
 		return nil, err
 	}
 	results := make([]BroadcastResult, 0, 10)
+	buffer.isBroadcast = true
 	sessions.FetchSession(func(session *Session) {
-		results = append(results, BroadcastResult{session, session.AsyncSendPacket(packet)})
+		buffer.broadcastUse()
+		results = append(results, BroadcastResult{
+			session,
+			session.AsyncSendPacket(packet),
+		})
 	})
 	return results, nil
 }

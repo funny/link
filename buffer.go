@@ -5,6 +5,7 @@ import (
 	"io"
 	"math"
 	"sync"
+	"sync/atomic"
 	"unicode/utf8"
 )
 
@@ -36,15 +37,17 @@ func newBufferPool() *bufferPool {
 
 func (pool *bufferPool) GetInBuffer() *InBuffer {
 	in := pool.in.Get().(*InBuffer)
-	in.isFreed = false
 	in.Data = pool.data.Get().([]byte)
+	in.isFreed = false
 	return in
 }
 
 func (pool *bufferPool) GetOutBuffer() *OutBuffer {
 	out := pool.out.Get().(*OutBuffer)
-	out.isFreed = false
 	out.Data = pool.data.Get().([]byte)
+	out.isFreed = false
+	out.isBroadcast = false
+	out.refCount = 0
 	return out
 }
 
@@ -191,13 +194,25 @@ func (in *InBuffer) ReadFloat64BE() float64 {
 
 // Outgoing message buffer.
 type OutBuffer struct {
-	Data    []byte // Buffer data.
-	isFreed bool
+	Data        []byte // Buffer data.
+	isFreed     bool
+	isBroadcast bool
+	refCount    int32
 }
 
 // Create a new outgoing message buffer.
 func NewOutBuffer() *OutBuffer {
 	return globalPool.GetOutBuffer()
+}
+
+func (out *OutBuffer) broadcastUse() {
+	atomic.AddInt32(&out.refCount, 1)
+}
+
+func (out *OutBuffer) broadcastFree() {
+	if out.isBroadcast && atomic.AddInt32(&out.refCount, -1) == 0 {
+		out.Free()
+	}
 }
 
 // Return the buffer to buffer pool.

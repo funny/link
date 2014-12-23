@@ -102,7 +102,7 @@ func (p *SimpleProtocol) Write(writer io.Writer, buffer Packet) error {
 // Read a packet. The buffer maybe grows.
 func (p *SimpleProtocol) Read(reader io.Reader, buffer *InBuffer) error {
 	// head
-	buffer.Prepare(4)
+	buffer.Prepare(p.n)
 	if _, err := io.ReadFull(reader, buffer.Data); err != nil {
 		return err
 	}
