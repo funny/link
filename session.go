@@ -42,11 +42,10 @@ type Session struct {
 	protocol Protocol
 
 	// About send and receive
-	sendChan       chan Message
-	sendPacketChan chan *OutBuffer
-	readMutex      sync.Mutex
-	sendMutex      sync.Mutex
-	OnSendFailed   func(*Session, error)
+	readMutex   sync.Mutex
+	sendMutex   sync.Mutex
+	packetChan  chan asyncPacket
+	messageChan chan asyncMessage
 
 	// About session close
 	closeChan           chan int
@@ -86,8 +85,8 @@ func NewSession(id uint64, conn net.Conn, protocol Protocol, sendChanSize int, r
 		id:                  id,
 		conn:                conn,
 		protocol:            protocol,
-		sendChan:            make(chan Message, sendChanSize),
-		sendPacketChan:      make(chan *OutBuffer, sendChanSize),
+		packetChan:          make(chan asyncPacket, sendChanSize),
+		messageChan:         make(chan asyncMessage, sendChanSize),
 		closeChan:           make(chan int),
 		closeEventListeners: list.New(),
 	}
@@ -180,60 +179,76 @@ func (session *Session) Handle(handler func(*InBuffer)) {
 	}
 }
 
+type asyncMessage struct {
+	C   chan<- error
+	Msg Message
+}
+
+type asyncPacket struct {
+	C   chan<- error
+	Pkt Packet
+}
+
 // Loop and transport responses.
 func (session *Session) sendLoop() {
-	var err error
 	for {
 		select {
-		case message := <-session.sendChan:
-			err = session.Send(message)
-		case packet := <-session.sendPacketChan:
-			err = session.SendPacket(packet)
+		case packet := <-session.packetChan:
+			packet.C <- session.SendPacket(packet.Pkt)
+		case message := <-session.messageChan:
+			message.C <- session.Send(message.Msg)
 		case <-session.closeChan:
 			return
 		}
-		if err != nil {
-			if session.OnSendFailed != nil {
-				session.OnSendFailed(session, err)
-			} else {
-				session.Close(err)
-			}
-			return
+	}
+}
+
+// Async send a message.
+func (session *Session) AsyncSend(message Message) <-chan error {
+	c := make(chan error, 1)
+	if session.IsClosed() {
+		c <- SendToClosedError
+	} else {
+		select {
+		case session.messageChan <- asyncMessage{c, message}:
+		case <-session.closeChan:
+			c <- SendToClosedError
+		default:
+			go func() {
+				select {
+				case session.messageChan <- asyncMessage{c, message}:
+				case <-time.After(time.Second * 5):
+					session.Close(AsyncSendTimeoutError)
+					c <- AsyncSendTimeoutError
+				}
+			}()
 		}
 	}
+	return c
 }
 
-// Try async send a message.
-// If send chan block until timeout happens, this method returns BlockingError.
-func (session *Session) TrySend(message Message, timeout time.Duration) error {
+// Async send a packet.
+func (session *Session) AsyncSendPacket(packet Packet) <-chan error {
+	c := make(chan error, 1)
 	if session.IsClosed() {
-		return SendToClosedError
+		c <- SendToClosedError
+	} else {
+		select {
+		case session.packetChan <- asyncPacket{c, packet}:
+		case <-session.closeChan:
+			c <- SendToClosedError
+		default:
+			go func() {
+				select {
+				case session.packetChan <- asyncPacket{c, packet}:
+				case <-time.After(time.Second * 5):
+					session.Close(AsyncSendTimeoutError)
+					c <- AsyncSendTimeoutError
+				}
+			}()
+		}
 	}
-	select {
-	case session.sendChan <- message:
-	case <-session.closeChan:
-		return SendToClosedError
-	case <-time.After(timeout):
-		return BlockingError
-	}
-	return nil
-}
-
-// Try async send a packet.
-// If send chan block until timeout happens, this method returns BlockingError.
-// The packet must be properly formatted. Please see Session.Packet().
-func (session *Session) TrySendPacket(packet *OutBuffer, timeout time.Duration) error {
-	if session.IsClosed() {
-		return SendToClosedError
-	}
-	select {
-	case session.sendPacketChan <- packet:
-	case <-session.closeChan:
-		return SendToClosedError
-	case <-time.After(timeout):
-		return BlockingError
-	}
-	return nil
+	return c
 }
 
 // The session close event listener interface.

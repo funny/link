@@ -8,33 +8,24 @@ type SessionCollection interface {
 	FetchSession(func(*Session))
 }
 
-// Broadcast to sessions. The message only encoded once
-// so the performance better then send message one by one.
-func Broadcast(sessions SessionCollection, message Message) error {
-	buffer := &OutBuffer{Data: make([]byte, 0, 512)}
-	packet, err := sessions.Protocol().Packet(message, buffer)
-	if err != nil {
-		return err
-	}
-	sessions.FetchSession(func(session *Session) {
-		session.TrySendPacket(packet, 0)
-	})
-	return nil
+type BroadcastResult struct {
+	Session *Session
+	C       <-chan error
 }
 
 // Broadcast to sessions. The message only encoded once
-// so the performance better then send message one by one.
-func MustBroadcast(sessions SessionCollection, message Message) error {
-	buffer := NewOutBuffer()
+// so the performance is better than send message one by one.
+func Broadcast(sessions SessionCollection, message Message) ([]BroadcastResult, error) {
+	buffer := &OutBuffer{Data: make([]byte, 0, 512)}
 	packet, err := sessions.Protocol().Packet(message, buffer)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	results := make([]BroadcastResult, 0, 10)
 	sessions.FetchSession(func(session *Session) {
-		session.SendPacket(packet)
+		results = append(results, BroadcastResult{session, session.AsyncSendPacket(packet)})
 	})
-	buffer.Free()
-	return nil
+	return results, nil
 }
 
 // The channel type. Used to maintain a group of session.
