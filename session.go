@@ -182,27 +182,22 @@ func (session *Session) Handle(handler func(*InBuffer)) {
 
 // Loop and transport responses.
 func (session *Session) sendLoop() {
+	var err error
 	for {
 		select {
 		case message := <-session.sendChan:
-			if err := session.Send(message); err != nil {
-				if session.OnSendFailed != nil {
-					session.OnSendFailed(session, err)
-				} else {
-					session.Close(err)
-				}
-				return
-			}
+			err = session.Send(message)
 		case packet := <-session.sendPacketChan:
-			if err := session.SendPacket(packet); err != nil {
-				if session.OnSendFailed != nil {
-					session.OnSendFailed(session, err)
-				} else {
-					session.Close(err)
-				}
-				return
-			}
+			err = session.SendPacket(packet)
 		case <-session.closeChan:
+			return
+		}
+		if err != nil {
+			if session.OnSendFailed != nil {
+				session.OnSendFailed(session, err)
+			} else {
+				session.Close(err)
+			}
 			return
 		}
 	}
