@@ -10,7 +10,9 @@ var (
 	LittleEndian = binary.LittleEndian
 )
 
-type Packet *OutBuffer
+type Packet struct {
+	*OutBuffer
+}
 
 // Packet spliting protocol.
 // You can implement custom packet protocol for special protocol.
@@ -84,16 +86,16 @@ func (p *SimpleProtocol) Packet(message Message, buffer *OutBuffer) (Packet, err
 	buffer.Prepare(message.RecommendBufferSize())
 	buffer.Data = buffer.Data[:p.n]
 	err := message.WriteBuffer(buffer)
-	return Packet(buffer), err
+	return Packet{buffer}, err
 }
 
 // Write a packet. The buffer maybe grows.
-func (p *SimpleProtocol) Write(writer io.Writer, buffer Packet) error {
-	if p.MaxPacketSize > 0 && len(buffer.Data) > p.MaxPacketSize {
+func (p *SimpleProtocol) Write(writer io.Writer, packet Packet) error {
+	if p.MaxPacketSize > 0 && len(packet.Data) > p.MaxPacketSize {
 		return PacketTooLargeError
 	}
-	p.encodeHead(buffer.Data)
-	if _, err := writer.Write(buffer.Data); err != nil {
+	p.encodeHead(packet.Data)
+	if _, err := writer.Write(packet.Data); err != nil {
 		return err
 	}
 	return nil

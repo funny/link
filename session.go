@@ -150,7 +150,7 @@ func (session *Session) Send(message Message) error {
 		return err
 	}
 	err = session.SendPacket(packet)
-	((*OutBuffer)(packet)).Free()
+	packet.Free()
 	return err
 }
 
@@ -195,7 +195,7 @@ func (session *Session) sendLoop() {
 		select {
 		case packet := <-session.packetChan:
 			packet.C <- session.SendPacket(packet.P)
-			((*OutBuffer)(packet.P)).broadcastFree()
+			packet.P.broadcastFree()
 		case message := <-session.messageChan:
 			message.C <- session.Send(message.M)
 		case <-session.closeChan:
