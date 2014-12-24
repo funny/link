@@ -2,8 +2,8 @@ package link
 
 import (
 	"errors"
-	"github.com/funny/sync"
 	"net"
+	"sync"
 	"sync/atomic"
 )
 

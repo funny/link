@@ -2,9 +2,9 @@ package link
 
 import (
 	"bytes"
-	"github.com/funny/sync"
 	"github.com/funny/unitest"
 	"runtime/pprof"
+	"sync"
 	"sync/atomic"
 	"testing"
 )

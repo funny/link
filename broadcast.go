@@ -1,6 +1,6 @@
 package link
 
-import "github.com/funny/sync"
+import "sync"
 
 // The session collection use to fetch session and send broadcast.
 type SessionCollection interface {
