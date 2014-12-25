@@ -2,9 +2,9 @@ package link
 
 import (
 	"encoding/binary"
+	"github.com/funny/sync"
 	"io"
 	"math"
-	"sync"
 	"sync/atomic"
 	"unicode/utf8"
 )

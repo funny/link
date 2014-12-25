@@ -3,8 +3,8 @@ package link
 import (
 	"bufio"
 	"container/list"
+	"github.com/funny/sync"
 	"net"
-	"sync"
 	"sync/atomic"
 	"time"
 )
