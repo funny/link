@@ -11,8 +11,8 @@ import (
 
 var globalPool = newBufferPool()
 
-// Get/Set initialization capacity for new buffers.
-func PoolBufferInitSize(size int) int {
+// Get/Set initialization capacity for new buffer.
+func PoolNewDataSize(size int) int {
 	if size == 0 {
 		return globalPool.bufferInitSize
 	}
@@ -21,9 +21,9 @@ func PoolBufferInitSize(size int) int {
 	return old
 }
 
-// Limit the max buffer size in object pool.
+// Limit max buffer size in object pool.
 // Large buffer will not return to object pool when it freed.
-func PoolBufferMaxSize(size int) int {
+func PoolMaxDataSize(size int) int {
 	if size == 0 {
 		return globalPool.bufferMaxSize
 	}
@@ -32,10 +32,57 @@ func PoolBufferMaxSize(size int) int {
 	return old
 }
 
+// Buffer pool state.
+type PoolState struct {
+	InHitRate   float64 // Hit rate of InBuffer.
+	OutHitRate  float64 // Hit rate of OutBuffer.
+	DataHitRate float64 // Hit rate of buffer data.
+	FreeRate    float64 // Buffer free rate.
+	DropRate    float64 // Drop rate of large buffer.
+}
+
+// Get buffer pool hit rate
+func GetPoolState() PoolState {
+	getIn := float64(atomic.LoadUint64(&globalPool.getIn))
+	newIn := float64(atomic.LoadUint64(&globalPool.newIn))
+
+	getOut := float64(atomic.LoadUint64(&globalPool.getOut))
+	newOut := float64(atomic.LoadUint64(&globalPool.newOut))
+
+	getData := float64(atomic.LoadUint64(&globalPool.getData))
+	newData := float64(atomic.LoadUint64(&globalPool.newData))
+
+	freeCount := float64(atomic.LoadUint64(&globalPool.freeCount))
+	dropCount := float64(atomic.LoadUint64(&globalPool.dropCount))
+
+	return PoolState{
+		InHitRate:   (getIn - newIn) / getIn,
+		OutHitRate:  (getOut - newOut) / getOut,
+		DataHitRate: (getData - newData) / getData,
+		FreeRate:    freeCount / (getIn + getOut),
+		DropRate:    dropCount / (getIn + getOut),
+	}
+}
+
 type bufferPool struct {
-	in             sync.Pool
-	out            sync.Pool
-	data           sync.Pool
+	// InBuffer
+	in    sync.Pool
+	getIn uint64
+	newIn uint64
+
+	// OutBuffer
+	out    sync.Pool
+	getOut uint64
+	newOut uint64
+
+	// []byte
+	data    sync.Pool
+	getData uint64
+	newData uint64
+
+	freeCount uint64
+	dropCount uint64
+
 	bufferInitSize int
 	bufferMaxSize  int
 }
@@ -44,14 +91,17 @@ func newBufferPool() *bufferPool {
 	pool := new(bufferPool)
 
 	pool.in.New = func() interface{} {
+		atomic.AddUint64(&pool.newIn, 1)
 		return new(InBuffer)
 	}
 
 	pool.out.New = func() interface{} {
+		atomic.AddUint64(&pool.newOut, 1)
 		return new(OutBuffer)
 	}
 
 	pool.data.New = func() interface{} {
+		atomic.AddUint64(&pool.newData, 1)
 		return make([]byte, 0, pool.bufferInitSize)
 	}
 
@@ -62,6 +112,9 @@ func newBufferPool() *bufferPool {
 }
 
 func (pool *bufferPool) GetInBuffer() *InBuffer {
+	atomic.AddUint64(&pool.getIn, 1)
+	atomic.AddUint64(&pool.getData, 1)
+
 	in := pool.in.Get().(*InBuffer)
 	in.Data = pool.data.Get().([]byte)
 	in.isFreed = false
@@ -69,6 +122,9 @@ func (pool *bufferPool) GetInBuffer() *InBuffer {
 }
 
 func (pool *bufferPool) GetOutBuffer() *OutBuffer {
+	atomic.AddUint64(&pool.getOut, 1)
+	atomic.AddUint64(&pool.getData, 1)
+
 	out := pool.out.Get().(*OutBuffer)
 	out.Data = pool.data.Get().([]byte)
 	out.isFreed = false
@@ -78,9 +134,12 @@ func (pool *bufferPool) GetOutBuffer() *OutBuffer {
 }
 
 func (pool *bufferPool) PutInBuffer(in *InBuffer) {
+	atomic.AddUint64(&pool.freeCount, 1)
 	if cap(in.Data) > pool.bufferMaxSize {
+		atomic.AddUint64(&pool.dropCount, 1)
 		return
 	}
+
 	pool.data.Put(in.Data[0:0])
 	in.Data = nil
 	in.ReadPos = 0
@@ -89,9 +148,12 @@ func (pool *bufferPool) PutInBuffer(in *InBuffer) {
 }
 
 func (pool *bufferPool) PutOutBuffer(out *OutBuffer) {
+	atomic.AddUint64(&pool.freeCount, 1)
 	if cap(out.Data) > pool.bufferMaxSize {
+		atomic.AddUint64(&pool.dropCount, 1)
 		return
 	}
+
 	pool.data.Put(out.Data[0:0])
 	out.Data = nil
 	out.isFreed = true
