@@ -179,10 +179,12 @@ func (session *Session) Handle(handler func(*InBuffer)) {
 	}
 }
 
+// Async work.
 type AsyncWork struct {
 	c <-chan error
 }
 
+// Wait work done. Returns error when work failed.
 func (aw AsyncWork) Wait() error {
 	return <-aw.c
 }
