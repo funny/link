@@ -179,6 +179,14 @@ func (session *Session) Handle(handler func(*InBuffer)) {
 	}
 }
 
+type AsyncWork struct {
+	c <-chan error
+}
+
+func (aw AsyncWork) Wait() error {
+	return <-aw.c
+}
+
 type asyncMessage struct {
 	C chan<- error
 	M Message
@@ -205,7 +213,7 @@ func (session *Session) sendLoop() {
 }
 
 // Async send a message.
-func (session *Session) AsyncSend(message Message) <-chan error {
+func (session *Session) AsyncSend(message Message) AsyncWork {
 	c := make(chan error, 1)
 	if session.IsClosed() {
 		c <- SendToClosedError
@@ -225,11 +233,11 @@ func (session *Session) AsyncSend(message Message) <-chan error {
 			}()
 		}
 	}
-	return c
+	return AsyncWork{c}
 }
 
 // Async send a packet.
-func (session *Session) AsyncSendPacket(packet Packet) <-chan error {
+func (session *Session) AsyncSendPacket(packet Packet) AsyncWork {
 	c := make(chan error, 1)
 	if session.IsClosed() {
 		c <- SendToClosedError
@@ -249,7 +257,7 @@ func (session *Session) AsyncSendPacket(packet Packet) <-chan error {
 			}()
 		}
 	}
-	return c
+	return AsyncWork{c}
 }
 
 // The session close event listener interface.
