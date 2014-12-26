@@ -11,10 +11,33 @@ import (
 
 var globalPool = newBufferPool()
 
+// Get/Set initialization capacity for new buffers.
+func PoolBufferInitSize(size int) int {
+	if size == 0 {
+		return globalPool.bufferInitSize
+	}
+	old := globalPool.bufferInitSize
+	globalPool.bufferInitSize = size
+	return old
+}
+
+// Limit the max buffer size in object pool.
+// Large buffer will not return to object pool when it freed.
+func PoolBufferMaxSize(size int) int {
+	if size == 0 {
+		return globalPool.bufferMaxSize
+	}
+	old := globalPool.bufferMaxSize
+	globalPool.bufferMaxSize = size
+	return old
+}
+
 type bufferPool struct {
-	in   sync.Pool
-	out  sync.Pool
-	data sync.Pool
+	in             sync.Pool
+	out            sync.Pool
+	data           sync.Pool
+	bufferInitSize int
+	bufferMaxSize  int
 }
 
 func newBufferPool() *bufferPool {
@@ -29,8 +52,11 @@ func newBufferPool() *bufferPool {
 	}
 
 	pool.data.New = func() interface{} {
-		return make([]byte, 0, 4096)
+		return make([]byte, 0, pool.bufferInitSize)
 	}
+
+	pool.bufferInitSize = 4096
+	pool.bufferMaxSize = 102400
 
 	return pool
 }
@@ -52,6 +78,9 @@ func (pool *bufferPool) GetOutBuffer() *OutBuffer {
 }
 
 func (pool *bufferPool) PutInBuffer(in *InBuffer) {
+	if cap(in.Data) > pool.bufferMaxSize {
+		return
+	}
 	pool.data.Put(in.Data[0:0])
 	in.Data = nil
 	in.ReadPos = 0
@@ -60,6 +89,9 @@ func (pool *bufferPool) PutInBuffer(in *InBuffer) {
 }
 
 func (pool *bufferPool) PutOutBuffer(out *OutBuffer) {
+	if cap(out.Data) > pool.bufferMaxSize {
+		return
+	}
 	pool.data.Put(out.Data[0:0])
 	out.Data = nil
 	out.isFreed = true
