@@ -3,6 +3,7 @@ package link
 import (
 	"bytes"
 	"github.com/funny/unitest"
+	"runtime"
 	"testing"
 )
 
@@ -48,4 +49,54 @@ func VerifyBuffer(t *testing.T, buffer *InBuffer) {
 	unitest.Pass(t, buffer.ReadString(6) == "Hello1")
 	unitest.Pass(t, bytes.Equal(buffer.ReadBytes(6), []byte("Hello2")))
 	unitest.Pass(t, bytes.Equal(buffer.Slice(6), []byte("Hello3")))
+}
+
+func Benchmark_NewBuffer(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		x := NewInBuffer()
+		x.Free()
+	}
+	b.StopTimer()
+	state := BufferPoolState()
+	b.Logf("Hit Rate: %2.2f%%", state.InHitRate*100.0)
+	b.StartTimer()
+}
+
+func Benchmark_SetFinalizer1(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		var x = &InBuffer{}
+		runtime.SetFinalizer(x, func(x *InBuffer) {
+		})
+	}
+}
+
+func Benchmark_SetFinalizer2(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		var x = &InBuffer{}
+		runtime.SetFinalizer(x, nil)
+	}
+}
+
+func Benchmark_MakeBytes_512(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_ = make([]byte, 512)
+	}
+}
+
+func Benchmark_MakeBytes_1024(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_ = make([]byte, 1024)
+	}
+}
+
+func Benchmark_MakeBytes_4096(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_ = make([]byte, 4096)
+	}
+}
+
+func Benchmark_MakeBytes_8192(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_ = make([]byte, 8192)
+	}
 }
