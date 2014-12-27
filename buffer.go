@@ -9,10 +9,18 @@ import (
 	"unicode/utf8"
 )
 
-var globalPool = newBufferPool()
+var (
+	enableBufferPool = true
+	globalPool       = newBufferPool()
+)
+
+// Turn On/Off buffer pool.
+func BufferPoolEnable(enable bool) {
+	enableBufferPool = enable
+}
 
 // Get/Set initialization capacity for new buffer.
-func PoolNewDataSize(size int) int {
+func BufferInitSize(size int) int {
 	if size == 0 {
 		return globalPool.bufferInitSize
 	}
@@ -23,7 +31,7 @@ func PoolNewDataSize(size int) int {
 
 // Limit max buffer size in object pool.
 // Large buffer will not return to object pool when it freed.
-func PoolMaxDataSize(size int) int {
+func BufferPoolSize(size int) int {
 	if size == 0 {
 		return globalPool.bufferMaxSize
 	}
@@ -41,8 +49,8 @@ type PoolState struct {
 	DropRate    float64 // Drop rate of large buffer.
 }
 
-// Get buffer pool hit rate
-func GetPoolState() PoolState {
+// Get buffer pool state.
+func BufferPoolState() PoolState {
 	getIn := float64(atomic.LoadUint64(&globalPool.getIn))
 	newIn := float64(atomic.LoadUint64(&globalPool.newIn))
 
@@ -169,15 +177,20 @@ type InBuffer struct {
 
 // Create a new incomming message buffer.
 func NewInBuffer() *InBuffer {
-	return globalPool.GetInBuffer()
+	if enableBufferPool {
+		return globalPool.GetInBuffer()
+	}
+	return &InBuffer{Data: make([]byte, 0, globalPool.bufferInitSize)}
 }
 
 // Return the buffer to buffer pool.
 func (in *InBuffer) Free() {
-	if in.isFreed {
-		panic("link.InBuffer: double free")
+	if enableBufferPool {
+		if in.isFreed {
+			panic("link.InBuffer: double free")
+		}
+		globalPool.PutInBuffer(in)
 	}
-	globalPool.PutInBuffer(in)
 }
 
 // Prepare buffer for next message.
@@ -296,16 +309,23 @@ type OutBuffer struct {
 
 // Create a new outgoing message buffer.
 func NewOutBuffer() *OutBuffer {
-	return globalPool.GetOutBuffer()
+	if enableBufferPool {
+		return globalPool.GetOutBuffer()
+	}
+	return &OutBuffer{Data: make([]byte, 0, globalPool.bufferInitSize)}
 }
 
 func (out *OutBuffer) broadcastUse() {
-	atomic.AddInt32(&out.refCount, 1)
+	if enableBufferPool {
+		atomic.AddInt32(&out.refCount, 1)
+	}
 }
 
 func (out *OutBuffer) broadcastFree() {
-	if out.isBroadcast && atomic.AddInt32(&out.refCount, -1) == 0 {
-		out.Free()
+	if enableBufferPool {
+		if out.isBroadcast && atomic.AddInt32(&out.refCount, -1) == 0 {
+			out.Free()
+		}
 	}
 }
 

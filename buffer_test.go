@@ -51,6 +51,17 @@ func VerifyBuffer(t *testing.T, buffer *InBuffer) {
 	unitest.Pass(t, bytes.Equal(buffer.Slice(6), []byte("Hello3")))
 }
 
+func Benchmark_NewBuffer(b *testing.B) {
+	b.StopTimer()
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		x := NewInBuffer()
+		b.StopTimer()
+		x.Free()
+	}
+	b.StartTimer()
+}
+
 func Benchmark_SetFinalizer1(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		var x = &InBuffer{}
@@ -81,5 +92,11 @@ func Benchmark_MakeBytes_1024(b *testing.B) {
 func Benchmark_MakeBytes_4096(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_ = make([]byte, 4096)
+	}
+}
+
+func Benchmark_MakeBytes_8192(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_ = make([]byte, 8192)
 	}
 }
