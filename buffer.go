@@ -20,12 +20,12 @@ func BufferPoolEnable(enable bool) {
 }
 
 // Limit buffer pool memory usage. Default is 10M.
-func BufferPoolSize(size int) int {
+func BufferPoolLimit(size int) int {
 	if size == 0 {
-		return int(globalPool.maxSize)
+		return int(globalPool.sizeLimit)
 	}
-	old := globalPool.maxSize
-	globalPool.maxSize = int64(size)
+	old := globalPool.sizeLimit
+	globalPool.sizeLimit = int64(size)
 	return int(old)
 }
 
@@ -41,12 +41,12 @@ func BufferInitSize(size int) int {
 
 // Limit buffer size in object pool.
 // Large buffer will not return to object pool when it freed. Default is 102400.
-func BufferLargeSize(size int) int {
+func BufferSizeLimit(size int) int {
 	if size == 0 {
-		return globalPool.bufferLargeSize
+		return globalPool.bufferSizeLimit
 	}
-	old := globalPool.bufferLargeSize
-	globalPool.bufferLargeSize = size
+	old := globalPool.bufferSizeLimit
+	globalPool.bufferSizeLimit = size
 	return old
 }
 
@@ -103,16 +103,16 @@ type bufferPool struct {
 	outFree uint64
 	outDrop uint64
 
-	maxSize         int64
+	sizeLimit       int64
 	bufferInitSize  int
-	bufferLargeSize int
+	bufferSizeLimit int
 }
 
 func newBufferPool() *bufferPool {
 	return &bufferPool{
-		maxSize:         10240000,
+		sizeLimit:       10240000,
 		bufferInitSize:  4096,
-		bufferLargeSize: 102400,
+		bufferSizeLimit: 102400,
 	}
 }
 
@@ -170,7 +170,7 @@ func (pool *bufferPool) GetOutBuffer() (out *OutBuffer) {
 
 func (pool *bufferPool) PutInBuffer(in *InBuffer) {
 	atomic.AddUint64(&pool.inFree, 1)
-	if cap(in.Data) >= pool.bufferLargeSize || atomic.LoadInt64(&pool.size) >= pool.maxSize {
+	if cap(in.Data) >= pool.bufferSizeLimit || atomic.LoadInt64(&pool.size) >= pool.sizeLimit {
 		atomic.AddUint64(&pool.inDrop, 1)
 		return
 	}
@@ -190,7 +190,7 @@ func (pool *bufferPool) PutInBuffer(in *InBuffer) {
 
 func (pool *bufferPool) PutOutBuffer(out *OutBuffer) {
 	atomic.AddUint64(&pool.outFree, 1)
-	if cap(out.Data) >= pool.bufferLargeSize || atomic.LoadInt64(&pool.size) >= pool.maxSize {
+	if cap(out.Data) >= pool.bufferSizeLimit || atomic.LoadInt64(&pool.size) >= pool.sizeLimit {
 		atomic.AddUint64(&pool.outDrop, 1)
 		return
 	}
