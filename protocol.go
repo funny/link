@@ -6,9 +6,20 @@ import (
 )
 
 var (
-	BigEndian    = binary.BigEndian
-	LittleEndian = binary.LittleEndian
+	BigEndian    = ByteOrder(binary.BigEndian)
+	LittleEndian = ByteOrder(binary.LittleEndian)
+
+	packet1BE = newSimpleProtocol(1, BigEndian)
+	packet1LE = newSimpleProtocol(1, LittleEndian)
+	packet2BE = newSimpleProtocol(2, BigEndian)
+	packet2LE = newSimpleProtocol(2, LittleEndian)
+	packet4BE = newSimpleProtocol(4, BigEndian)
+	packet4LE = newSimpleProtocol(4, LittleEndian)
+	packet8BE = newSimpleProtocol(8, BigEndian)
+	packet8LE = newSimpleProtocol(8, LittleEndian)
 )
+
+type ByteOrder binary.ByteOrder
 
 type Packet struct {
 	*OutBuffer
@@ -27,6 +38,40 @@ type Protocol interface {
 	Read(reader io.Reader, buffer *InBuffer) error
 }
 
+func PacketN(n int, byteOrder ByteOrder) Protocol {
+	switch n {
+	case 1:
+		switch byteOrder {
+		case BigEndian:
+			return packet1BE
+		case LittleEndian:
+			return packet1LE
+		}
+	case 2:
+		switch byteOrder {
+		case BigEndian:
+			return packet2BE
+		case LittleEndian:
+			return packet2LE
+		}
+	case 4:
+		switch byteOrder {
+		case BigEndian:
+			return packet4BE
+		case LittleEndian:
+			return packet4LE
+		}
+	case 8:
+		switch byteOrder {
+		case BigEndian:
+			return packet8BE
+		case LittleEndian:
+			return packet8LE
+		}
+	}
+	panic("unsupported packet head size")
+}
+
 // The packet spliting protocol like Erlang's {packet, N}.
 // Each packet has a fix length packet header to present packet length.
 type SimpleProtocol struct {
@@ -39,7 +84,7 @@ type SimpleProtocol struct {
 
 // Create a {packet, N} protocol.
 // The n means how many bytes of the packet header.
-func PacketN(n int, byteOrder binary.ByteOrder) *SimpleProtocol {
+func newSimpleProtocol(n int, byteOrder binary.ByteOrder) *SimpleProtocol {
 	protocol := &SimpleProtocol{
 		n:  n,
 		bo: byteOrder,
