@@ -29,48 +29,63 @@ func (bin Binary) WriteBuffer(buffer *OutBuffer) error {
 	return nil
 }
 
+// Create a JSON message.
+func JSON(v interface{}) Message {
+	return jsonMsg{v}
+}
+
 // JSON message
-type JSON struct {
+type jsonMsg struct {
 	V interface{}
 }
 
 // Implement the Message interface.
-func (j JSON) RecommendBufferSize() int {
+func (j jsonMsg) RecommendBufferSize() int {
 	return 1024
 }
 
 // Implement the Message interface.
-func (j JSON) WriteBuffer(buffer *OutBuffer) error {
+func (j jsonMsg) WriteBuffer(buffer *OutBuffer) error {
 	return json.NewEncoder(buffer).Encode(j.V)
 }
 
+// Create a GOB message.
+func GOB(v interface{}) Message {
+	return gobMsg{v}
+}
+
 // GOB message
-type GOB struct {
+type gobMsg struct {
 	V interface{}
 }
 
 // Implement the Message interface.
-func (g GOB) RecommendBufferSize() int {
+func (g gobMsg) RecommendBufferSize() int {
 	return 1024
 }
 
 // Implement the Message interface.
-func (g GOB) WriteBuffer(buffer *OutBuffer) error {
+func (g gobMsg) WriteBuffer(buffer *OutBuffer) error {
 	return gob.NewEncoder(buffer).Encode(g.V)
 }
 
+// Create a XML message.
+func XML(v interface{}) Message {
+	return xmlMsg{v}
+}
+
 // XML message
-type XML struct {
+type xmlMsg struct {
 	V interface{}
 }
 
 // Implement the Message interface.
-func (x XML) RecommendBufferSize() int {
+func (x xmlMsg) RecommendBufferSize() int {
 	return 1024
 }
 
 // Implement the Message interface.
-func (x XML) WriteBuffer(buffer *OutBuffer) error {
+func (x xmlMsg) WriteBuffer(buffer *OutBuffer) error {
 	return xml.NewEncoder(buffer).Encode(x.V)
 }
 
