@@ -119,7 +119,7 @@ func newBufferPool() *bufferPool {
 func (pool *bufferPool) GetInBuffer() (in *InBuffer) {
 	var ptr unsafe.Pointer
 	for {
-		ptr = pool.in
+		ptr = atomic.LoadPointer(&pool.in)
 		if ptr == nil {
 			break
 		}
@@ -144,7 +144,7 @@ func (pool *bufferPool) GetInBuffer() (in *InBuffer) {
 func (pool *bufferPool) GetOutBuffer() (out *OutBuffer) {
 	var ptr unsafe.Pointer
 	for {
-		ptr = pool.out
+		ptr = atomic.LoadPointer(&pool.out)
 		if ptr == nil {
 			break
 		}
@@ -180,7 +180,7 @@ func (pool *bufferPool) PutInBuffer(in *InBuffer) {
 	in.isFreed = true
 
 	for {
-		in.next = pool.in
+		in.next = atomic.LoadPointer(&pool.in)
 		if atomic.CompareAndSwapPointer(&pool.in, in.next, unsafe.Pointer(in)) {
 			atomic.AddInt64(&pool.size, int64(cap(in.Data)))
 			break
@@ -199,7 +199,7 @@ func (pool *bufferPool) PutOutBuffer(out *OutBuffer) {
 	out.isFreed = true
 
 	for {
-		out.next = pool.out
+		out.next = atomic.LoadPointer(&pool.out)
 		if atomic.CompareAndSwapPointer(&pool.out, out.next, unsafe.Pointer(out)) {
 			atomic.AddInt64(&pool.size, int64(cap(out.Data)))
 			break
@@ -217,7 +217,10 @@ type InBuffer struct {
 }
 
 func NewInBuffer() *InBuffer {
-	return globalPool.GetInBuffer()
+	if enableBufferPool {
+		return globalPool.GetInBuffer()
+	}
+	return &InBuffer{Data: make([]byte, 0, globalPool.bufferInitSize)}
 }
 
 // Return the buffer to buffer pool.
@@ -347,7 +350,10 @@ type OutBuffer struct {
 }
 
 func NewOutBuffer() *OutBuffer {
-	return globalPool.GetOutBuffer()
+	if enableBufferPool {
+		return globalPool.GetOutBuffer()
+	}
+	return &OutBuffer{Data: make([]byte, 0, globalPool.bufferInitSize)}
 }
 
 func (out *OutBuffer) broadcastUse() {
