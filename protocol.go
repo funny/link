@@ -38,6 +38,9 @@ type Protocol interface {
 	Read(reader io.Reader, buffer *InBuffer) error
 }
 
+// Create a {packet, N} protocol.
+// The n means how many bytes of the packet header.
+// n must is 1、2、4 or 8.
 func PacketN(n int, byteOrder ByteOrder) Protocol {
 	switch n {
 	case 1:
@@ -82,8 +85,7 @@ type SimpleProtocol struct {
 	MaxPacketSize int
 }
 
-// Create a {packet, N} protocol.
-// The n means how many bytes of the packet header.
+// Create simple protocol.
 func newSimpleProtocol(n int, byteOrder binary.ByteOrder) *SimpleProtocol {
 	protocol := &SimpleProtocol{
 		n:  n,
