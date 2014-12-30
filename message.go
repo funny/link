@@ -36,7 +36,7 @@ func JSON(v interface{}) Message {
 
 // JSON message
 type jsonMsg struct {
-	V interface{}
+	v interface{}
 }
 
 // Implement the Message interface.
@@ -46,7 +46,7 @@ func (j jsonMsg) RecommendBufferSize() int {
 
 // Implement the Message interface.
 func (j jsonMsg) WriteBuffer(buffer *OutBuffer) error {
-	return json.NewEncoder(buffer).Encode(j.V)
+	return json.NewEncoder(buffer).Encode(j.v)
 }
 
 // Create a GOB message.
@@ -56,7 +56,7 @@ func GOB(v interface{}) Message {
 
 // GOB message
 type gobMsg struct {
-	V interface{}
+	v interface{}
 }
 
 // Implement the Message interface.
@@ -66,7 +66,7 @@ func (g gobMsg) RecommendBufferSize() int {
 
 // Implement the Message interface.
 func (g gobMsg) WriteBuffer(buffer *OutBuffer) error {
-	return gob.NewEncoder(buffer).Encode(g.V)
+	return gob.NewEncoder(buffer).Encode(g.v)
 }
 
 // Create a XML message.
@@ -76,7 +76,7 @@ func XML(v interface{}) Message {
 
 // XML message
 type xmlMsg struct {
-	V interface{}
+	v interface{}
 }
 
 // Implement the Message interface.
@@ -86,7 +86,7 @@ func (x xmlMsg) RecommendBufferSize() int {
 
 // Implement the Message interface.
 func (x xmlMsg) WriteBuffer(buffer *OutBuffer) error {
-	return xml.NewEncoder(buffer).Encode(x.V)
+	return xml.NewEncoder(buffer).Encode(x.v)
 }
 
 // A simple send queue. Can used for buffered send.
