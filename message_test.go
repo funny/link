@@ -14,18 +14,18 @@ type MyData struct {
 	Msg string
 }
 
-func Test_Message_Binary(t *testing.T) {
+func Test_Message_Raw(t *testing.T) {
 	var data = []byte{1, 2, 3, 4, 5, 6}
 
 	var buffer = NewOutBuffer()
-	Binary(data).WriteBuffer(buffer)
+	Bytes(data).WriteBuffer(buffer)
 
 	unitest.Pass(t, bytes.Equal(data, buffer.Data))
 }
 
-func Test_Message_JSON(t *testing.T) {
+func Test_Message_Json(t *testing.T) {
 	var buffer = NewOutBuffer()
-	JSON(MyData{Id: 1, Msg: "Test"}).WriteBuffer(buffer)
+	Json(MyData{Id: 1, Msg: "Test"}).WriteBuffer(buffer)
 
 	var data MyData
 	json.Unmarshal(buffer.Data, &data)
@@ -34,9 +34,9 @@ func Test_Message_JSON(t *testing.T) {
 	unitest.Pass(t, data.Msg == "Test")
 }
 
-func Test_Message_GOB(t *testing.T) {
+func Test_Message_Gob(t *testing.T) {
 	var buffer = NewOutBuffer()
-	GOB(MyData{Id: 1, Msg: "Test"}).WriteBuffer(buffer)
+	Gob(MyData{Id: 1, Msg: "Test"}).WriteBuffer(buffer)
 
 	var data MyData
 	gob.NewDecoder(bytes.NewReader(buffer.Data)).Decode(&data)
@@ -45,9 +45,9 @@ func Test_Message_GOB(t *testing.T) {
 	unitest.Pass(t, data.Msg == "Test")
 }
 
-func Test_Message_XML(t *testing.T) {
+func Test_Message_Xml(t *testing.T) {
 	var buffer = NewOutBuffer()
-	XML(MyData{Id: 1, Msg: "Test"}).WriteBuffer(buffer)
+	Xml(MyData{Id: 1, Msg: "Test"}).WriteBuffer(buffer)
 
 	var data MyData
 	xml.Unmarshal(buffer.Data, &data)

@@ -167,6 +167,11 @@ func (server *Server) closeSessions() {
 	}
 }
 
+// Get server protocol.
+func (server *Server) Protocol() Protocol {
+	return server.protocol
+}
+
 // Get broadcast protocol.
 // Implement SessionCollection interface.
 func (server *Server) BroadcastState() ProtocolState {

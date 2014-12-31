@@ -17,7 +17,8 @@ func Test_Server(t *testing.T) {
 
 	var (
 		addr    = server.Listener().Addr().String()
-		message = Binary{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
+		data    = []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
+		message = Bytes(data)
 
 		sessionStart   sync.WaitGroup
 		sessionClose   sync.WaitGroup
@@ -34,7 +35,7 @@ func Test_Server(t *testing.T) {
 		sessionStart.Done()
 
 		session.Handle(func(msg *InBuffer) {
-			if !bytes.Equal(msg.Data, message) {
+			if !bytes.Equal(msg.Data, data) {
 				messageMatchFailed = true
 			}
 

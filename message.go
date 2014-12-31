@@ -15,23 +15,43 @@ type Message interface {
 	WriteBuffer(buffer *OutBuffer) error
 }
 
-// Binary message
-type Binary []byte
-
-// Implement the Message interface.
-func (bin Binary) RecommendBufferSize() int {
-	return len(bin)
+// Convert to bytes message.
+func Bytes(v []byte) Message {
+	return rawMsg(v)
 }
 
-// Implement the Message interface.
-func (bin Binary) WriteBuffer(buffer *OutBuffer) error {
-	buffer.Append([]byte(bin)...)
-	return nil
+// Convert to string message.
+func String(v string) Message {
+	return rawMsg(v)
 }
 
-// Create a JSON message.
-func JSON(v interface{}) Message {
+// Create a json message.
+func Json(v interface{}) Message {
 	return jsonMsg{v}
+}
+
+// Create a gob message.
+func Gob(v interface{}) Message {
+	return gobMsg{v}
+}
+
+// Create a xml message.
+func Xml(v interface{}) Message {
+	return xmlMsg{v}
+}
+
+// Binary message
+type rawMsg []byte
+
+// Implement the Message interface.
+func (raw rawMsg) RecommendBufferSize() int {
+	return len(raw)
+}
+
+// Implement the Message interface.
+func (raw rawMsg) WriteBuffer(buffer *OutBuffer) error {
+	buffer.Append([]byte(raw)...)
+	return nil
 }
 
 // JSON message
@@ -49,11 +69,6 @@ func (j jsonMsg) WriteBuffer(buffer *OutBuffer) error {
 	return json.NewEncoder(buffer).Encode(j.v)
 }
 
-// Create a GOB message.
-func GOB(v interface{}) Message {
-	return gobMsg{v}
-}
-
 // GOB message
 type gobMsg struct {
 	v interface{}
@@ -67,11 +82,6 @@ func (g gobMsg) RecommendBufferSize() int {
 // Implement the Message interface.
 func (g gobMsg) WriteBuffer(buffer *OutBuffer) error {
 	return gob.NewEncoder(buffer).Encode(g.v)
-}
-
-// Create a XML message.
-func XML(v interface{}) Message {
-	return xmlMsg{v}
 }
 
 // XML message
