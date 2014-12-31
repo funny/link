@@ -31,8 +31,9 @@ func Listen(network, address string, protocol Protocol) (*Server, error) {
 // Server.
 type Server struct {
 	// About network
-	listener net.Listener
-	protocol Protocol
+	listener       net.Listener
+	protocol       Protocol
+	broadcastState ProtocolState
 
 	// About sessions
 	maxSessionId uint64
@@ -51,13 +52,15 @@ type Server struct {
 
 // Create a server.
 func NewServer(listener net.Listener, protocol Protocol) *Server {
-	return &Server{
+	server := &Server{
 		listener:       listener,
 		protocol:       protocol,
 		sessions:       make(map[uint64]*Session),
 		SendChanSize:   DefaultSendChanSize,
 		ReadBufferSize: DefaultConnBufferSize,
 	}
+	server.broadcastState = protocol.New(server)
+	return server
 }
 
 // Get listener address.
@@ -119,7 +122,7 @@ func (server *Server) Stop(reason interface{}) {
 }
 
 func (server *Server) newSession(id uint64, conn net.Conn) *Session {
-	session := NewSession(id, conn, server.protocol.New(), server.SendChanSize, server.ReadBufferSize)
+	session := NewSession(id, conn, server.protocol, server.SendChanSize, server.ReadBufferSize)
 	server.putSession(session)
 	return session
 }
@@ -164,10 +167,10 @@ func (server *Server) closeSessions() {
 	}
 }
 
-// Get packet protocol.
+// Get broadcast protocol.
 // Implement SessionCollection interface.
-func (server *Server) Protocol() Protocol {
-	return server.protocol
+func (server *Server) BroadcastState() ProtocolState {
+	return server.broadcastState
 }
 
 // Fetch sessions.

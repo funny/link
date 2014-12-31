@@ -39,7 +39,7 @@ type Session struct {
 
 	// About network
 	conn     net.Conn
-	protocol Protocol
+	protocol ProtocolState
 
 	// About send and receive
 	readMutex   sync.Mutex
@@ -84,12 +84,12 @@ func NewSession(id uint64, conn net.Conn, protocol Protocol, sendChanSize int, r
 	session := &Session{
 		id:                  id,
 		conn:                conn,
-		protocol:            protocol,
 		packetChan:          make(chan asyncPacket, sendChanSize),
 		messageChan:         make(chan asyncMessage, sendChanSize),
 		closeChan:           make(chan int),
 		closeEventListeners: list.New(),
 	}
+	session.protocol = protocol.New(session)
 
 	go session.sendLoop()
 

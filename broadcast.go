@@ -2,9 +2,15 @@ package link
 
 import "github.com/funny/sync"
 
+// Make sure channel implement SessionCollection interface.
+var _ SessionCollection = new(Channel)
+
+// Make sure server implement SessionCollection interface.
+var _ SessionCollection = new(Server)
+
 // The session collection use to fetch session and send broadcast.
 type SessionCollection interface {
-	Protocol() Protocol
+	BroadcastState() ProtocolState
 	FetchSession(func(*Session))
 }
 
@@ -16,7 +22,7 @@ type BroadcastWork struct {
 // Broadcast to sessions. The message only encoded once
 // so the performance is better than send message one by one.
 func Broadcast(sessions SessionCollection, message Message) ([]BroadcastWork, error) {
-	packet, err := sessions.Protocol().Packet(message)
+	packet, err := sessions.BroadcastState().Packet(message)
 	if err != nil {
 		return nil, err
 	}
@@ -35,9 +41,12 @@ func Broadcast(sessions SessionCollection, message Message) ([]BroadcastWork, er
 // The channel type. Used to maintain a group of session.
 // Normally used for broadcast classify purpose.
 type Channel struct {
-	mutex    sync.RWMutex
-	protocol Protocol
-	sessions map[uint64]channelSession
+	mutex          sync.RWMutex
+	broadcastState ProtocolState
+	sessions       map[uint64]channelSession
+
+	// channel state
+	State interface{}
 }
 
 type channelSession struct {
@@ -47,10 +56,11 @@ type channelSession struct {
 
 // Create a channel instance.
 func NewChannel(protocol Protocol) *Channel {
-	return &Channel{
-		protocol: protocol,
+	channel := &Channel{
 		sessions: make(map[uint64]channelSession),
 	}
+	channel.broadcastState = protocol.New(channel)
+	return channel
 }
 
 // How mush sessions in this channel.
@@ -97,10 +107,10 @@ func (channel *Channel) Kick(sessionId uint64) {
 	}
 }
 
-// Get channel protocol.
+// Get channel broadcast state.
 // Implement SessionCollection interface.
-func (channel *Channel) Protocol() Protocol {
-	return channel.protocol
+func (channel *Channel) BroadcastState() ProtocolState {
+	return channel.broadcastState
 }
 
 // Fetch the sessions. NOTE: Invoke Kick() or Exit() in fetch callback will dead lock.

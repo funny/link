@@ -25,12 +25,17 @@ type Packet struct {
 	*OutBuffer
 }
 
-// Packet spliting protocol.
-// You can implement custom packet protocol for special protocol.
+// Packet protocol.
 type Protocol interface {
-	// Create a instance.
-	New() Protocol
+	// Create protocol state for session.
+	// New(*Session) for session protocol state.
+	// New(*Server) for server protocol state.
+	// New(*Channel) for channel protocol state.
+	New(interface{}) ProtocolState
+}
 
+// Protocol state.
+type ProtocolState interface {
 	// Packet a message.
 	Packet(message Message) (Packet, error)
 
@@ -80,7 +85,7 @@ func PacketN(n int, byteOrder ByteOrder) Protocol {
 
 // The packet spliting protocol like Erlang's {packet, N}.
 // Each packet has a fix length packet header to present packet length.
-type SimpleProtocol struct {
+type simpleProtocol struct {
 	n             int
 	bo            binary.ByteOrder
 	encodeHead    func([]byte)
@@ -88,9 +93,8 @@ type SimpleProtocol struct {
 	MaxPacketSize int
 }
 
-// Create simple protocol.
-func newSimpleProtocol(n int, byteOrder binary.ByteOrder) *SimpleProtocol {
-	protocol := &SimpleProtocol{
+func newSimpleProtocol(n int, byteOrder binary.ByteOrder) *simpleProtocol {
+	protocol := &simpleProtocol{
 		n:  n,
 		bo: byteOrder,
 	}
@@ -131,13 +135,11 @@ func newSimpleProtocol(n int, byteOrder binary.ByteOrder) *SimpleProtocol {
 	return protocol
 }
 
-// SimpleProtocol no need to create new instance.
-func (p *SimpleProtocol) New() Protocol {
+func (p *simpleProtocol) New(v interface{}) ProtocolState {
 	return p
 }
 
-// Write a packet.
-func (p *SimpleProtocol) Packet(message Message) (Packet, error) {
+func (p *simpleProtocol) Packet(message Message) (Packet, error) {
 	buffer := NewOutBuffer()
 	buffer.Prepare(message.RecommendBufferSize())
 	buffer.Data = buffer.Data[:p.n]
@@ -145,8 +147,7 @@ func (p *SimpleProtocol) Packet(message Message) (Packet, error) {
 	return Packet{buffer}, err
 }
 
-// Write a packet.
-func (p *SimpleProtocol) Write(writer io.Writer, packet Packet) error {
+func (p *simpleProtocol) Write(writer io.Writer, packet Packet) error {
 	if p.MaxPacketSize > 0 && len(packet.Data) > p.MaxPacketSize {
 		return PacketTooLargeError
 	}
@@ -157,8 +158,7 @@ func (p *SimpleProtocol) Write(writer io.Writer, packet Packet) error {
 	return nil
 }
 
-// Read a packet.
-func (p *SimpleProtocol) Read(reader io.Reader) (*InBuffer, error) {
+func (p *simpleProtocol) Read(reader io.Reader) (*InBuffer, error) {
 	// head
 	buffer := NewInBuffer()
 	buffer.Prepare(p.n)
