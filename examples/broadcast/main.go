@@ -21,9 +21,9 @@ func main() {
 		for {
 			time.Sleep(time.Second * 2)
 			// broadcast to server sessions
-			link.Broadcast(server, link.Binary("server say: "+time.Now().String()))
+			link.Broadcast(server, link.String("server say: "+time.Now().String()))
 			// broadcast to channel sessions
-			link.Broadcast(channel, link.Binary("channel say: "+time.Now().String()))
+			link.Broadcast(channel, link.String("channel say: "+time.Now().String()))
 		}
 	}()
 
@@ -34,7 +34,7 @@ func main() {
 		channel.Join(session, nil)
 
 		session.Handle(func(msg *link.InBuffer) {
-			link.Broadcast(channel, link.Binary(
+			link.Broadcast(channel, link.String(
 				"client "+session.Conn().RemoteAddr().String()+" say: "+string(msg.Data),
 			))
 		})

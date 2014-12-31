@@ -34,7 +34,7 @@ func main() {
 	flag.Parse()
 
 	var (
-		msg        = make(link.Binary, *messageSize)
+		msg        = link.Bytes(make([]byte, *messageSize))
 		timeout    = time.Now().Add(time.Second * time.Duration(*runTime))
 		initWait   = new(sync.WaitGroup)
 		startChan  = make(chan int)
@@ -83,7 +83,7 @@ func (conn *CountConn) Write(p []byte) (int, error) {
 	return conn.Conn.Write(p)
 }
 
-func client(initWait *sync.WaitGroup, startChan chan int, resultChan chan ClientResult, timeout time.Time, msg link.Binary) {
+func client(initWait *sync.WaitGroup, startChan chan int, resultChan chan ClientResult, timeout time.Time, msg link.Message) {
 	conn, err := net.DialTimeout("tcp", *serverAddr, time.Second*3)
 	if err != nil {
 		panic(err)

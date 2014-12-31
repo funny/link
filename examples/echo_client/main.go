@@ -24,7 +24,7 @@ func main() {
 		if _, err := fmt.Scanf("%s\n", &input); err != nil {
 			break
 		}
-		client.Send(link.Binary(input))
+		client.Send(link.String(input))
 	}
 
 	client.Close(nil)
