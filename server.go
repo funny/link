@@ -119,7 +119,7 @@ func (server *Server) Stop(reason interface{}) {
 }
 
 func (server *Server) newSession(id uint64, conn net.Conn) *Session {
-	session := NewSession(id, conn, server.protocol, server.SendChanSize, server.ReadBufferSize)
+	session := NewSession(id, conn, server.protocol.New(), server.SendChanSize, server.ReadBufferSize)
 	server.putSession(session)
 	return session
 }

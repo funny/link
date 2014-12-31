@@ -28,14 +28,17 @@ type Packet struct {
 // Packet spliting protocol.
 // You can implement custom packet protocol for special protocol.
 type Protocol interface {
-	// Packet a message into buffer. The buffer maybe grows.
-	Packet(message Message, buffer *OutBuffer) (Packet, error)
+	// Create a instance.
+	New() Protocol
 
-	// Write a packet. The buffer maybe grows.
+	// Packet a message.
+	Packet(message Message) (Packet, error)
+
+	// Write a packet.
 	Write(writer io.Writer, packet Packet) error
 
-	// Read a packet. The buffer maybe grows.
-	Read(reader io.Reader, buffer *InBuffer) error
+	// Read a packet.
+	Read(reader io.Reader) (*InBuffer, error)
 }
 
 // Create a {packet, N} protocol.
@@ -128,15 +131,21 @@ func newSimpleProtocol(n int, byteOrder binary.ByteOrder) *SimpleProtocol {
 	return protocol
 }
 
-// Write a packet. The buffer maybe grows.
-func (p *SimpleProtocol) Packet(message Message, buffer *OutBuffer) (Packet, error) {
+// SimpleProtocol no need to create new instance.
+func (p *SimpleProtocol) New() Protocol {
+	return p
+}
+
+// Write a packet.
+func (p *SimpleProtocol) Packet(message Message) (Packet, error) {
+	buffer := NewOutBuffer()
 	buffer.Prepare(message.RecommendBufferSize())
 	buffer.Data = buffer.Data[:p.n]
 	err := message.WriteBuffer(buffer)
 	return Packet{buffer}, err
 }
 
-// Write a packet. The buffer maybe grows.
+// Write a packet.
 func (p *SimpleProtocol) Write(writer io.Writer, packet Packet) error {
 	if p.MaxPacketSize > 0 && len(packet.Data) > p.MaxPacketSize {
 		return PacketTooLargeError
@@ -148,24 +157,25 @@ func (p *SimpleProtocol) Write(writer io.Writer, packet Packet) error {
 	return nil
 }
 
-// Read a packet. The buffer maybe grows.
-func (p *SimpleProtocol) Read(reader io.Reader, buffer *InBuffer) error {
+// Read a packet.
+func (p *SimpleProtocol) Read(reader io.Reader) (*InBuffer, error) {
 	// head
+	buffer := NewInBuffer()
 	buffer.Prepare(p.n)
 	if _, err := io.ReadFull(reader, buffer.Data); err != nil {
-		return err
+		return nil, err
 	}
 	size := p.decodeHead(buffer.Data)
 	if p.MaxPacketSize > 0 && size > p.MaxPacketSize {
-		return PacketTooLargeError
+		return nil, PacketTooLargeError
 	}
 	// body
 	buffer.Prepare(size)
 	if size == 0 {
-		return nil
+		return buffer, nil
 	}
 	if _, err := io.ReadFull(reader, buffer.Data); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return buffer, nil
 }

@@ -132,15 +132,10 @@ func (session *Session) Close(reason interface{}) {
 
 // Read a message.
 func (session *Session) Read() (*InBuffer, error) {
-	var buffer = NewInBuffer()
-
 	session.readMutex.Lock()
 	defer session.readMutex.Unlock()
 
-	if err := session.protocol.Read(session.conn, buffer); err != nil {
-		return nil, err
-	}
-	return buffer, nil
+	return session.protocol.Read(session.conn)
 }
 
 // Sync send a message. Equals Packet() then SendPacket(). This method will block on IO.
@@ -156,7 +151,7 @@ func (session *Session) Send(message Message) error {
 
 // Packet a message. The packet buffer need to free by manual.
 func (session *Session) Packet(message Message) (Packet, error) {
-	return session.protocol.Packet(message, NewOutBuffer())
+	return session.protocol.Packet(message)
 }
 
 // Sync send a packet. See Packet() method.
