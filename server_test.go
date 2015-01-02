@@ -10,9 +10,7 @@ import (
 )
 
 func Test_Server(t *testing.T) {
-	proto := PacketN(4, BigEndian)
-
-	server, err0 := Listen("tcp", "0.0.0.0:0", proto)
+	server, err0 := Listen("tcp", "0.0.0.0:0")
 	unitest.NotError(t, err0)
 
 	var (
@@ -49,11 +47,11 @@ func Test_Server(t *testing.T) {
 
 	// test session start
 	sessionStart.Add(1)
-	client1, err1 := Dial("tcp", addr, proto)
+	client1, err1 := Dial("tcp", addr)
 	unitest.NotError(t, err1)
 
 	sessionStart.Add(1)
-	client2, err2 := Dial("tcp", addr, proto)
+	client2, err2 := Dial("tcp", addr)
 	unitest.NotError(t, err2)
 
 	t.Log("check session start")

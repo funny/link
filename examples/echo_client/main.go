@@ -9,9 +9,7 @@ import (
 // usage:
 //     go run echo_client/main.go
 func main() {
-	protocol := link.PacketN(2, link.BigEndian)
-
-	client, err := link.Dial("tcp", "127.0.0.1:10010", protocol)
+	client, err := link.Dial("tcp", "127.0.0.1:10010")
 	if err != nil {
 		panic(err)
 	}

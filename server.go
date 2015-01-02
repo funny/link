@@ -15,17 +15,18 @@ var (
 )
 
 var (
-	DefaultSendChanSize   = 1024 // Default session send chan buffer size.
-	DefaultConnBufferSize = 1024 // Default session read buffer size.
+	DefaultSendChanSize   = 1024                     // Default session send chan buffer size.
+	DefaultConnBufferSize = 1024                     // Default session read buffer size.
+	DefaultProtocol       = PacketN(4, LittleEndian) //Default protocol for utility APIs.
 )
 
 // The easy way to setup a server.
-func Listen(network, address string, protocol Protocol) (*Server, error) {
+func Listen(network, address string) (*Server, error) {
 	listener, err := net.Listen(network, address)
 	if err != nil {
 		return nil, err
 	}
-	return NewServer(listener, protocol), nil
+	return NewServer(listener, DefaultProtocol), nil
 }
 
 // Server.

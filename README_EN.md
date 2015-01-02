@@ -21,16 +21,10 @@ go get github.com/funny/link
 How to use
 ===========
 
-Choose a protocol for your project.
+Setup a server on port `8080`.
 
 ```go
-proto := link.PacketN(2, link.BigEndian)
-```
-
-Setup a server on port `8080` and set protocol.
-
-```go
-server, _ := link.Listen("tcp", "0.0.0.0:8080", proto)
+server, _ := link.Listen("tcp", "0.0.0.0:8080")
 ```
 
 Handle incoming connections. And setup a message handler on the new session.
@@ -47,12 +41,10 @@ server.Handle(func(session *link.Session) {
 })
 ```
 
-Use the same protocol dial to the server.
+Client dial to the server.
 
 ```go
-proto := link.PacketN(2, link.BigEndian)
-
-client, _ := link.Dial("tcp", "127.0.0.1:8080", proto)
+client, _ := link.Dial("tcp", "127.0.0.1:8080")
 ```
 
 Send a message to server.

@@ -12,24 +12,24 @@ import (
 var dialSessionId uint64
 
 // The easy way to create a connection.
-func Dial(network, address string, protocol Protocol) (*Session, error) {
+func Dial(network, address string) (*Session, error) {
 	conn, err := net.Dial(network, address)
 	if err != nil {
 		return nil, err
 	}
 	id := atomic.AddUint64(&dialSessionId, 1)
-	session := NewSession(id, conn, protocol, DefaultSendChanSize, DefaultConnBufferSize)
+	session := NewSession(id, conn, DefaultProtocol, DefaultSendChanSize, DefaultConnBufferSize)
 	return session, nil
 }
 
 // The easy way to create a connection with timeout setting.
-func DialTimeout(network, address string, timeout time.Duration, protocol Protocol) (*Session, error) {
+func DialTimeout(network, address string, timeout time.Duration) (*Session, error) {
 	conn, err := net.DialTimeout(network, address, timeout)
 	if err != nil {
 		return nil, err
 	}
 	id := atomic.AddUint64(&dialSessionId, 1)
-	session := NewSession(id, conn, protocol, DefaultSendChanSize, DefaultConnBufferSize)
+	session := NewSession(id, conn, DefaultProtocol, DefaultSendChanSize, DefaultConnBufferSize)
 	return session, nil
 }
 

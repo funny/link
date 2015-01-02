@@ -9,9 +9,7 @@ import (
 // usage:
 //     go run broadcast/main.go
 func main() {
-	protocol := link.PacketN(2, link.BigEndian)
-
-	server, err := link.Listen("tcp", "127.0.0.1:10010", protocol)
+	server, err := link.Listen("tcp", "127.0.0.1:10010")
 	if err != nil {
 		panic(err)
 	}
