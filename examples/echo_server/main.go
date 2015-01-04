@@ -35,7 +35,7 @@ func main() {
 	server.Serve(func(session *link.Session) {
 		log("client", session.Conn().RemoteAddr().String(), "in")
 
-		session.Handle(func(msg *link.InBuffer) {
+		session.Process(func(msg *link.InBuffer) {
 			log("client", session.Conn().RemoteAddr().String(), "say:", string(msg.Data))
 			session.Send(link.Bytes(msg.Data))
 		})

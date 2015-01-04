@@ -91,15 +91,15 @@ func client(initWait *sync.WaitGroup, startChan chan int, resultChan chan Client
 
 	conn = &CountConn{conn, 0, 0}
 	client := link.NewSession(0, conn, link.DefaultProtocol, link.DefaultSendChanSize, *bufferSize)
-	defer client.Close(nil)
+	defer client.Close()
 
 	go func() {
 		initWait.Done()
-		for {
-			if _, err := client.Read(); err != nil {
-				client.Close(err)
-				break
-			}
+		err := client.Process(func(*link.InBuffer) {
+			// DO NOTHING
+		})
+		if err != nil {
+			println(err.Error())
 		}
 	}()
 
@@ -111,10 +111,6 @@ func client(initWait *sync.WaitGroup, startChan chan int, resultChan chan Client
 			break
 		}
 		count += 1
-	}
-
-	if client.CloseReason() != nil {
-		println(client.CloseReason().(error).Error())
 	}
 
 	resultChan <- ClientResult{

@@ -40,9 +40,8 @@ type Server struct {
 	sessionMutex sync.Mutex
 
 	// About server start and stop
-	stopFlag   int32
-	stopWait   sync.WaitGroup
-	stopReason interface{}
+	stopFlag int32
+	stopWait sync.WaitGroup
 
 	Protocol
 	*Broadcaster
@@ -75,34 +74,29 @@ func (server *Server) Accept() (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	session := server.newSession(
+	return server.newSession(
 		atomic.AddUint64(&server.maxSessionId, 1),
 		conn,
-	)
-	return session, nil
+	), nil
 }
 
 // Loop and accept incoming connections. The callback will called asynchronously when each session start.
-func (server *Server) Serve(handler func(*Session)) interface{} {
+func (server *Server) Serve(handler func(*Session)) error {
 	for {
 		session, err := server.Accept()
 		if err != nil {
-			server.Stop(err)
-			break
+			server.Stop()
+			return err
 		}
 		go handler(session)
 	}
-	return server.stopReason
+	return nil
 }
 
 // Stop server.
-func (server *Server) Stop(reason interface{}) {
+func (server *Server) Stop() {
 	if atomic.CompareAndSwapInt32(&server.stopFlag, 0, 1) {
-		server.stopReason = reason
-
 		server.listener.Close()
-
-		// close all sessions
 		server.closeSessions()
 		server.stopWait.Wait()
 	}
@@ -150,16 +144,19 @@ func (server *Server) copySessions() []*Session {
 
 // Fetch sessions.
 func (server *Server) fetchSession(callback func(*Session)) {
-	sessions := server.copySessions()
-	for _, session := range sessions {
+	server.sessionMutex.Lock()
+	defer server.sessionMutex.Unlock()
+
+	for _, session := range server.sessions {
 		callback(session)
 	}
 }
 
 // Close all sessions.
 func (server *Server) closeSessions() {
+	// copy session to avoid deadlock
 	sessions := server.copySessions()
 	for _, session := range sessions {
-		session.Close(nil)
+		session.Close()
 	}
 }

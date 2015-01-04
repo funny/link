@@ -25,6 +25,10 @@ type Packet struct {
 	*OutBuffer
 }
 
+func (p Packet) Free() {
+	p.OutBuffer.free()
+}
+
 // Packet protocol.
 type Protocol interface {
 	// Create protocol state.

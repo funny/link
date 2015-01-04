@@ -224,7 +224,7 @@ func NewInBuffer() *InBuffer {
 }
 
 // Return the buffer to buffer pool.
-func (in *InBuffer) Free() {
+func (in *InBuffer) free() {
 	if enableBufferPool {
 		if in.isFreed {
 			panic("link.InBuffer: double free")
@@ -365,13 +365,13 @@ func (out *OutBuffer) broadcastUse() {
 func (out *OutBuffer) broadcastFree() {
 	if enableBufferPool {
 		if out.isBroadcast && atomic.AddInt32(&out.refCount, -1) == 0 {
-			out.Free()
+			out.free()
 		}
 	}
 }
 
 // Return the buffer to buffer pool.
-func (out *OutBuffer) Free() {
+func (out *OutBuffer) free() {
 	if out.isFreed {
 		panic("link.OutBuffer: double free")
 	}

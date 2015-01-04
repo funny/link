@@ -32,7 +32,7 @@ func Test_Server(t *testing.T) {
 		atomic.AddInt32(&sessionStartCount, 1)
 		sessionStart.Done()
 
-		session.Handle(func(msg *InBuffer) {
+		session.Process(func(msg *InBuffer) {
 			if !bytes.Equal(msg.Data, data) {
 				messageMatchFailed = true
 			}
@@ -79,10 +79,10 @@ func Test_Server(t *testing.T) {
 
 	// test session close
 	sessionClose.Add(1)
-	client1.Close(nil)
+	client1.Close()
 
 	sessionClose.Add(1)
-	client2.Close(nil)
+	client2.Close()
 
 	t.Log("check session close")
 	sessionClose.Wait()

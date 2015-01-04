@@ -13,7 +13,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	go client.Handle(func(msg *link.InBuffer) {
+	go client.Process(func(msg *link.InBuffer) {
 		println(string(msg.Data))
 	})
 
@@ -25,7 +25,7 @@ func main() {
 		client.Send(link.String(input))
 	}
 
-	client.Close(nil)
+	client.Close()
 
 	println("bye")
 }

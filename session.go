@@ -50,7 +50,6 @@ type Session struct {
 	// About session close
 	closeChan       chan int
 	closeFlag       int32
-	closeReason     interface{}
 	closeEventMutex sync.Mutex
 	closeCallbacks  *list.List
 
@@ -111,16 +110,9 @@ func (session *Session) IsClosed() bool {
 	return atomic.LoadInt32(&session.closeFlag) != 0
 }
 
-// Get session close reason.
-func (session *Session) CloseReason() interface{} {
-	return session.closeReason
-}
-
 // Close session.
-func (session *Session) Close(reason interface{}) {
+func (session *Session) Close() {
 	if atomic.CompareAndSwapInt32(&session.closeFlag, 0, 1) {
-		session.closeReason = reason
-
 		session.conn.Close()
 
 		// exit send loop and cancel async send
@@ -128,14 +120,6 @@ func (session *Session) Close(reason interface{}) {
 
 		session.invokeCloseCallbacks()
 	}
-}
-
-// Read a message.
-func (session *Session) Read() (*InBuffer, error) {
-	session.readMutex.Lock()
-	defer session.readMutex.Unlock()
-
-	return session.protocol.Read(session.conn)
 }
 
 // Sync send a message. Equals Packet() then SendPacket(). This method will block on IO.
@@ -161,17 +145,30 @@ func (session *Session) SendPacket(packet Packet) error {
 	return session.protocol.Write(session.conn, packet)
 }
 
-// Loop and read message.
-func (session *Session) Handle(handler func(*InBuffer)) {
-	for {
-		buffer, err := session.Read()
-		if err != nil {
-			session.Close(err)
-			break
-		}
-		handler(buffer)
-		buffer.Free()
+// Process one request.
+func (session *Session) ProcessOnce(handler func(*InBuffer)) error {
+	session.readMutex.Lock()
+	defer session.readMutex.Unlock()
+
+	buffer, err := session.protocol.Read(session.conn)
+	if err != nil {
+		session.Close()
+		return err
 	}
+	handler(buffer)
+	buffer.free()
+
+	return nil
+}
+
+// Process request.
+func (session *Session) Process(handler func(*InBuffer)) error {
+	for {
+		if err := session.ProcessOnce(handler); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Async work.
@@ -224,7 +221,7 @@ func (session *Session) AsyncSend(message Message) AsyncWork {
 				select {
 				case session.messageChan <- asyncMessage{c, message}:
 				case <-time.After(time.Second * 5):
-					session.Close(AsyncSendTimeoutError)
+					session.Close()
 					c <- AsyncSendTimeoutError
 				}
 			}()
@@ -248,7 +245,7 @@ func (session *Session) AsyncSendPacket(packet Packet) AsyncWork {
 				select {
 				case session.packetChan <- asyncPacket{c, packet}:
 				case <-time.After(time.Second * 5):
-					session.Close(AsyncSendTimeoutError)
+					session.Close()
 					c <- AsyncSendTimeoutError
 				}
 			}()

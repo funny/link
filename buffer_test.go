@@ -54,7 +54,7 @@ func VerifyBuffer(t *testing.T, buffer *InBuffer) {
 func Benchmark_NewBuffer(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		x := NewInBuffer()
-		x.Free()
+		x.free()
 	}
 	b.StopTimer()
 	state := BufferPoolState()
