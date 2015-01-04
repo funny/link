@@ -126,7 +126,7 @@ func (session *Session) Close(reason interface{}) {
 		// exit send loop and cancel async send
 		close(session.closeChan)
 
-		session.dispatchCloseEvent()
+		session.invokeCloseCallbacks()
 	}
 }
 
@@ -292,7 +292,7 @@ func (session *Session) RemoveCloseCallback(handler interface{}) {
 }
 
 // Dispatch close event.
-func (session *Session) dispatchCloseEvent() {
+func (session *Session) invokeCloseCallbacks() {
 	session.closeEventMutex.Lock()
 	defer session.closeEventMutex.Unlock()
 
