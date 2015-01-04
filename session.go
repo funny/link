@@ -48,11 +48,11 @@ type Session struct {
 	messageChan chan asyncMessage
 
 	// About session close
-	closeChan           chan int
-	closeFlag           int32
-	closeReason         interface{}
-	closeEventMutex     sync.Mutex
-	closeEventListeners *list.List
+	closeChan       chan int
+	closeFlag       int32
+	closeReason     interface{}
+	closeEventMutex sync.Mutex
+	closeCallbacks  *list.List
 
 	// Put your session state here.
 	State interface{}
@@ -82,12 +82,12 @@ func NewSession(id uint64, conn net.Conn, protocol Protocol, sendChanSize int, r
 	}
 
 	session := &Session{
-		id:                  id,
-		conn:                conn,
-		packetChan:          make(chan asyncPacket, sendChanSize),
-		messageChan:         make(chan asyncMessage, sendChanSize),
-		closeChan:           make(chan int),
-		closeEventListeners: list.New(),
+		id:             id,
+		conn:           conn,
+		packetChan:     make(chan asyncPacket, sendChanSize),
+		messageChan:    make(chan asyncMessage, sendChanSize),
+		closeChan:      make(chan int),
+		closeCallbacks: list.New(),
 	}
 	session.protocol = protocol.New(session)
 
@@ -257,13 +257,13 @@ func (session *Session) AsyncSendPacket(packet Packet) AsyncWork {
 	return AsyncWork{c}
 }
 
-// The session close event listener interface.
-type SessionCloseEventListener interface {
-	OnSessionClose(*Session)
+type closeCallback struct {
+	Handler interface{}
+	Func    func()
 }
 
-// Add close event listener.
-func (session *Session) AddCloseEventListener(listener SessionCloseEventListener) {
+// Add close callback.
+func (session *Session) AddCloseCallback(handler interface{}, callback func()) {
 	if session.IsClosed() {
 		return
 	}
@@ -271,11 +271,11 @@ func (session *Session) AddCloseEventListener(listener SessionCloseEventListener
 	session.closeEventMutex.Lock()
 	defer session.closeEventMutex.Unlock()
 
-	session.closeEventListeners.PushBack(listener)
+	session.closeCallbacks.PushBack(closeCallback{handler, callback})
 }
 
-// Remove close event listener.
-func (session *Session) RemoveCloseEventListener(listener SessionCloseEventListener) {
+// Remove close callback.
+func (session *Session) RemoveCloseCallback(handler interface{}) {
 	if session.IsClosed() {
 		return
 	}
@@ -283,9 +283,9 @@ func (session *Session) RemoveCloseEventListener(listener SessionCloseEventListe
 	session.closeEventMutex.Lock()
 	defer session.closeEventMutex.Unlock()
 
-	for i := session.closeEventListeners.Front(); i != nil; i = i.Next() {
-		if i.Value == listener {
-			session.closeEventListeners.Remove(i)
+	for i := session.closeCallbacks.Front(); i != nil; i = i.Next() {
+		if i.Value.(closeCallback).Handler == handler {
+			session.closeCallbacks.Remove(i)
 			return
 		}
 	}
@@ -296,7 +296,8 @@ func (session *Session) dispatchCloseEvent() {
 	session.closeEventMutex.Lock()
 	defer session.closeEventMutex.Unlock()
 
-	for i := session.closeEventListeners.Front(); i != nil; i = i.Next() {
-		i.Value.(SessionCloseEventListener).OnSessionClose(session)
+	for i := session.closeCallbacks.Front(); i != nil; i = i.Next() {
+		callback := i.Value.(closeCallback)
+		callback.Func()
 	}
 }

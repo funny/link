@@ -32,9 +32,7 @@ func Listen(network, address string) (*Server, error) {
 // Server.
 type Server struct {
 	// About network
-	listener       net.Listener
-	protocol       Protocol
-	broadcastState ProtocolState
+	listener net.Listener
 
 	// About sessions
 	maxSessionId uint64
@@ -46,6 +44,8 @@ type Server struct {
 	stopWait   sync.WaitGroup
 	stopReason interface{}
 
+	Protocol
+	*Broadcaster
 	SendChanSize   int         // Session send chan buffer size.
 	ReadBufferSize int         // Session read buffer size.
 	State          interface{} // server state.
@@ -55,40 +55,18 @@ type Server struct {
 func NewServer(listener net.Listener, protocol Protocol) *Server {
 	server := &Server{
 		listener:       listener,
-		protocol:       protocol,
 		sessions:       make(map[uint64]*Session),
+		Protocol:       protocol,
 		SendChanSize:   DefaultSendChanSize,
 		ReadBufferSize: DefaultConnBufferSize,
 	}
-	server.broadcastState = protocol.New(server)
+	server.Broadcaster = NewBroadcaster(protocol, server.fetchSession)
 	return server
 }
 
 // Get listener address.
 func (server *Server) Listener() net.Listener {
 	return server.listener
-}
-
-// Check server is stoppped
-func (server *Server) IsStopped() bool {
-	return atomic.LoadInt32(&server.stopFlag) == 1
-}
-
-// Get server stop reason.
-func (server *Server) StopReason() interface{} {
-	return server.stopReason
-}
-
-// Loop and accept incoming connections. The callback will called asynchronously when each session start.
-func (server *Server) Handle(handler func(*Session)) {
-	for {
-		session, err := server.Accept()
-		if err != nil {
-			server.Stop(err)
-			break
-		}
-		go handler(session)
-	}
 }
 
 // Accept incoming connection once.
@@ -104,9 +82,17 @@ func (server *Server) Accept() (*Session, error) {
 	return session, nil
 }
 
-// Implement the SessionCloseEventListener interface.
-func (server *Server) OnSessionClose(session *Session) {
-	server.delSession(session)
+// Loop and accept incoming connections. The callback will called asynchronously when each session start.
+func (server *Server) Serve(handler func(*Session)) interface{} {
+	for {
+		session, err := server.Accept()
+		if err != nil {
+			server.Stop(err)
+			break
+		}
+		go handler(session)
+	}
+	return server.stopReason
 }
 
 // Stop server.
@@ -123,7 +109,7 @@ func (server *Server) Stop(reason interface{}) {
 }
 
 func (server *Server) newSession(id uint64, conn net.Conn) *Session {
-	session := NewSession(id, conn, server.protocol, server.SendChanSize, server.ReadBufferSize)
+	session := NewSession(id, conn, server.Protocol, server.SendChanSize, server.ReadBufferSize)
 	server.putSession(session)
 	return session
 }
@@ -133,7 +119,9 @@ func (server *Server) putSession(session *Session) {
 	server.sessionMutex.Lock()
 	defer server.sessionMutex.Unlock()
 
-	session.AddCloseEventListener(server)
+	session.AddCloseCallback(server, func() {
+		server.delSession(session)
+	})
 	server.sessions[session.id] = session
 	server.stopWait.Add(1)
 }
@@ -143,7 +131,7 @@ func (server *Server) delSession(session *Session) {
 	server.sessionMutex.Lock()
 	defer server.sessionMutex.Unlock()
 
-	session.RemoveCloseEventListener(server)
+	session.RemoveCloseCallback(server)
 	delete(server.sessions, session.id)
 	server.stopWait.Done()
 }
@@ -160,30 +148,18 @@ func (server *Server) copySessions() []*Session {
 	return sessions
 }
 
+// Fetch sessions.
+func (server *Server) fetchSession(callback func(*Session)) {
+	sessions := server.copySessions()
+	for _, session := range sessions {
+		callback(session)
+	}
+}
+
 // Close all sessions.
 func (server *Server) closeSessions() {
 	sessions := server.copySessions()
 	for _, session := range sessions {
 		session.Close(nil)
-	}
-}
-
-// Get server protocol.
-func (server *Server) Protocol() Protocol {
-	return server.protocol
-}
-
-// Get broadcast protocol.
-// Implement SessionCollection interface.
-func (server *Server) BroadcastState() ProtocolState {
-	return server.broadcastState
-}
-
-// Fetch sessions.
-// Implement SessionCollection interface.
-func (server *Server) FetchSession(callback func(*Session)) {
-	sessions := server.copySessions()
-	for _, session := range sessions {
-		callback(session)
 	}
 }

@@ -2,33 +2,36 @@ package link
 
 import "github.com/funny/sync"
 
-// Make sure channel implement SessionCollection interface.
-var _ SessionCollection = new(Channel)
-
-// Make sure server implement SessionCollection interface.
-var _ SessionCollection = new(Server)
-
-// The session collection use to fetch session and send broadcast.
-type SessionCollection interface {
-	BroadcastState() ProtocolState
-	FetchSession(func(*Session))
+// Broadcaster.
+type Broadcaster struct {
+	protocol ProtocolState
+	fetcher  func(func(*Session))
 }
 
+// Broadcast work.
 type BroadcastWork struct {
 	Session *Session
 	AsyncWork
 }
 
+// Create a broadcaster.
+func NewBroadcaster(protocol Protocol, fetcher func(func(*Session))) *Broadcaster {
+	return &Broadcaster{
+		protocol: protocol.New(nil),
+		fetcher:  fetcher,
+	}
+}
+
 // Broadcast to sessions. The message only encoded once
 // so the performance is better than send message one by one.
-func Broadcast(sessions SessionCollection, message Message) ([]BroadcastWork, error) {
-	packet, err := sessions.BroadcastState().Packet(message)
+func (b *Broadcaster) Broadcast(message Message) ([]BroadcastWork, error) {
+	packet, err := b.protocol.Packet(message)
 	if err != nil {
 		return nil, err
 	}
 	works := make([]BroadcastWork, 0, 10)
 	packet.isBroadcast = true
-	sessions.FetchSession(func(session *Session) {
+	b.fetcher(func(session *Session) {
 		packet.broadcastUse()
 		works = append(works, BroadcastWork{
 			session,
@@ -44,6 +47,7 @@ type Channel struct {
 	mutex          sync.RWMutex
 	broadcastState ProtocolState
 	sessions       map[uint64]channelSession
+	*Broadcaster
 
 	// channel state
 	State interface{}
@@ -59,7 +63,7 @@ func NewChannel(protocol Protocol) *Channel {
 	channel := &Channel{
 		sessions: make(map[uint64]channelSession),
 	}
-	channel.broadcastState = protocol.New(channel)
+	channel.Broadcaster = NewBroadcaster(protocol, channel.FetchSession)
 	return channel
 }
 
@@ -76,13 +80,10 @@ func (channel *Channel) Join(session *Session, kickCallback func()) {
 	channel.mutex.Lock()
 	defer channel.mutex.Unlock()
 
-	session.AddCloseEventListener(channel)
+	session.AddCloseCallback(channel, func() {
+		channel.Exit(session)
+	})
 	channel.sessions[session.Id()] = channelSession{session, kickCallback}
-}
-
-// Implement the SessionCloseEventListener interface.
-func (channel *Channel) OnSessionClose(session *Session) {
-	channel.Exit(session)
 }
 
 // Exit the channel.
@@ -90,7 +91,7 @@ func (channel *Channel) Exit(session *Session) {
 	channel.mutex.Lock()
 	defer channel.mutex.Unlock()
 
-	session.RemoveCloseEventListener(channel)
+	session.RemoveCloseCallback(channel)
 	delete(channel.sessions, session.Id())
 }
 
@@ -105,12 +106,6 @@ func (channel *Channel) Kick(sessionId uint64) {
 			session.KickCallback()
 		}
 	}
-}
-
-// Get channel broadcast state.
-// Implement SessionCollection interface.
-func (channel *Channel) BroadcastState() ProtocolState {
-	return channel.broadcastState
 }
 
 // Fetch the sessions. NOTE: Invoke Kick() or Exit() in fetch callback will dead lock.

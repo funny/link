@@ -32,7 +32,7 @@ func main() {
 
 	println("server start:", server.Listener().Addr().String())
 
-	server.Handle(func(session *link.Session) {
+	server.Serve(func(session *link.Session) {
 		log("client", session.Conn().RemoteAddr().String(), "in")
 
 		session.Handle(func(msg *link.InBuffer) {

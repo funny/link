@@ -14,26 +14,26 @@ func main() {
 		panic(err)
 	}
 
-	channel := link.NewChannel(server.Protocol())
+	channel := link.NewChannel(server.Protocol)
 	go func() {
 		for {
 			time.Sleep(time.Second * 2)
 			// broadcast to server sessions
-			link.Broadcast(server, link.String("server say: "+time.Now().String()))
+			server.Broadcast(link.String("server say: " + time.Now().String()))
 			// broadcast to channel sessions
-			link.Broadcast(channel, link.String("channel say: "+time.Now().String()))
+			channel.Broadcast(link.String("channel say: " + time.Now().String()))
 		}
 	}()
 
 	println("server start")
 
-	server.Handle(func(session *link.Session) {
+	server.Serve(func(session *link.Session) {
 		println("client", session.Conn().RemoteAddr().String(), "in")
 		channel.Join(session, nil)
 
 		session.Handle(func(msg *link.InBuffer) {
-			link.Broadcast(channel, link.String(
-				"client "+session.Conn().RemoteAddr().String()+" say: "+string(msg.Data),
+			channel.Broadcast(link.String(
+				"client " + session.Conn().RemoteAddr().String() + " say: " + string(msg.Data),
 			))
 		})
 
