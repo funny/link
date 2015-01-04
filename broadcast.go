@@ -29,13 +29,13 @@ func (b *Broadcaster) Broadcast(message Message) ([]BroadcastWork, error) {
 	if err != nil {
 		return nil, err
 	}
-	works := make([]BroadcastWork, 0, 10)
 	packet.isBroadcast = true
+	works := make([]BroadcastWork, 0, 10)
 	b.fetcher(func(session *Session) {
 		packet.broadcastUse()
 		works = append(works, BroadcastWork{
 			session,
-			session.AsyncSendPacket(packet),
+			session.asyncSendPacket(packet),
 		})
 	})
 	return works, nil

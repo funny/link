@@ -124,24 +124,21 @@ func (session *Session) Close() {
 
 // Sync send a message. Equals Packet() then SendPacket(). This method will block on IO.
 func (session *Session) Send(message Message) error {
-	packet, err := session.Packet(message)
+	packet, err := session.protocol.Packet(message)
 	if err != nil {
 		return err
 	}
-	err = session.SendPacket(packet)
-	packet.Free()
+
+	err = session.sendPacket(packet)
+	packet.free()
+
 	return err
 }
 
-// Packet a message. The packet buffer need to free by manual.
-func (session *Session) Packet(message Message) (Packet, error) {
-	return session.protocol.Packet(message)
-}
-
-// Sync send a packet. See Packet() method.
-func (session *Session) SendPacket(packet Packet) error {
+func (session *Session) sendPacket(packet *OutBuffer) error {
 	session.sendMutex.Lock()
 	defer session.sendMutex.Unlock()
+
 	return session.protocol.Write(session.conn, packet)
 }
 
@@ -188,7 +185,7 @@ type asyncMessage struct {
 
 type asyncPacket struct {
 	C chan<- error
-	P Packet
+	P *OutBuffer
 }
 
 // Loop and transport responses.
@@ -196,7 +193,7 @@ func (session *Session) sendLoop() {
 	for {
 		select {
 		case packet := <-session.packetChan:
-			packet.C <- session.SendPacket(packet.P)
+			packet.C <- session.sendPacket(packet.P)
 			packet.P.broadcastFree()
 		case message := <-session.messageChan:
 			message.C <- session.Send(message.M)
@@ -214,8 +211,6 @@ func (session *Session) AsyncSend(message Message) AsyncWork {
 	} else {
 		select {
 		case session.messageChan <- asyncMessage{c, message}:
-		case <-session.closeChan:
-			c <- SendToClosedError
 		default:
 			go func() {
 				select {
@@ -231,15 +226,13 @@ func (session *Session) AsyncSend(message Message) AsyncWork {
 }
 
 // Async send a packet.
-func (session *Session) AsyncSendPacket(packet Packet) AsyncWork {
+func (session *Session) asyncSendPacket(packet *OutBuffer) AsyncWork {
 	c := make(chan error, 1)
 	if session.IsClosed() {
 		c <- SendToClosedError
 	} else {
 		select {
 		case session.packetChan <- asyncPacket{c, packet}:
-		case <-session.closeChan:
-			c <- SendToClosedError
 		default:
 			go func() {
 				select {

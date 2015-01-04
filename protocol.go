@@ -21,14 +21,6 @@ var (
 
 type ByteOrder binary.ByteOrder
 
-type Packet struct {
-	*OutBuffer
-}
-
-func (p Packet) Free() {
-	p.OutBuffer.free()
-}
-
 // Packet protocol.
 type Protocol interface {
 	// Create protocol state.
@@ -41,10 +33,10 @@ type Protocol interface {
 // Protocol state.
 type ProtocolState interface {
 	// Packet a message.
-	Packet(message Message) (Packet, error)
+	Packet(message Message) (*OutBuffer, error)
 
 	// Write a packet.
-	Write(writer io.Writer, packet Packet) error
+	Write(writer io.Writer, packet *OutBuffer) error
 
 	// Read a packet.
 	Read(reader io.Reader) (*InBuffer, error)
@@ -143,15 +135,15 @@ func (p *simpleProtocol) New(v interface{}) ProtocolState {
 	return p
 }
 
-func (p *simpleProtocol) Packet(message Message) (Packet, error) {
+func (p *simpleProtocol) Packet(message Message) (*OutBuffer, error) {
 	buffer := NewOutBuffer()
 	buffer.Prepare(message.RecommendBufferSize())
 	buffer.Data = buffer.Data[:p.n]
 	err := message.WriteBuffer(buffer)
-	return Packet{buffer}, err
+	return buffer, err
 }
 
-func (p *simpleProtocol) Write(writer io.Writer, packet Packet) error {
+func (p *simpleProtocol) Write(writer io.Writer, packet *OutBuffer) error {
 	if p.MaxPacketSize > 0 && len(packet.Data) > p.MaxPacketSize {
 		return PacketTooLargeError
 	}
