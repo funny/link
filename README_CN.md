@@ -42,7 +42,7 @@ server.Handle(func(session *link.Session) {
 客户端连接到服务器：
 
 ```go
-client, _ := link.Dial("tcp", "127.0.0.1:8080", proto)
+client, _ := link.Dial("tcp", "127.0.0.1:8080")
 ```
 
 发送一个消息给服务端：
