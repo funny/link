@@ -32,7 +32,9 @@ func Listen(network, address string) (*Server, error) {
 // Server.
 type Server struct {
 	// About network
-	listener net.Listener
+	listener    net.Listener
+	protocol    Protocol
+	broadcaster *Broadcaster
 
 	// About sessions
 	maxSessionId uint64
@@ -43,8 +45,6 @@ type Server struct {
 	stopFlag int32
 	stopWait sync.WaitGroup
 
-	Protocol
-	*Broadcaster
 	SendChanSize   int         // Session send chan buffer size.
 	ReadBufferSize int         // Session read buffer size.
 	State          interface{} // server state.
@@ -54,18 +54,29 @@ type Server struct {
 func NewServer(listener net.Listener, protocol Protocol) *Server {
 	server := &Server{
 		listener:       listener,
+		protocol:       protocol,
 		sessions:       make(map[uint64]*Session),
-		Protocol:       protocol,
 		SendChanSize:   DefaultSendChanSize,
 		ReadBufferSize: DefaultConnBufferSize,
 	}
-	server.Broadcaster = NewBroadcaster(protocol, server.fetchSession)
+	server.broadcaster = NewBroadcaster(protocol, server.fetchSession)
 	return server
 }
 
 // Get listener address.
 func (server *Server) Listener() net.Listener {
 	return server.listener
+}
+
+// Get protocol.
+func (server *Server) Protocol() Protocol {
+	return server.protocol
+}
+
+// Broadcast to all session. The message only encoded once
+// so the performance is better than send message one by one.
+func (server *Server) Broadcast(message Message) ([]BroadcastWork, error) {
+	return server.broadcaster.Broadcast(message)
 }
 
 // Accept incoming connection once.
@@ -103,7 +114,7 @@ func (server *Server) Stop() {
 }
 
 func (server *Server) newSession(id uint64, conn net.Conn) *Session {
-	session := NewSession(id, conn, server.Protocol, server.SendChanSize, server.ReadBufferSize)
+	session := NewSession(id, conn, server.protocol, server.SendChanSize, server.ReadBufferSize)
 	server.putSession(session)
 	return session
 }

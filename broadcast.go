@@ -44,10 +44,9 @@ func (b *Broadcaster) Broadcast(message Message) ([]BroadcastWork, error) {
 // The channel type. Used to maintain a group of session.
 // Normally used for broadcast classify purpose.
 type Channel struct {
-	mutex          sync.RWMutex
-	broadcastState ProtocolState
-	sessions       map[uint64]channelSession
-	*Broadcaster
+	mutex       sync.RWMutex
+	sessions    map[uint64]channelSession
+	broadcaster *Broadcaster
 
 	// channel state
 	State interface{}
@@ -63,8 +62,14 @@ func NewChannel(protocol Protocol) *Channel {
 	channel := &Channel{
 		sessions: make(map[uint64]channelSession),
 	}
-	channel.Broadcaster = NewBroadcaster(protocol, channel.Fetch)
+	channel.broadcaster = NewBroadcaster(protocol, channel.Fetch)
 	return channel
+}
+
+// Broadcast to channel. The message only encoded once
+// so the performance is better than send message one by one.
+func (channel *Channel) Broadcast(message Message) ([]BroadcastWork, error) {
+	return channel.broadcaster.Broadcast(message)
 }
 
 // How mush sessions in this channel.

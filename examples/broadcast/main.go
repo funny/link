@@ -14,7 +14,7 @@ func main() {
 		panic(err)
 	}
 
-	channel := link.NewChannel(server.Protocol)
+	channel := link.NewChannel(server.Protocol())
 	go func() {
 		for {
 			time.Sleep(time.Second * 2)
