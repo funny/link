@@ -215,6 +215,8 @@ func (session *Session) AsyncSend(message Message) AsyncWork {
 			go func() {
 				select {
 				case session.messageChan <- asyncMessage{c, message}:
+				case <-session.closeChan:
+					c <- SendToClosedError
 				case <-time.After(time.Second * 5):
 					session.Close()
 					c <- AsyncSendTimeoutError
@@ -237,6 +239,8 @@ func (session *Session) asyncSendPacket(packet *OutBuffer) AsyncWork {
 			go func() {
 				select {
 				case session.packetChan <- asyncPacket{c, packet}:
+				case <-session.closeChan:
+					c <- SendToClosedError
 				case <-time.After(time.Second * 5):
 					session.Close()
 					c <- AsyncSendTimeoutError
