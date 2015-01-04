@@ -100,7 +100,7 @@ func (session *Session) Id() uint64 {
 	return session.id
 }
 
-// Get local address.
+// Get session connection.
 func (session *Session) Conn() net.Conn {
 	return session.conn
 }
