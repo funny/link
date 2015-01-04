@@ -63,7 +63,7 @@ func NewChannel(protocol Protocol) *Channel {
 	channel := &Channel{
 		sessions: make(map[uint64]channelSession),
 	}
-	channel.Broadcaster = NewBroadcaster(protocol, channel.FetchSession)
+	channel.Broadcaster = NewBroadcaster(protocol, channel.Fetch)
 	return channel
 }
 
@@ -109,8 +109,7 @@ func (channel *Channel) Kick(sessionId uint64) {
 }
 
 // Fetch the sessions. NOTE: Invoke Kick() or Exit() in fetch callback will dead lock.
-// Implement SessionCollection interface.
-func (channel *Channel) FetchSession(callback func(*Session)) {
+func (channel *Channel) Fetch(callback func(*Session)) {
 	channel.mutex.RLock()
 	defer channel.mutex.RUnlock()
 
