@@ -15,9 +15,9 @@ type BroadcastWork struct {
 }
 
 // Create a broadcaster.
-func NewBroadcaster(protocol Protocol, fetcher func(func(*Session))) *Broadcaster {
+func NewBroadcaster(protocol ProtocolState, fetcher func(func(*Session))) *Broadcaster {
 	return &Broadcaster{
-		protocol: protocol.New(nil),
+		protocol: protocol,
 		fetcher:  fetcher,
 	}
 }
@@ -63,7 +63,7 @@ func NewChannel(protocol Protocol) *Channel {
 	channel := &Channel{
 		sessions: make(map[uint64]channelSession),
 	}
-	channel.broadcaster = NewBroadcaster(protocol, channel.Fetch)
+	channel.broadcaster = NewBroadcaster(protocol.New(channel), channel.Fetch)
 	return channel
 }
 
