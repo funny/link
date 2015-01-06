@@ -33,13 +33,13 @@ type Protocol interface {
 // Protocol state.
 type ProtocolState interface {
 	// Packet a message.
-	Packet(message Message) (*OutBuffer, error)
+	Packet(message Message, buffer *OutBuffer) error
 
 	// Write a packet.
 	Write(writer io.Writer, packet *OutBuffer) error
 
 	// Read a packet.
-	Read(reader io.Reader) (*InBuffer, error)
+	Read(reader io.Reader, buffer *InBuffer) error
 }
 
 // Create a {packet, N} protocol.
@@ -135,12 +135,10 @@ func (p *simpleProtocol) New(v interface{}) ProtocolState {
 	return p
 }
 
-func (p *simpleProtocol) Packet(message Message) (*OutBuffer, error) {
-	buffer := NewOutBuffer()
+func (p *simpleProtocol) Packet(message Message, buffer *OutBuffer) error {
 	buffer.Prepare(message.RecommendBufferSize())
 	buffer.Data = buffer.Data[:p.n]
-	err := message.WriteBuffer(buffer)
-	return buffer, err
+	return message.WriteBuffer(buffer)
 }
 
 func (p *simpleProtocol) Write(writer io.Writer, packet *OutBuffer) error {
@@ -154,24 +152,23 @@ func (p *simpleProtocol) Write(writer io.Writer, packet *OutBuffer) error {
 	return nil
 }
 
-func (p *simpleProtocol) Read(reader io.Reader) (*InBuffer, error) {
+func (p *simpleProtocol) Read(reader io.Reader, buffer *InBuffer) error {
 	// head
-	buffer := NewInBuffer()
 	buffer.Prepare(p.n)
 	if _, err := io.ReadFull(reader, buffer.Data); err != nil {
-		return nil, err
+		return err
 	}
 	size := p.decodeHead(buffer.Data)
 	if p.MaxPacketSize > 0 && size > p.MaxPacketSize {
-		return nil, PacketTooLargeError
+		return PacketTooLargeError
 	}
 	// body
 	buffer.Prepare(size)
 	if size == 0 {
-		return buffer, nil
+		return nil
 	}
 	if _, err := io.ReadFull(reader, buffer.Data); err != nil {
-		return nil, err
+		return err
 	}
-	return buffer, nil
+	return nil
 }

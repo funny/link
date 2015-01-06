@@ -8,7 +8,7 @@ import (
 )
 
 func Test_Buffer(t *testing.T) {
-	var buffer = NewOutBuffer()
+	var buffer = newOutBuffer()
 
 	PrepareBuffer(buffer)
 
@@ -53,7 +53,7 @@ func VerifyBuffer(t *testing.T, buffer *InBuffer) {
 
 func Benchmark_NewBuffer(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		x := NewInBuffer()
+		x := newInBuffer()
 		x.free()
 	}
 	b.StopTimer()

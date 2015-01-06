@@ -216,7 +216,7 @@ type InBuffer struct {
 	next    unsafe.Pointer
 }
 
-func NewInBuffer() *InBuffer {
+func newInBuffer() *InBuffer {
 	if enableBufferPool {
 		return globalPool.GetInBuffer()
 	}
@@ -349,7 +349,7 @@ type OutBuffer struct {
 	next        unsafe.Pointer
 }
 
-func NewOutBuffer() *OutBuffer {
+func newOutBuffer() *OutBuffer {
 	if enableBufferPool {
 		return globalPool.GetOutBuffer()
 	}

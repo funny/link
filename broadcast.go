@@ -25,7 +25,8 @@ func NewBroadcaster(protocol Protocol, fetcher func(func(*Session))) *Broadcaste
 // Broadcast to sessions. The message only encoded once
 // so the performance is better than send message one by one.
 func (b *Broadcaster) Broadcast(message Message) ([]BroadcastWork, error) {
-	packet, err := b.protocol.Packet(message)
+	packet := newOutBuffer()
+	err := b.protocol.Packet(message, packet)
 	if err != nil {
 		return nil, err
 	}

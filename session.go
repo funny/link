@@ -124,7 +124,8 @@ func (session *Session) Close() {
 
 // Sync send a message. Equals Packet() then SendPacket(). This method will block on IO.
 func (session *Session) Send(message Message) error {
-	packet, err := session.protocol.Packet(message)
+	packet := newOutBuffer()
+	err := session.protocol.Packet(message, packet)
 	if err != nil {
 		return err
 	}
@@ -147,7 +148,8 @@ func (session *Session) ProcessOnce(handler func(*InBuffer)) error {
 	session.readMutex.Lock()
 	defer session.readMutex.Unlock()
 
-	buffer, err := session.protocol.Read(session.conn)
+	buffer := newInBuffer()
+	err := session.protocol.Read(session.conn, buffer)
 	if err != nil {
 		session.Close()
 		return err
