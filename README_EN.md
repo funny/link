@@ -51,7 +51,7 @@ client, _ := link.Dial("tcp", "127.0.0.1:8080")
 Send a message to server.
 
 ```go
-client.Send(link.Binary("Hello World!"))
+client.Send(link.Bytes("Hello World!"))
 ```
 
 Examples

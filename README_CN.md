@@ -49,7 +49,7 @@ client, _ := link.Dial("tcp", "127.0.0.1:8080")
 发送一个消息给服务端：
 
 ```go
-client.Send(link.Binary("Hello World!"))
+client.Send(link.Bytes("Hello World!"))
 ```
 
 示例
