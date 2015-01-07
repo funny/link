@@ -30,11 +30,12 @@ server, _ := link.Listen("tcp", "0.0.0.0:8080")
 Handle incoming connections. And setup a message handler on the new session.
 
 ```go
-server.Handle(func(session *link.Session) {
+server.Serve(func(session *link.Session) {
 	fmt.Println("session start")
 
-	session.Handle(func(session *link.Session, msg *link.InBuffer) {
+	session.Process(func(msg *link.InBuffer) error {
 		fmt.Printf("new message: %s\n", msg)
+		return nil
 	})
 
 	fmt.Println("session closed")
