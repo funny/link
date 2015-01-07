@@ -83,7 +83,7 @@ func (conn *CountConn) Write(p []byte) (int, error) {
 	return conn.Conn.Write(p)
 }
 
-func client(initWait *sync.WaitGroup, startChan chan int, resultChan chan ClientResult, timeout time.Time, msg link.Message) {
+func client(initWait *sync.WaitGroup, startChan chan int, resultChan chan ClientResult, timeout time.Time, encoder link.Encoder) {
 	conn, err := net.DialTimeout("tcp", *serverAddr, time.Second*3)
 	if err != nil {
 		panic(err)
@@ -95,8 +95,9 @@ func client(initWait *sync.WaitGroup, startChan chan int, resultChan chan Client
 
 	go func() {
 		initWait.Done()
-		err := client.Process(func(*link.InBuffer) {
+		err := client.Process(func(*link.InBuffer) error {
 			// DO NOTHING
+			return nil
 		})
 		if err != nil {
 			println(err.Error())
@@ -107,7 +108,7 @@ func client(initWait *sync.WaitGroup, startChan chan int, resultChan chan Client
 
 	count := 0
 	for timeout.After(time.Now()) {
-		if err := client.Send(msg); err != nil {
+		if err := client.Send(encoder); err != nil {
 			break
 		}
 		count += 1

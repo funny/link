@@ -13,8 +13,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	go client.Process(func(msg *link.InBuffer) {
+	go client.Process(func(msg *link.InBuffer) error {
 		println(string(msg.Data))
+		return nil
 	})
 
 	for {

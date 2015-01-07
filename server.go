@@ -75,8 +75,8 @@ func (server *Server) Protocol() Protocol {
 
 // Broadcast to all session. The message only encoded once
 // so the performance is better than send message one by one.
-func (server *Server) Broadcast(message Message) ([]BroadcastWork, error) {
-	return server.broadcaster.Broadcast(message)
+func (server *Server) Broadcast(encoder Encoder) ([]BroadcastWork, error) {
+	return server.broadcaster.Broadcast(encoder)
 }
 
 // Accept incoming connection once.

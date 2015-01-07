@@ -32,13 +32,15 @@ func Test_Server(t *testing.T) {
 		atomic.AddInt32(&sessionStartCount, 1)
 		sessionStart.Done()
 
-		session.Process(func(msg *InBuffer) {
+		session.Process(func(msg *InBuffer) error {
 			if !bytes.Equal(msg.Data, data) {
 				messageMatchFailed = true
 			}
 
 			atomic.AddInt32(&sessionRequestCount, 1)
 			sessionRequest.Done()
+
+			return nil
 		})
 
 		atomic.AddInt32(&sessionCloseCount, 1)

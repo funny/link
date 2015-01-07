@@ -31,10 +31,11 @@ func main() {
 		println("client", session.Conn().RemoteAddr().String(), "in")
 		channel.Join(session, nil)
 
-		session.Process(func(msg *link.InBuffer) {
+		session.Process(func(msg *link.InBuffer) error {
 			channel.Broadcast(link.String(
 				"client " + session.Conn().RemoteAddr().String() + " say: " + string(msg.Data),
 			))
+			return nil
 		})
 
 		println("client", session.Conn().RemoteAddr().String(), "close")

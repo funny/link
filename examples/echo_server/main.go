@@ -35,9 +35,9 @@ func main() {
 	server.Serve(func(session *link.Session) {
 		log("client", session.Conn().RemoteAddr().String(), "in")
 
-		session.Process(func(msg *link.InBuffer) {
+		session.Process(func(msg *link.InBuffer) error {
 			log("client", session.Conn().RemoteAddr().String(), "say:", string(msg.Data))
-			session.Send(link.Bytes(msg.Data))
+			return session.Send(link.Bytes(msg.Data))
 		})
 
 		log("client", session.Conn().RemoteAddr().String(), "close")

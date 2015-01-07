@@ -33,10 +33,10 @@ type Protocol interface {
 // Protocol state.
 type ProtocolState interface {
 	// Packet a message.
-	Packet(message Message, buffer *OutBuffer) error
+	PrepareOutBuffer(buffer *OutBuffer, size int)
 
 	// Write a packet.
-	Write(writer io.Writer, packet *OutBuffer) error
+	Write(writer io.Writer, buffer *OutBuffer) error
 
 	// Read a packet.
 	Read(reader io.Reader, buffer *InBuffer) error
@@ -135,10 +135,9 @@ func (p *simpleProtocol) New(v interface{}) ProtocolState {
 	return p
 }
 
-func (p *simpleProtocol) Packet(message Message, buffer *OutBuffer) error {
-	buffer.Prepare(message.RecommendBufferSize())
+func (p *simpleProtocol) PrepareOutBuffer(buffer *OutBuffer, size int) {
+	buffer.Prepare(size)
 	buffer.Data = buffer.Data[:p.n]
-	return message.WriteBuffer(buffer)
 }
 
 func (p *simpleProtocol) Write(writer io.Writer, packet *OutBuffer) error {

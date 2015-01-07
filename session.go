@@ -33,6 +33,9 @@ func DialTimeout(network, address string, timeout time.Duration) (*Session, erro
 	return session, nil
 }
 
+type Decoder func(*InBuffer) error
+type Encoder func(*OutBuffer) error
+
 // Session.
 type Session struct {
 	id uint64
@@ -42,10 +45,10 @@ type Session struct {
 	protocol ProtocolState
 
 	// About send and receive
-	readMutex   sync.Mutex
-	sendMutex   sync.Mutex
-	packetChan  chan asyncPacket
-	messageChan chan asyncMessage
+	readMutex           sync.Mutex
+	sendMutex           sync.Mutex
+	asyncSendChan       chan asyncMessage
+	asyncSendBufferChan chan asyncBuffer
 
 	// About session close
 	closeChan       chan int
@@ -81,12 +84,12 @@ func NewSession(id uint64, conn net.Conn, protocol Protocol, sendChanSize int, r
 	}
 
 	session := &Session{
-		id:             id,
-		conn:           conn,
-		packetChan:     make(chan asyncPacket, sendChanSize),
-		messageChan:    make(chan asyncMessage, sendChanSize),
-		closeChan:      make(chan int),
-		closeCallbacks: list.New(),
+		id:                  id,
+		conn:                conn,
+		asyncSendChan:       make(chan asyncMessage, sendChanSize),
+		asyncSendBufferChan: make(chan asyncBuffer, sendChanSize),
+		closeChan:           make(chan int),
+		closeCallbacks:      list.New(),
 	}
 	session.protocol = protocol.New(session)
 
@@ -123,47 +126,51 @@ func (session *Session) Close() {
 }
 
 // Sync send a message. Equals Packet() then SendPacket(). This method will block on IO.
-func (session *Session) Send(message Message) error {
-	packet := newOutBuffer()
-	err := session.protocol.Packet(message, packet)
-	if err != nil {
-		return err
+func (session *Session) Send(encoder Encoder) error {
+	var err error
+
+	buffer := newOutBuffer()
+	session.protocol.PrepareOutBuffer(buffer, 1024)
+
+	err = encoder(buffer)
+	if err == nil {
+		err = session.sendBuffer(buffer)
 	}
 
-	err = session.sendPacket(packet)
-	packet.free()
-
+	buffer.free()
 	return err
 }
 
-func (session *Session) sendPacket(packet *OutBuffer) error {
+func (session *Session) sendBuffer(buffer *OutBuffer) error {
 	session.sendMutex.Lock()
 	defer session.sendMutex.Unlock()
 
-	return session.protocol.Write(session.conn, packet)
+	return session.protocol.Write(session.conn, buffer)
 }
 
 // Process one request.
-func (session *Session) ProcessOnce(handler func(*InBuffer)) error {
+func (session *Session) ProcessOnce(decoder Decoder) error {
 	session.readMutex.Lock()
 	defer session.readMutex.Unlock()
 
 	buffer := newInBuffer()
 	err := session.protocol.Read(session.conn, buffer)
 	if err != nil {
+		buffer.free()
 		session.Close()
 		return err
 	}
-	handler(buffer)
+
+	err = decoder(buffer)
 	buffer.free()
 
 	return nil
 }
 
 // Process request.
-func (session *Session) Process(handler func(*InBuffer)) error {
+func (session *Session) Process(decoder Decoder) error {
 	for {
-		if err := session.ProcessOnce(handler); err != nil {
+		if err := session.ProcessOnce(decoder); err != nil {
 			return err
 		}
 	}
@@ -182,23 +189,23 @@ func (aw AsyncWork) Wait() error {
 
 type asyncMessage struct {
 	C chan<- error
-	M Message
+	E Encoder
 }
 
-type asyncPacket struct {
+type asyncBuffer struct {
 	C chan<- error
-	P *OutBuffer
+	B *OutBuffer
 }
 
 // Loop and transport responses.
 func (session *Session) sendLoop() {
 	for {
 		select {
-		case packet := <-session.packetChan:
-			packet.C <- session.sendPacket(packet.P)
-			packet.P.broadcastFree()
-		case message := <-session.messageChan:
-			message.C <- session.Send(message.M)
+		case buffer := <-session.asyncSendBufferChan:
+			buffer.C <- session.sendBuffer(buffer.B)
+			buffer.B.broadcastFree()
+		case message := <-session.asyncSendChan:
+			message.C <- session.Send(message.E)
 		case <-session.closeChan:
 			return
 		}
@@ -206,17 +213,17 @@ func (session *Session) sendLoop() {
 }
 
 // Async send a message.
-func (session *Session) AsyncSend(message Message) AsyncWork {
+func (session *Session) AsyncSend(encoder Encoder) AsyncWork {
 	c := make(chan error, 1)
 	if session.IsClosed() {
 		c <- SendToClosedError
 	} else {
 		select {
-		case session.messageChan <- asyncMessage{c, message}:
+		case session.asyncSendChan <- asyncMessage{c, encoder}:
 		default:
 			go func() {
 				select {
-				case session.messageChan <- asyncMessage{c, message}:
+				case session.asyncSendChan <- asyncMessage{c, encoder}:
 				case <-session.closeChan:
 					c <- SendToClosedError
 				case <-time.After(time.Second * 5):
@@ -230,17 +237,17 @@ func (session *Session) AsyncSend(message Message) AsyncWork {
 }
 
 // Async send a packet.
-func (session *Session) asyncSendPacket(packet *OutBuffer) AsyncWork {
+func (session *Session) asyncSendBuffer(buffer *OutBuffer) AsyncWork {
 	c := make(chan error, 1)
 	if session.IsClosed() {
 		c <- SendToClosedError
 	} else {
 		select {
-		case session.packetChan <- asyncPacket{c, packet}:
+		case session.asyncSendBufferChan <- asyncBuffer{c, buffer}:
 		default:
 			go func() {
 				select {
-				case session.packetChan <- asyncPacket{c, packet}:
+				case session.asyncSendBufferChan <- asyncBuffer{c, buffer}:
 				case <-session.closeChan:
 					c <- SendToClosedError
 				case <-time.After(time.Second * 5):
