@@ -339,6 +339,20 @@ func (in *InBuffer) ReadFloat64BE() float64 {
 	return math.Float64frombits(in.ReadUint64BE())
 }
 
+// ReadVarint reads an encoded signed integer from buffer and returns it as an int64.
+func (in *InBuffer) ReadVarint() int64 {
+	v, n := binary.Varint(in.Data[in.ReadPos:])
+	in.ReadPos += n
+	return v
+}
+
+// ReadUvarint reads an encoded unsigned integer from buffer and returns it as a uint64.
+func (in *InBuffer) ReadUvarint() uint64 {
+	v, n := binary.Uvarint(in.Data[in.ReadPos:])
+	in.ReadPos += n
+	return v
+}
+
 // Outgoing message buffer.
 type OutBuffer struct {
 	Data        []byte // Buffer data.
@@ -488,4 +502,22 @@ func (out *OutBuffer) WriteFloat64LE(v float64) {
 // Write a float64 value into buffer using big endian byte order.
 func (out *OutBuffer) WriteFloat64BE(v float64) {
 	out.WriteUint64BE(math.Float64bits(v))
+}
+
+// Write a uint64 value into buffer.
+func (out *OutBuffer) WriteUvarint(v uint64) {
+	for v >= 0x80 {
+		out.Append(byte(v) | 0x80)
+		v >>= 7
+	}
+	out.Append(byte(v))
+}
+
+// Write a int64 value into buffer.
+func (out *OutBuffer) WriteVarint(v int64) {
+	ux := uint64(v) << 1
+	if v < 0 {
+		ux = ^ux
+	}
+	out.WriteUvarint(ux)
 }

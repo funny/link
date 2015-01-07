@@ -31,6 +31,8 @@ func PrepareBuffer(buffer *OutBuffer) {
 	buffer.WriteString("Hello1")
 	buffer.WriteBytes([]byte("Hello2"))
 	buffer.WriteBytes([]byte("Hello3"))
+	buffer.WriteVarint(0x7FEEDDCCBBAA9988)
+	buffer.WriteUvarint(0xFFEEDDCCBBAA9988)
 }
 
 func VerifyBuffer(t *testing.T, buffer *InBuffer) {
@@ -49,6 +51,8 @@ func VerifyBuffer(t *testing.T, buffer *InBuffer) {
 	unitest.Pass(t, buffer.ReadString(6) == "Hello1")
 	unitest.Pass(t, bytes.Equal(buffer.ReadBytes(6), []byte("Hello2")))
 	unitest.Pass(t, bytes.Equal(buffer.Slice(6), []byte("Hello3")))
+	unitest.Pass(t, buffer.ReadVarint() == 0x7FEEDDCCBBAA9988)
+	unitest.Pass(t, buffer.ReadUvarint() == 0xFFEEDDCCBBAA9988)
 }
 
 func Benchmark_NewBuffer(b *testing.B) {
