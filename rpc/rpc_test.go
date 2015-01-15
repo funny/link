@@ -46,7 +46,7 @@ func Benchmark_1(b *testing.B) {
 	wg.Add(1)
 	address := ""
 	go func() {
-		lis, err := net.Listen("tcp", "0.0.0.0:0")
+		lis, err := net.Listen("tcp", "127.0.0.1:0")
 		if err != nil {
 			b.Log("Server TCP:", err)
 			return
@@ -70,7 +70,7 @@ func Benchmark_1(b *testing.B) {
 
 func Benchmark_2(b *testing.B) {
 	b.StopTimer()
-	server, err := NewServer("tcp", "0.0.0.0:0")
+	server, err := NewServer("tcp", "127.0.0.1:0")
 	if err != nil {
 		b.Fatal("NewServer:", err)
 	}
