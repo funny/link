@@ -34,7 +34,6 @@ func DialTimeout(network, address string, timeout time.Duration) (*Session, erro
 }
 
 type Decoder func(*InBuffer) error
-type Encoder func(*OutBuffer) error
 
 // Session.
 type Session struct {
@@ -125,14 +124,19 @@ func (session *Session) Close() {
 	}
 }
 
-// Sync send a message. Equals Packet() then SendPacket(). This method will block on IO.
-func (session *Session) Send(encoder Encoder) error {
+// Sync send a message from encoder func. This method will block on IO.
+func (session *Session) SendFunc(e func(*OutBuffer) error) error {
+	return session.Send(encoder(e))
+}
+
+// Sync send a message. This method will block on IO.
+func (session *Session) Send(message Message) error {
 	var err error
 
 	buffer := newOutBuffer()
-	session.protocol.PrepareOutBuffer(buffer, 1024)
+	session.protocol.PrepareOutBuffer(buffer, message.OutBufferSize())
 
-	err = encoder(buffer)
+	err = message.WriteOutBuffer(buffer)
 	if err == nil {
 		err = session.sendBuffer(buffer)
 	}
@@ -189,7 +193,7 @@ func (aw AsyncWork) Wait() error {
 
 type asyncMessage struct {
 	C chan<- error
-	E Encoder
+	M Message
 }
 
 type asyncBuffer struct {
@@ -205,7 +209,7 @@ func (session *Session) sendLoop() {
 			buffer.C <- session.sendBuffer(buffer.B)
 			buffer.B.broadcastFree()
 		case message := <-session.asyncSendChan:
-			message.C <- session.Send(message.E)
+			message.C <- session.Send(message.M)
 		case <-session.closeChan:
 			return
 		}
@@ -213,17 +217,17 @@ func (session *Session) sendLoop() {
 }
 
 // Async send a message.
-func (session *Session) AsyncSend(encoder Encoder) AsyncWork {
+func (session *Session) AsyncSend(message Message) AsyncWork {
 	c := make(chan error, 1)
 	if session.IsClosed() {
 		c <- SendToClosedError
 	} else {
 		select {
-		case session.asyncSendChan <- asyncMessage{c, encoder}:
+		case session.asyncSendChan <- asyncMessage{c, message}:
 		default:
 			go func() {
 				select {
-				case session.asyncSendChan <- asyncMessage{c, encoder}:
+				case session.asyncSendChan <- asyncMessage{c, message}:
 				case <-session.closeChan:
 					c <- SendToClosedError
 				case <-time.After(time.Second * 5):

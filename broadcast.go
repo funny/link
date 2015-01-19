@@ -24,10 +24,16 @@ func NewBroadcaster(protocol ProtocolState, fetcher func(func(*Session))) *Broad
 
 // Broadcast to sessions. The message only encoded once
 // so the performance is better than send message one by one.
-func (b *Broadcaster) Broadcast(encoder Encoder) ([]BroadcastWork, error) {
+func (b *Broadcaster) BroadcastFunc(e func(*OutBuffer) error) ([]BroadcastWork, error) {
+	return b.Broadcast(encoder(e))
+}
+
+// Broadcast to sessions. The message only encoded once
+// so the performance is better than send message one by one.
+func (b *Broadcaster) Broadcast(message Message) ([]BroadcastWork, error) {
 	buffer := newOutBuffer()
-	b.protocol.PrepareOutBuffer(buffer, 1024)
-	if err := encoder(buffer); err != nil {
+	b.protocol.PrepareOutBuffer(buffer, message.OutBufferSize())
+	if err := message.WriteOutBuffer(buffer); err != nil {
 		buffer.free()
 		return nil, err
 	}
@@ -70,8 +76,14 @@ func NewChannel(protocol Protocol) *Channel {
 
 // Broadcast to channel. The message only encoded once
 // so the performance is better than send message one by one.
-func (channel *Channel) Broadcast(encoder Encoder) ([]BroadcastWork, error) {
-	return channel.broadcaster.Broadcast(encoder)
+func (channel *Channel) BroadcastFunc(e func(*OutBuffer) error) ([]BroadcastWork, error) {
+	return channel.broadcaster.BroadcastFunc(e)
+}
+
+// Broadcast to channel. The message only encoded once
+// so the performance is better than send message one by one.
+func (channel *Channel) Broadcast(message Message) ([]BroadcastWork, error) {
+	return channel.broadcaster.Broadcast(message)
 }
 
 // How mush sessions in this channel.
