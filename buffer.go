@@ -175,8 +175,6 @@ func (pool *bufferPool) PutInBuffer(in *InBuffer) {
 		return
 	}
 
-	in.Data = in.Data[0:0]
-	in.ReadPos = 0
 	in.isFreed = true
 
 	for {
@@ -195,7 +193,6 @@ func (pool *bufferPool) PutOutBuffer(out *OutBuffer) {
 		return
 	}
 
-	out.Data = out.Data[0:0]
 	out.isFreed = true
 
 	for {
@@ -223,12 +220,18 @@ func newInBuffer() *InBuffer {
 	return &InBuffer{Data: make([]byte, 0, globalPool.bufferInitSize)}
 }
 
+func (in *InBuffer) reset() {
+	in.Data = in.Data[0:0]
+	in.ReadPos = 0
+}
+
 // Return the buffer to buffer pool.
 func (in *InBuffer) free() {
 	if enableBufferPool {
 		if in.isFreed {
 			panic("link.InBuffer: double free")
 		}
+		in.reset()
 		in.pool.PutInBuffer(in)
 	}
 }
@@ -384,11 +387,16 @@ func (out *OutBuffer) broadcastFree() {
 	}
 }
 
+func (out *OutBuffer) reset() {
+	out.Data = out.Data[0:0]
+}
+
 // Return the buffer to buffer pool.
 func (out *OutBuffer) free() {
 	if out.isFreed {
 		panic("link.OutBuffer: double free")
 	}
+	out.reset()
 	out.pool.PutOutBuffer(out)
 }
 

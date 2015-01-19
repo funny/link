@@ -48,6 +48,9 @@ type Session struct {
 	sendMutex           sync.Mutex
 	asyncSendChan       chan asyncMessage
 	asyncSendBufferChan chan asyncBuffer
+	inBufferMutex       sync.Mutex
+	inBuffer            *InBuffer
+	outBuffer           *OutBuffer
 
 	// About session close
 	closeChan       chan int
@@ -87,6 +90,8 @@ func NewSession(id uint64, conn net.Conn, protocol Protocol, sendChanSize int, r
 		conn:                conn,
 		asyncSendChan:       make(chan asyncMessage, sendChanSize),
 		asyncSendBufferChan: make(chan asyncBuffer, sendChanSize),
+		inBuffer:            newInBuffer(),
+		outBuffer:           newOutBuffer(),
 		closeChan:           make(chan int),
 		closeCallbacks:      list.New(),
 	}
@@ -121,6 +126,9 @@ func (session *Session) Close() {
 		close(session.closeChan)
 
 		session.invokeCloseCallbacks()
+
+		session.inBuffer.free()
+		session.outBuffer.free()
 	}
 }
 
@@ -131,9 +139,12 @@ func (session *Session) SendFunc(e func(*OutBuffer) error) error {
 
 // Sync send a message. This method will block on IO.
 func (session *Session) Send(message Message) error {
+	session.inBufferMutex.Lock()
+	defer session.inBufferMutex.Unlock()
+
 	var err error
 
-	buffer := newOutBuffer()
+	buffer := session.outBuffer
 	session.protocol.PrepareOutBuffer(buffer, message.OutBufferSize())
 
 	err = message.WriteOutBuffer(buffer)
@@ -141,7 +152,7 @@ func (session *Session) Send(message Message) error {
 		err = session.sendBuffer(buffer)
 	}
 
-	buffer.free()
+	buffer.reset()
 	return err
 }
 
@@ -157,16 +168,16 @@ func (session *Session) ProcessOnce(decoder Decoder) error {
 	session.readMutex.Lock()
 	defer session.readMutex.Unlock()
 
-	buffer := newInBuffer()
+	buffer := session.inBuffer
 	err := session.protocol.Read(session.conn, buffer)
 	if err != nil {
-		buffer.free()
+		buffer.reset()
 		session.Close()
 		return err
 	}
 
 	err = decoder(buffer)
-	buffer.free()
+	buffer.reset()
 
 	return nil
 }
