@@ -216,6 +216,11 @@ func (session *Session) sendLoop() {
 	}
 }
 
+// Async send a message from encoder.
+func (session *Session) AsyncSendFunc(e func(*OutBuffer) error) AsyncWork {
+	return session.AsyncSend(encoder(e))
+}
+
 // Async send a message.
 func (session *Session) AsyncSend(message Message) AsyncWork {
 	c := make(chan error, 1)

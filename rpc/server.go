@@ -90,7 +90,7 @@ func (server *Server) Serve() error {
 							if errInterface := returnValues[0].Interface(); errInterface != nil {
 								err = errInterface.(error).Error()
 							}
-							return session.Send(func(buffer *link.OutBuffer) error {
+							return session.SendFunc(func(buffer *link.OutBuffer) error {
 								buffer.WriteUint32LE(seqNum)
 								buffer.WriteUint32LE(uint32(len(err)))
 								buffer.WriteString(err)
