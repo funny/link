@@ -31,7 +31,7 @@ const (
 // Packet protocol.
 type Protocol interface {
 	// Create protocol state.
-	// New(*Session) for session protocol state.
+	// New(net.Conn) for session protocol state.
 	// New(*Server) for server protocol state.
 	// New(*Channel) for channel protocol state.
 	New(interface{}, ProtocolSide) ProtocolState

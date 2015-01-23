@@ -87,14 +87,19 @@ func (server *Server) Broadcast(message Message) ([]BroadcastWork, error) {
 
 // Accept incoming connection once.
 func (server *Server) Accept() (*Session, error) {
-	conn, err := server.listener.Accept()
-	if err != nil {
-		return nil, err
+	for {
+		conn, err := server.listener.Accept()
+		if err != nil {
+			return nil, err
+		}
+		session := server.newSession(
+			atomic.AddUint64(&server.maxSessionId, 1),
+			conn,
+		)
+		if session != nil {
+			return session, nil
+		}
 	}
-	return server.newSession(
-		atomic.AddUint64(&server.maxSessionId, 1),
-		conn,
-	), nil
 }
 
 // Loop and accept incoming connections. The callback will called asynchronously when each session start.
@@ -121,6 +126,9 @@ func (server *Server) Stop() {
 
 func (server *Server) newSession(id uint64, conn net.Conn) *Session {
 	session := NewSession(id, conn, server.protocol, SERVER_SIDE, server.SendChanSize, server.ReadBufferSize)
+	if session == nil {
+		return nil
+	}
 	server.putSession(session)
 	return session
 }

@@ -85,9 +85,15 @@ func NewSession(id uint64, conn net.Conn, protocol Protocol, side ProtocolSide, 
 		conn = newBufferConn(conn, readBufferSize)
 	}
 
+	protocolState := protocol.New(conn, side)
+	if protocolState == nil {
+		return nil
+	}
+
 	session := &Session{
 		id:                  id,
 		conn:                conn,
+		protocol:            protocolState,
 		asyncSendChan:       make(chan asyncMessage, sendChanSize),
 		asyncSendBufferChan: make(chan asyncBuffer, sendChanSize),
 		inBuffer:            newInBuffer(),
@@ -95,7 +101,6 @@ func NewSession(id uint64, conn net.Conn, protocol Protocol, side ProtocolSide, 
 		closeChan:           make(chan int),
 		closeCallbacks:      list.New(),
 	}
-	session.protocol = protocol.New(session, side)
 
 	go session.sendLoop()
 
