@@ -59,7 +59,8 @@ func NewServer(listener net.Listener, protocol Protocol) *Server {
 		SendChanSize:   DefaultSendChanSize,
 		ReadBufferSize: DefaultConnBufferSize,
 	}
-	server.broadcaster = NewBroadcaster(protocol.New(server, SERVER_SIDE), server.fetchSession)
+	protocolState, _ := protocol.New(server, SERVER_SIDE)
+	server.broadcaster = NewBroadcaster(protocolState, server.fetchSession)
 	return server
 }
 
@@ -125,7 +126,7 @@ func (server *Server) Stop() {
 }
 
 func (server *Server) newSession(id uint64, conn net.Conn) *Session {
-	session := NewSession(id, conn, server.protocol, SERVER_SIDE, server.SendChanSize, server.ReadBufferSize)
+	session, _ := NewSession(id, conn, server.protocol, SERVER_SIDE, server.SendChanSize, server.ReadBufferSize)
 	if session == nil {
 		return nil
 	}

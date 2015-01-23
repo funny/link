@@ -90,7 +90,7 @@ func client(initWait *sync.WaitGroup, startChan chan int, resultChan chan Client
 	}
 
 	conn = &CountConn{conn, 0, 0}
-	client := link.NewSession(0, conn, link.DefaultProtocol, link.CLIENT_SIDE, link.DefaultSendChanSize, *bufferSize)
+	client, _ := link.NewSession(0, conn, link.DefaultProtocol, link.CLIENT_SIDE, link.DefaultSendChanSize, *bufferSize)
 	defer client.Close()
 
 	go func() {

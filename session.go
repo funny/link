@@ -18,8 +18,7 @@ func Dial(network, address string) (*Session, error) {
 		return nil, err
 	}
 	id := atomic.AddUint64(&dialSessionId, 1)
-	session := NewSession(id, conn, DefaultProtocol, CLIENT_SIDE, DefaultSendChanSize, DefaultConnBufferSize)
-	return session, nil
+	return NewSession(id, conn, DefaultProtocol, CLIENT_SIDE, DefaultSendChanSize, DefaultConnBufferSize)
 }
 
 // The easy way to create a connection with timeout setting.
@@ -29,8 +28,7 @@ func DialTimeout(network, address string, timeout time.Duration) (*Session, erro
 		return nil, err
 	}
 	id := atomic.AddUint64(&dialSessionId, 1)
-	session := NewSession(id, conn, DefaultProtocol, CLIENT_SIDE, DefaultSendChanSize, DefaultConnBufferSize)
-	return session, nil
+	return NewSession(id, conn, DefaultProtocol, CLIENT_SIDE, DefaultSendChanSize, DefaultConnBufferSize)
 }
 
 type Decoder func(*InBuffer) error
@@ -80,14 +78,14 @@ func (conn *bufferConn) Read(d []byte) (int, error) {
 }
 
 // Create a new session instance.
-func NewSession(id uint64, conn net.Conn, protocol Protocol, side ProtocolSide, sendChanSize int, readBufferSize int) *Session {
+func NewSession(id uint64, conn net.Conn, protocol Protocol, side ProtocolSide, sendChanSize int, readBufferSize int) (*Session, error) {
 	if readBufferSize > 0 {
 		conn = newBufferConn(conn, readBufferSize)
 	}
 
-	protocolState := protocol.New(conn, side)
-	if protocolState == nil {
-		return nil
+	protocolState, err := protocol.New(conn, side)
+	if err != nil {
+		return nil, err
 	}
 
 	session := &Session{
@@ -104,7 +102,7 @@ func NewSession(id uint64, conn net.Conn, protocol Protocol, side ProtocolSide, 
 
 	go session.sendLoop()
 
-	return session
+	return session, nil
 }
 
 // Get session id.

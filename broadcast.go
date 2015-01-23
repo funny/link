@@ -70,7 +70,8 @@ func NewChannel(protocol Protocol, side ProtocolSide) *Channel {
 	channel := &Channel{
 		sessions: make(map[uint64]channelSession),
 	}
-	channel.broadcaster = NewBroadcaster(protocol.New(channel, side), channel.Fetch)
+	protocolState, _ := protocol.New(channel, side)
+	channel.broadcaster = NewBroadcaster(protocolState, channel.Fetch)
 	return channel
 }
 

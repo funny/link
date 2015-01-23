@@ -34,7 +34,9 @@ type Protocol interface {
 	// New(net.Conn) for session protocol state.
 	// New(*Server) for server protocol state.
 	// New(*Channel) for channel protocol state.
-	New(interface{}, ProtocolSide) ProtocolState
+	// If the protocol need handshake for connection initialization.
+	// Do it in Protocol.New() and returns nil and a error when handshake failed.
+	New(interface{}, ProtocolSide) (ProtocolState, error)
 }
 
 // Protocol state.
@@ -138,8 +140,8 @@ func newSimpleProtocol(n int, byteOrder binary.ByteOrder) *simpleProtocol {
 	return protocol
 }
 
-func (p *simpleProtocol) New(v interface{}, _ ProtocolSide) ProtocolState {
-	return p
+func (p *simpleProtocol) New(v interface{}, _ ProtocolSide) (ProtocolState, error) {
+	return p, nil
 }
 
 func (p *simpleProtocol) PrepareOutBuffer(buffer *OutBuffer, size int) {
