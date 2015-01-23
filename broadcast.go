@@ -66,11 +66,11 @@ type channelSession struct {
 }
 
 // Create a channel instance.
-func NewChannel(protocol Protocol) *Channel {
+func NewChannel(protocol Protocol, side ProtocolSide) *Channel {
 	channel := &Channel{
 		sessions: make(map[uint64]channelSession),
 	}
-	channel.broadcaster = NewBroadcaster(protocol.New(channel), channel.Fetch)
+	channel.broadcaster = NewBroadcaster(protocol.New(channel, side), channel.Fetch)
 	return channel
 }
 

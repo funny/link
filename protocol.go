@@ -21,13 +21,20 @@ var (
 
 type ByteOrder binary.ByteOrder
 
+type ProtocolSide int
+
+const (
+	SERVER_SIDE ProtocolSide = 1
+	CLIENT_SIDE ProtocolSide = 2
+)
+
 // Packet protocol.
 type Protocol interface {
 	// Create protocol state.
 	// New(*Session) for session protocol state.
 	// New(*Server) for server protocol state.
 	// New(*Channel) for channel protocol state.
-	New(interface{}) ProtocolState
+	New(interface{}, ProtocolSide) ProtocolState
 }
 
 // Protocol state.
@@ -131,7 +138,7 @@ func newSimpleProtocol(n int, byteOrder binary.ByteOrder) *simpleProtocol {
 	return protocol
 }
 
-func (p *simpleProtocol) New(v interface{}) ProtocolState {
+func (p *simpleProtocol) New(v interface{}, _ ProtocolSide) ProtocolState {
 	return p
 }
 

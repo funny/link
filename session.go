@@ -18,7 +18,7 @@ func Dial(network, address string) (*Session, error) {
 		return nil, err
 	}
 	id := atomic.AddUint64(&dialSessionId, 1)
-	session := NewSession(id, conn, DefaultProtocol, DefaultSendChanSize, DefaultConnBufferSize)
+	session := NewSession(id, conn, DefaultProtocol, CLIENT_SIDE, DefaultSendChanSize, DefaultConnBufferSize)
 	return session, nil
 }
 
@@ -29,7 +29,7 @@ func DialTimeout(network, address string, timeout time.Duration) (*Session, erro
 		return nil, err
 	}
 	id := atomic.AddUint64(&dialSessionId, 1)
-	session := NewSession(id, conn, DefaultProtocol, DefaultSendChanSize, DefaultConnBufferSize)
+	session := NewSession(id, conn, DefaultProtocol, CLIENT_SIDE, DefaultSendChanSize, DefaultConnBufferSize)
 	return session, nil
 }
 
@@ -80,7 +80,7 @@ func (conn *bufferConn) Read(d []byte) (int, error) {
 }
 
 // Create a new session instance.
-func NewSession(id uint64, conn net.Conn, protocol Protocol, sendChanSize int, readBufferSize int) *Session {
+func NewSession(id uint64, conn net.Conn, protocol Protocol, side ProtocolSide, sendChanSize int, readBufferSize int) *Session {
 	if readBufferSize > 0 {
 		conn = newBufferConn(conn, readBufferSize)
 	}
@@ -95,7 +95,7 @@ func NewSession(id uint64, conn net.Conn, protocol Protocol, sendChanSize int, r
 		closeChan:           make(chan int),
 		closeCallbacks:      list.New(),
 	}
-	session.protocol = protocol.New(session)
+	session.protocol = protocol.New(session, side)
 
 	go session.sendLoop()
 
