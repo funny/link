@@ -48,12 +48,11 @@ func (server *Server) Stop() {
 
 func (server *Server) Serve() error {
 	return server.server.Serve(func(session *link.Session) {
-		session.Process(func(msg *link.InBuffer) error {
-			var err error
+		session.Process(func(msg *link.InBuffer) (err error) {
 			defer func() {
 				if e := recover(); e != nil {
 					log.Println("RPC error:", e)
-					e = errors.New("RPC failed")
+					err = errors.New("RPC failed")
 				}
 			}()
 			service := msg.ReadString(int(msg.ReadUvarint()))
@@ -86,22 +85,30 @@ func (server *Server) Serve() error {
 								argv,
 								replyv,
 							})
-							err := ""
+							errMsg := ""
 							if errInterface := returnValues[0].Interface(); errInterface != nil {
-								err = errInterface.(error).Error()
+								errMsg = errInterface.(error).Error()
 							}
 							return session.SendFunc(func(buffer *link.OutBuffer) error {
 								buffer.WriteUint32LE(seqNum)
-								buffer.WriteUint32LE(uint32(len(err)))
-								buffer.WriteString(err)
+								buffer.WriteUint32LE(uint32(len(errMsg)))
+								buffer.WriteString(errMsg)
+								if errMsg != "" {
+									return nil
+								}
 								return json.NewEncoder(buffer).Encode(replyv.Interface()) // TODO
 							})
 						}
 					}
 				}
 			}
-			err = errors.New("RPC service not exists: " + service + "." + method)
-			return err
+			return session.SendFunc(func(buffer *link.OutBuffer) error {
+				err := "RPC service not exists: " + service + "." + method
+				buffer.WriteUint32LE(seqNum)
+				buffer.WriteUint32LE(uint32(len(err)))
+				buffer.WriteString(err)
+				return nil
+			})
 		})
 	})
 }
