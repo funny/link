@@ -107,8 +107,7 @@ func (server *Server) Accept() (*Session, error) {
 func (server *Server) Serve(handler func(*Session)) error {
 	for {
 		session, err := server.Accept()
-		if err != nil {
-			server.Stop()
+		if err != nil && server.Stop() {
 			return err
 		}
 		go handler(session)
@@ -117,12 +116,14 @@ func (server *Server) Serve(handler func(*Session)) error {
 }
 
 // Stop server.
-func (server *Server) Stop() {
+func (server *Server) Stop() bool {
 	if atomic.CompareAndSwapInt32(&server.stopFlag, 0, 1) {
 		server.listener.Close()
 		server.closeSessions()
 		server.stopWait.Wait()
+		return true
 	}
+	return false
 }
 
 func (server *Server) newSession(id uint64, conn net.Conn) *Session {
