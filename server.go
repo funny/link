@@ -107,8 +107,11 @@ func (server *Server) Accept() (*Session, error) {
 func (server *Server) Serve(handler func(*Session)) error {
 	for {
 		session, err := server.Accept()
-		if err != nil && server.Stop() {
-			return err
+		if err != nil {
+			if server.Stop() {
+				return err
+			}
+			return nil
 		}
 		go handler(session)
 	}
