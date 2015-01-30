@@ -93,29 +93,43 @@ func client(initWait *sync.WaitGroup, startChan chan int, resultChan chan Client
 	client, _ := link.NewSession(0, conn, link.DefaultProtocol, link.CLIENT_SIDE, link.DefaultSendChanSize, *bufferSize)
 	defer client.Close()
 
+	sendCount := 0
+	recvCount := 0
+	sendDone := false
+
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		initWait.Done()
-		err := client.Process(func(*link.InBuffer) error {
-			// DO NOTHING
-			return nil
-		})
-		if err != nil {
-			println(err.Error())
+		for {
+			err := client.ProcessOnce(func(*link.InBuffer) error {
+				return nil
+			})
+			recvCount += 1
+			if sendDone && recvCount == sendCount {
+				break
+			}
+			if err != nil {
+				println(err.Error())
+				break
+			}
 		}
 	}()
 
 	<-startChan
 
-	count := 0
 	for timeout.After(time.Now()) {
 		if err := client.Send(message); err != nil {
 			break
 		}
-		count += 1
+		sendCount += 1
 	}
+	sendDone = true
+	wg.Wait()
 
 	resultChan <- ClientResult{
-		count,
+		sendCount,
 		conn.(*CountConn).ReadCount,
 		conn.(*CountConn).WriteCount,
 	}
