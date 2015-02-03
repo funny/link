@@ -68,14 +68,14 @@ func (client *Client) Call(serviceMethod string, args, reply interface{}) error 
 	}
 	client.mutex.Unlock()
 
-	client.session.AsyncSendFunc(func(buffer *link.OutBuffer) error {
+	client.session.AsyncSend(link.MessageFunc(func(buffer *link.OutBuffer) error {
 		buffer.WriteUvarint(uint64(len(names[0])))
 		buffer.WriteString(names[0])
 		buffer.WriteUvarint(uint64(len(names[1])))
 		buffer.WriteString(names[1])
 		buffer.WriteUint32LE(seqNum)
 		return json.NewEncoder(buffer).Encode(args)
-	})
+	}))
 
 	return <-c
 }

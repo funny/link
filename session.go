@@ -135,11 +135,6 @@ func (session *Session) Close() {
 	}
 }
 
-// Sync send a message from encoder func. This method will block on IO.
-func (session *Session) SendFunc(e func(*OutBuffer) error) error {
-	return session.Send(encoder(e))
-}
-
 // Sync send a message. This method will block on IO.
 func (session *Session) Send(message Message) error {
 	session.inBufferMutex.Lock()
@@ -228,11 +223,6 @@ func (session *Session) sendLoop() {
 			return
 		}
 	}
-}
-
-// Async send a message from encoder.
-func (session *Session) AsyncSendFunc(e func(*OutBuffer) error) AsyncWork {
-	return session.AsyncSend(encoder(e))
 }
 
 // Async send a message.

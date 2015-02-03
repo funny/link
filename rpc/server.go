@@ -89,7 +89,7 @@ func (server *Server) Serve() error {
 							if errInterface := returnValues[0].Interface(); errInterface != nil {
 								errMsg = errInterface.(error).Error()
 							}
-							return session.SendFunc(func(buffer *link.OutBuffer) error {
+							return session.Send(link.MessageFunc(func(buffer *link.OutBuffer) error {
 								buffer.WriteUint32LE(seqNum)
 								buffer.WriteUint32LE(uint32(len(errMsg)))
 								buffer.WriteString(errMsg)
@@ -97,18 +97,18 @@ func (server *Server) Serve() error {
 									return nil
 								}
 								return json.NewEncoder(buffer).Encode(replyv.Interface()) // TODO
-							})
+							}))
 						}
 					}
 				}
 			}
-			return session.SendFunc(func(buffer *link.OutBuffer) error {
+			return session.Send(link.MessageFunc(func(buffer *link.OutBuffer) error {
 				err := "RPC service not exists: " + service + "." + method
 				buffer.WriteUint32LE(seqNum)
 				buffer.WriteUint32LE(uint32(len(err)))
 				buffer.WriteString(err)
 				return nil
-			})
+			}))
 		})
 	})
 }

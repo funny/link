@@ -76,12 +76,6 @@ func (server *Server) Protocol() Protocol {
 
 // Broadcast to channel. The message only encoded once
 // so the performance is better than send message one by one.
-func (server *Server) BroadcastFunc(e func(*OutBuffer) error) ([]BroadcastWork, error) {
-	return server.broadcaster.BroadcastFunc(e)
-}
-
-// Broadcast to channel. The message only encoded once
-// so the performance is better than send message one by one.
 func (server *Server) Broadcast(message Message) ([]BroadcastWork, error) {
 	return server.broadcaster.Broadcast(message)
 }

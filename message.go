@@ -11,19 +11,20 @@ type Message interface {
 	WriteOutBuffer(*OutBuffer) error
 }
 
-type encoder func(*OutBuffer) error
+// A func implement the Message interface.
+type MessageFunc func(*OutBuffer) error
 
-func (e encoder) OutBufferSize() int {
+func (e MessageFunc) OutBufferSize() int {
 	return 1024
 }
 
-func (e encoder) WriteOutBuffer(out *OutBuffer) error {
+func (e MessageFunc) WriteOutBuffer(out *OutBuffer) error {
 	return e(out)
 }
 
 // Convert to bytes message.
 func Bytes(v []byte) Message {
-	return encoder(func(buffer *OutBuffer) error {
+	return MessageFunc(func(buffer *OutBuffer) error {
 		buffer.WriteBytes(v)
 		return nil
 	})
@@ -31,7 +32,7 @@ func Bytes(v []byte) Message {
 
 // Convert to string message.
 func String(v string) Message {
-	return encoder(func(buffer *OutBuffer) error {
+	return MessageFunc(func(buffer *OutBuffer) error {
 		buffer.WriteString(v)
 		return nil
 	})
@@ -39,21 +40,21 @@ func String(v string) Message {
 
 // Create a json message.
 func Json(v interface{}) Message {
-	return encoder(func(buffer *OutBuffer) error {
+	return MessageFunc(func(buffer *OutBuffer) error {
 		return json.NewEncoder(buffer).Encode(v)
 	})
 }
 
 // Create a gob message.
 func Gob(v interface{}) Message {
-	return encoder(func(buffer *OutBuffer) error {
+	return MessageFunc(func(buffer *OutBuffer) error {
 		return gob.NewEncoder(buffer).Encode(v)
 	})
 }
 
 // Create a xml message.
 func Xml(v interface{}) Message {
-	return encoder(func(buffer *OutBuffer) error {
+	return MessageFunc(func(buffer *OutBuffer) error {
 		return xml.NewEncoder(buffer).Encode(v)
 	})
 }
