@@ -111,7 +111,7 @@ type bufferPool struct {
 func newBufferPool() *bufferPool {
 	return &bufferPool{
 		sizeLimit:       10240000,
-		bufferInitSize:  4096,
+		bufferInitSize:  1024,
 		bufferSizeLimit: 102400,
 	}
 }
