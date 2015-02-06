@@ -75,7 +75,7 @@ func (client *Client) Call(serviceMethod string, args, reply interface{}) error 
 		buffer.WriteString(names[1])
 		buffer.WriteUint32LE(seqNum)
 		return json.NewEncoder(buffer).Encode(args)
-	}))
+	}), 0)
 
 	return <-c
 }

@@ -19,9 +19,9 @@ func main() {
 		for {
 			time.Sleep(time.Second * 2)
 			// broadcast to server sessions
-			server.Broadcast(link.String("server say: " + time.Now().String()))
+			server.Broadcast(link.String("server say: "+time.Now().String()), 0)
 			// broadcast to channel sessions
-			channel.Broadcast(link.String("channel say: " + time.Now().String()))
+			channel.Broadcast(link.String("channel say: "+time.Now().String()), 0)
 		}
 	}()
 
@@ -33,8 +33,8 @@ func main() {
 
 		session.Process(func(msg *link.InBuffer) error {
 			channel.Broadcast(link.String(
-				"client " + session.Conn().RemoteAddr().String() + " say: " + string(msg.Data),
-			))
+				"client "+session.Conn().RemoteAddr().String()+" say: "+string(msg.Data),
+			), 0)
 			return nil
 		})
 

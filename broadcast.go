@@ -1,6 +1,9 @@
 package link
 
-import "github.com/funny/sync"
+import (
+	"github.com/funny/sync"
+	"time"
+)
 
 // Broadcaster.
 type Broadcaster struct {
@@ -24,7 +27,7 @@ func NewBroadcaster(protocol ProtocolState, fetcher func(func(*Session))) *Broad
 
 // Broadcast to sessions. The message only encoded once
 // so the performance is better than send message one by one.
-func (b *Broadcaster) Broadcast(message Message) ([]BroadcastWork, error) {
+func (b *Broadcaster) Broadcast(message Message, timeout time.Duration) ([]BroadcastWork, error) {
 	buffer := newOutBuffer()
 	b.protocol.PrepareOutBuffer(buffer, message.OutBufferSize())
 	if err := message.WriteOutBuffer(buffer); err != nil {
@@ -37,7 +40,7 @@ func (b *Broadcaster) Broadcast(message Message) ([]BroadcastWork, error) {
 		buffer.broadcastUse()
 		works = append(works, BroadcastWork{
 			session,
-			session.asyncSendBuffer(buffer),
+			session.asyncSendBuffer(buffer, timeout),
 		})
 	})
 	return works, nil
@@ -71,8 +74,8 @@ func NewChannel(protocol Protocol, side ProtocolSide) *Channel {
 
 // Broadcast to channel. The message only encoded once
 // so the performance is better than send message one by one.
-func (channel *Channel) Broadcast(message Message) ([]BroadcastWork, error) {
-	return channel.broadcaster.Broadcast(message)
+func (channel *Channel) Broadcast(message Message, timeout time.Duration) ([]BroadcastWork, error) {
+	return channel.broadcaster.Broadcast(message, timeout)
 }
 
 // How mush sessions in this channel.

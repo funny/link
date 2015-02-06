@@ -46,9 +46,9 @@ type Session struct {
 	sendMutex           sync.Mutex
 	asyncSendChan       chan asyncMessage
 	asyncSendBufferChan chan asyncBuffer
-	inBufferMutex       sync.Mutex
 	inBuffer            *InBuffer
 	outBuffer           *OutBuffer
+	outBufferMutex      sync.Mutex
 
 	// About session close
 	closeChan       chan int
@@ -137,8 +137,8 @@ func (session *Session) Close() {
 
 // Sync send a message. This method will block on IO.
 func (session *Session) Send(message Message) error {
-	session.inBufferMutex.Lock()
-	defer session.inBufferMutex.Unlock()
+	session.outBufferMutex.Lock()
+	defer session.outBufferMutex.Unlock()
 
 	var err error
 
@@ -226,7 +226,7 @@ func (session *Session) sendLoop() {
 }
 
 // Async send a message.
-func (session *Session) AsyncSend(message Message) AsyncWork {
+func (session *Session) AsyncSend(message Message, timeout time.Duration) AsyncWork {
 	c := make(chan error, 1)
 	if session.IsClosed() {
 		c <- SendToClosedError
@@ -234,23 +234,28 @@ func (session *Session) AsyncSend(message Message) AsyncWork {
 		select {
 		case session.asyncSendChan <- asyncMessage{c, message}:
 		default:
-			go func() {
-				select {
-				case session.asyncSendChan <- asyncMessage{c, message}:
-				case <-session.closeChan:
-					c <- SendToClosedError
-				case <-time.After(time.Second * 5):
-					session.Close()
-					c <- AsyncSendTimeoutError
-				}
-			}()
+			if timeout == 0 {
+				session.Close()
+				c <- AsyncSendTimeoutError
+			} else {
+				go func() {
+					select {
+					case session.asyncSendChan <- asyncMessage{c, message}:
+					case <-session.closeChan:
+						c <- SendToClosedError
+					case <-time.After(time.Second * 5):
+						session.Close()
+						c <- AsyncSendTimeoutError
+					}
+				}()
+			}
 		}
 	}
 	return AsyncWork{c}
 }
 
 // Async send a packet.
-func (session *Session) asyncSendBuffer(buffer *OutBuffer) AsyncWork {
+func (session *Session) asyncSendBuffer(buffer *OutBuffer, timeout time.Duration) AsyncWork {
 	c := make(chan error, 1)
 	if session.IsClosed() {
 		c <- SendToClosedError
@@ -258,16 +263,21 @@ func (session *Session) asyncSendBuffer(buffer *OutBuffer) AsyncWork {
 		select {
 		case session.asyncSendBufferChan <- asyncBuffer{c, buffer}:
 		default:
-			go func() {
-				select {
-				case session.asyncSendBufferChan <- asyncBuffer{c, buffer}:
-				case <-session.closeChan:
-					c <- SendToClosedError
-				case <-time.After(time.Second * 5):
-					session.Close()
-					c <- AsyncSendTimeoutError
-				}
-			}()
+			if timeout == 0 {
+				session.Close()
+				c <- AsyncSendTimeoutError
+			} else {
+				go func() {
+					select {
+					case session.asyncSendBufferChan <- asyncBuffer{c, buffer}:
+					case <-session.closeChan:
+						c <- SendToClosedError
+					case <-time.After(time.Second * 5):
+						session.Close()
+						c <- AsyncSendTimeoutError
+					}
+				}()
+			}
 		}
 	}
 	return AsyncWork{c}

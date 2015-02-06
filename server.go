@@ -5,6 +5,7 @@ import (
 	"github.com/funny/sync"
 	"net"
 	"sync/atomic"
+	"time"
 )
 
 // Errors
@@ -76,8 +77,8 @@ func (server *Server) Protocol() Protocol {
 
 // Broadcast to channel. The message only encoded once
 // so the performance is better than send message one by one.
-func (server *Server) Broadcast(message Message) ([]BroadcastWork, error) {
-	return server.broadcaster.Broadcast(message)
+func (server *Server) Broadcast(message Message, timeout time.Duration) ([]BroadcastWork, error) {
+	return server.broadcaster.Broadcast(message, timeout)
 }
 
 // Accept incoming connection once.
