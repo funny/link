@@ -243,7 +243,7 @@ func (session *Session) AsyncSend(message Message, timeout time.Duration) AsyncW
 					case session.asyncSendChan <- asyncMessage{c, message}:
 					case <-session.closeChan:
 						c <- SendToClosedError
-					case <-time.After(time.Second * 5):
+					case <-time.After(timeout):
 						session.Close()
 						c <- AsyncSendTimeoutError
 					}
@@ -272,7 +272,7 @@ func (session *Session) asyncSendBuffer(buffer *OutBuffer, timeout time.Duration
 					case session.asyncSendBufferChan <- asyncBuffer{c, buffer}:
 					case <-session.closeChan:
 						c <- SendToClosedError
-					case <-time.After(time.Second * 5):
+					case <-time.After(timeout):
 						session.Close()
 						c <- AsyncSendTimeoutError
 					}
