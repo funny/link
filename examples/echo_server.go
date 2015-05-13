@@ -8,6 +8,7 @@ import (
 )
 
 var (
+	addr      = flag.String("addr", "127.0.0.1:10010", "server address")
 	benchmark = flag.Bool("bench", false, "is for benchmark, will disable print")
 	asyncChan = flag.Int("async", 10000, "async send chan size, 0 == sync send")
 )
@@ -31,7 +32,7 @@ func main() {
 	link.DefaultConfig.SendChanSize = *asyncChan
 	pool := link.NewMemPool(10, 1, 10)
 
-	server, err := link.Listen("tcp", "127.0.0.1:10010", fixhead.Uint16BE, pool)
+	server, err := link.Listen("tcp", *addr, fixhead.Uint16BE, pool)
 	if err != nil {
 		panic(err)
 	}
