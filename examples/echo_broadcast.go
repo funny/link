@@ -1,7 +1,8 @@
 package main
 
 import (
-	"github.com/funny/link"
+	"github.com/funny/rush/link"
+	"github.com/funny/rush/link/protocol/fixhead"
 	"time"
 )
 
@@ -9,19 +10,19 @@ import (
 // usage:
 //     go run echo_broadcast.go
 func main() {
-	server, err := link.Listen("tcp", "127.0.0.1:10010")
+	server, err := link.Listen("tcp", "127.0.0.1:10010", fixhead.Uint16BE, nil)
 	if err != nil {
 		panic(err)
 	}
 
-	channel := link.NewChannel(server.Protocol(), link.SERVER_SIDE)
+	channel := link.NewChannel(fixhead.Uint16BE, nil)
 	go func() {
 		for {
 			time.Sleep(time.Second * 2)
 			// broadcast to server sessions
-			server.Broadcast(link.String("server say: "+time.Now().String()), 0)
+			server.Broadcast(link.String("server say: " + time.Now().String()))
 			// broadcast to channel sessions
-			channel.Broadcast(link.String("channel say: "+time.Now().String()), 0)
+			channel.Broadcast(link.String("channel say: " + time.Now().String()))
 		}
 	}()
 
@@ -31,12 +32,12 @@ func main() {
 		println("client", session.Conn().RemoteAddr().String(), "in")
 		channel.Join(session, nil)
 
-		session.Process(func(msg *link.InBuffer) error {
+		session.Process(link.DecodeFunc(func(buf *link.Buffer) (link.Request, error) {
 			channel.Broadcast(link.String(
-				"client "+session.Conn().RemoteAddr().String()+" say: "+string(msg.Data),
-			), 0)
-			return nil
-		})
+				"client " + session.Conn().RemoteAddr().String() + " say: " + string(buf.Data),
+			))
+			return nil, nil
+		}))
 
 		println("client", session.Conn().RemoteAddr().String(), "close")
 		channel.Exit(session)
