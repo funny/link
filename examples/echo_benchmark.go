@@ -147,7 +147,7 @@ func client(initWait *sync.WaitGroup, conn *CountConn, startChan chan int, resul
 		recvTrigger <- 1
 		var err error
 		if *asyncChan == 0 {
-			client.Send(msg)
+			err = client.Send(msg)
 		} else {
 			client.AsyncSend(msg)
 		}

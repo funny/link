@@ -30,3 +30,24 @@ type decodeFunc struct {
 func (decoder decodeFunc) Decode(buffer *Buffer) (Request, error) {
 	return decoder.Callback(buffer)
 }
+
+type Frame interface {
+	IsFinalFrame() bool
+}
+
+type FrameMessage interface {
+	Message
+	Frame
+	NextFrame() FrameMessage
+}
+
+type FrameRequest []Request
+
+func (frames FrameRequest) Process(session *Session) error {
+	for _, req := range frames {
+		if err := req.Process(session); err != nil {
+			return err
+		}
+	}
+	return nil
+}

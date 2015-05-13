@@ -63,7 +63,6 @@ type Session struct {
 	asyncSendTimeout   time.Duration
 	inBuffer           *Buffer
 	outBuffer          *Buffer
-	outBufferMutex     sync.Mutex
 
 	// About session close
 	closeChan       chan int
@@ -156,16 +155,33 @@ func (session *Session) handshake() error {
 
 // Sync send a message. This method will block on IO.
 func (session *Session) Send(msg Message) error {
-	session.outBufferMutex.Lock()
-	defer session.outBufferMutex.Unlock()
+	session.sendMutex.Lock()
+	defer session.sendMutex.Unlock()
 
-	session.codec.Prepend(session.outBuffer, msg)
-	err := msg.WriteBuffer(session.outBuffer)
+	var err error
+
+	for {
+		session.codec.Prepend(session.outBuffer, msg)
+
+		if err = msg.WriteBuffer(session.outBuffer); err != nil {
+			break
+		}
+
+		if err = session.codec.Write(session.conn, session.outBuffer); err != nil {
+			break
+		}
+
+		if frame, ok := msg.(FrameMessage); ok && !frame.IsFinalFrame() {
+			msg = frame.NextFrame()
+			continue
+		}
+		break
+	}
+
 	if err != nil {
 		session.Close()
-		return err
 	}
-	return session.sendBuffer(session.outBuffer)
+	return err
 }
 
 func (session *Session) sendBuffer(buffer *Buffer) error {
@@ -180,18 +196,46 @@ func (session *Session) sendBuffer(buffer *Buffer) error {
 }
 
 // Receive one request.
-func (session *Session) Receive(decoder Decoder) (req Request, err error) {
+func (session *Session) Receive(decoder Decoder) (Request, error) {
 	session.readMutex.Lock()
 	defer session.readMutex.Unlock()
 
-	err = session.codec.Read(session.conn, session.inBuffer)
-	if err == nil {
+	var (
+		frames FrameRequest
+		req    Request
+		err    error
+	)
+
+	for {
+		err = session.codec.Read(session.conn, session.inBuffer)
+		if err != nil {
+			break
+		}
+
 		req, err = decoder.Decode(session.inBuffer)
+		if err != nil {
+			break
+		}
+
+		if frame, ok := req.(Frame); ok {
+			frames = append(frames, req)
+			if !frame.IsFinalFrame() {
+				continue
+			}
+		}
+		break
 	}
+
 	if err != nil {
 		session.Close()
+		return nil, err
 	}
-	return
+
+	if frames != nil {
+		return frames, err
+	}
+
+	return req, err
 }
 
 // Loop and process requests.
