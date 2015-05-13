@@ -53,7 +53,11 @@ func main() {
 
 	for i := 0; i < *clientNum; i++ {
 		initWait.Add(1)
-		go client(initWait, startChan, resultChan, timeout, msg, pool)
+		conn, err := net.DialTimeout("tcp", *serverAddr, time.Second*3)
+		if err != nil {
+			panic(err)
+		}
+		go client(initWait, &CountConn{Conn: conn}, startChan, resultChan, timeout, msg, pool)
 	}
 
 	initWait.Wait()
@@ -93,14 +97,7 @@ func (conn *CountConn) Write(p []byte) (int, error) {
 	return conn.Conn.Write(p)
 }
 
-func client(initWait *sync.WaitGroup, startChan chan int, resultChan chan ClientResult, timeout time.Time, msg link.Message, pool *link.MemPool) {
-	conn, err := net.DialTimeout("tcp", *serverAddr, time.Second*3)
-	if err != nil {
-		panic(err)
-	}
-
-	conn = &CountConn{conn, 0, 0}
-
+func client(initWait *sync.WaitGroup, conn *CountConn, startChan chan int, resultChan chan ClientResult, timeout time.Time, msg link.Message, pool *link.MemPool) {
 	client, _ := link.NewSession(0, conn, fixhead.Uint16BE, pool, link.DefaultConfig)
 	defer client.Close()
 
@@ -148,7 +145,7 @@ func client(initWait *sync.WaitGroup, startChan chan int, resultChan chan Client
 
 	resultChan <- ClientResult{
 		sendCount,
-		conn.(*CountConn).ReadCount,
-		conn.(*CountConn).WriteCount,
+		conn.ReadCount,
+		conn.WriteCount,
 	}
 }
