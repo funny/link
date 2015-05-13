@@ -93,7 +93,7 @@ func (conn *CountConn) Write(p []byte) (int, error) {
 	return conn.Conn.Write(p)
 }
 
-func client(initWait *sync.WaitGroup, startChan chan int, resultChan chan ClientResult, timeout time.Time, msg link.Response, pool *link.MemPool) {
+func client(initWait *sync.WaitGroup, startChan chan int, resultChan chan ClientResult, timeout time.Time, msg link.Message, pool *link.MemPool) {
 	conn, err := net.DialTimeout("tcp", *serverAddr, time.Second*3)
 	if err != nil {
 		panic(err)
