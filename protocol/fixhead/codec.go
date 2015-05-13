@@ -2,8 +2,8 @@ package fixhead
 
 import (
 	"encoding/binary"
-	"github.com/funny/rush/link"
-	"github.com/funny/rush/link/linkutil"
+	"github.com/funny/link"
+	"github.com/funny/link/linkutil"
 	"io"
 )
 

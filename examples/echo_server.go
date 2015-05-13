@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/funny/rush/link"
-	"github.com/funny/rush/link/protocol/fixhead"
+	"github.com/funny/link"
+	"github.com/funny/link/protocol/fixhead"
 )
 
 var (

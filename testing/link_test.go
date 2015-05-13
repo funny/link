@@ -2,8 +2,8 @@ package testing
 
 import (
 	"bytes"
-	"github.com/funny/rush/link"
-	"github.com/funny/rush/link/protocol/fixhead"
+	"github.com/funny/link"
+	"github.com/funny/link/protocol/fixhead"
 	"github.com/funny/unitest"
 	"runtime/pprof"
 	"sync"

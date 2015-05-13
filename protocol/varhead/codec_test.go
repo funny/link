@@ -2,7 +2,7 @@ package varhead
 
 import (
 	"bytes"
-	"github.com/funny/rush/link"
+	"github.com/funny/link"
 	"github.com/funny/unitest"
 	"math/rand"
 	"testing"
