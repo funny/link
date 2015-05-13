@@ -53,7 +53,7 @@ type Session struct {
 
 	// About network
 	codec Codec
-	conn  net.Conn
+	conn  *Conn
 
 	// About send and receive
 	readMutex          sync.Mutex
@@ -76,20 +76,28 @@ type Session struct {
 }
 
 // Buffered connection.
-type bufferedConn struct {
-	net.Conn
-	reader *bufio.Reader
+type Conn struct {
+	conn   net.Conn
+	Reader *bufio.Reader
 }
 
-func newBufferedConn(conn net.Conn, readBufferSize int) *bufferedConn {
-	return &bufferedConn{
+func NewConn(conn net.Conn, readBufferSize int) *Conn {
+	return &Conn{
 		conn,
 		bufio.NewReaderSize(conn, readBufferSize),
 	}
 }
 
-func (conn *bufferedConn) Read(d []byte) (int, error) {
-	return conn.reader.Read(d)
+func (conn *Conn) Write(b []byte) (int, error) {
+	return conn.conn.Write(b)
+}
+
+func (conn *Conn) Read(b []byte) (int, error) {
+	return conn.Reader.Read(b)
+}
+
+func (conn *Conn) Close() error {
+	return conn.conn.Close()
 }
 
 // Create a new session instance.
@@ -97,7 +105,7 @@ func NewSession(id uint64, conn net.Conn, codec Codec, pool *MemPool, config Con
 	session := &Session{
 		id:                 id,
 		codec:              codec,
-		conn:               newBufferedConn(conn, config.ReadBufferSize),
+		conn:               NewConn(conn, config.ReadBufferSize),
 		asyncMessageChan:   make(chan asyncMessage, config.SendChanSize),
 		asyncBroadcastChan: make(chan asyncBroadcast, config.SendChanSize),
 		asyncSendTimeout:   config.AsyncSendTimeout,
@@ -119,7 +127,7 @@ func (session *Session) Id() uint64 {
 
 // Get session connection.
 func (session *Session) Conn() net.Conn {
-	return session.conn
+	return session.conn.conn
 }
 
 // Check session is closed or not.

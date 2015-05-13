@@ -20,7 +20,7 @@ func (protocol *protocol) NewCodec() link.Codec {
 	return protocol
 }
 
-func (codec *protocol) Handshake(rw io.ReadWriter, buf *link.Buffer) error {
+func (codec *protocol) Handshake(conn *link.Conn, buf *link.Buffer) error {
 	return nil
 }
 
@@ -32,21 +32,21 @@ func (codec *protocol) Prepend(buf *link.Buffer, msg link.Message) {
 	buf.Reset(codec.n, codec.n+size)
 }
 
-func (codec *protocol) Write(w io.Writer, buf *link.Buffer) error {
+func (codec *protocol) Write(conn *link.Conn, buf *link.Buffer) error {
 	size := len(buf.Data) - codec.n
 	codec.encoder(buf.Data, size)
-	_, err := w.Write(buf.Data)
+	_, err := conn.Write(buf.Data)
 	return err
 }
 
-func (codec *protocol) Read(r io.Reader, buf *link.Buffer) error {
+func (codec *protocol) Read(conn *link.Conn, buf *link.Buffer) error {
 	buf.Reset(codec.n, codec.n)
-	if _, err := io.ReadFull(r, buf.Data); err != nil {
+	if _, err := io.ReadFull(conn, buf.Data); err != nil {
 		return err
 	}
 	size := codec.decoder(buf)
 	buf.Reset(size, size)
-	if _, err := io.ReadFull(r, buf.Data); err != nil {
+	if _, err := io.ReadFull(conn, buf.Data); err != nil {
 		return err
 	}
 	return nil

@@ -2,7 +2,7 @@ package link
 
 import (
 	"encoding/binary"
-	"github.com/funny/rush/libnet/netutil"
+	"github.com/funny/link/linkutil"
 	"io"
 	"math"
 	"unicode/utf8"
@@ -129,12 +129,12 @@ func (b *Buffer) WriteUint16LE(v uint16) {
 
 func (b *Buffer) WriteUint24BE(v uint32) {
 	i := b.grows(3)
-	netutil.PutUint24BE(b.Data[i:], v)
+	linkutil.PutUint24BE(b.Data[i:], v)
 }
 
 func (b *Buffer) WriteUint24LE(v uint32) {
 	i := b.grows(3)
-	netutil.PutUint24LE(b.Data[i:], v)
+	linkutil.PutUint24LE(b.Data[i:], v)
 }
 
 func (b *Buffer) WriteUint32BE(v uint32) {
@@ -149,32 +149,32 @@ func (b *Buffer) WriteUint32LE(v uint32) {
 
 func (b *Buffer) WriteUint40BE(v uint64) {
 	i := b.grows(5)
-	netutil.PutUint40BE(b.Data[i:], v)
+	linkutil.PutUint40BE(b.Data[i:], v)
 }
 
 func (b *Buffer) WriteUint40LE(v uint64) {
 	i := b.grows(5)
-	netutil.PutUint40LE(b.Data[i:], v)
+	linkutil.PutUint40LE(b.Data[i:], v)
 }
 
 func (b *Buffer) WriteUint48BE(v uint64) {
 	i := b.grows(6)
-	netutil.PutUint48BE(b.Data[i:], v)
+	linkutil.PutUint48BE(b.Data[i:], v)
 }
 
 func (b *Buffer) WriteUint48LE(v uint64) {
 	i := b.grows(6)
-	netutil.PutUint48LE(b.Data[i:], v)
+	linkutil.PutUint48LE(b.Data[i:], v)
 }
 
 func (b *Buffer) WriteUint56BE(v uint64) {
 	i := b.grows(7)
-	netutil.PutUint56BE(b.Data[i:], v)
+	linkutil.PutUint56BE(b.Data[i:], v)
 }
 
 func (b *Buffer) WriteUint56LE(v uint64) {
 	i := b.grows(7)
-	netutil.PutUint56LE(b.Data[i:], v)
+	linkutil.PutUint56LE(b.Data[i:], v)
 }
 
 func (b *Buffer) WriteUint64BE(v uint64) {
@@ -282,13 +282,13 @@ func (b *Buffer) ReadUint16LE() uint16 {
 }
 
 func (b *Buffer) ReadUint24BE() uint32 {
-	r := netutil.GetUint24BE(b.Data[b.ReadPos:])
+	r := linkutil.GetUint24BE(b.Data[b.ReadPos:])
 	b.ReadPos += 3
 	return r
 }
 
 func (b *Buffer) ReadUint24LE() uint32 {
-	r := netutil.GetUint24LE(b.Data[b.ReadPos:])
+	r := linkutil.GetUint24LE(b.Data[b.ReadPos:])
 	b.ReadPos += 3
 	return r
 }
@@ -306,37 +306,37 @@ func (b *Buffer) ReadUint32LE() uint32 {
 }
 
 func (b *Buffer) ReadUint40BE() uint64 {
-	r := netutil.GetUint40BE(b.Data[b.ReadPos:])
+	r := linkutil.GetUint40BE(b.Data[b.ReadPos:])
 	b.ReadPos += 5
 	return r
 }
 
 func (b *Buffer) ReadUint40LE() uint64 {
-	r := netutil.GetUint40LE(b.Data[b.ReadPos:])
+	r := linkutil.GetUint40LE(b.Data[b.ReadPos:])
 	b.ReadPos += 5
 	return r
 }
 
 func (b *Buffer) ReadUint48BE() uint64 {
-	r := netutil.GetUint48BE(b.Data[b.ReadPos:])
+	r := linkutil.GetUint48BE(b.Data[b.ReadPos:])
 	b.ReadPos += 6
 	return r
 }
 
 func (b *Buffer) ReadUint48LE() uint64 {
-	r := netutil.GetUint48LE(b.Data[b.ReadPos:])
+	r := linkutil.GetUint48LE(b.Data[b.ReadPos:])
 	b.ReadPos += 6
 	return r
 }
 
 func (b *Buffer) ReadUint56BE() uint64 {
-	r := netutil.GetUint56BE(b.Data[b.ReadPos:])
+	r := linkutil.GetUint56BE(b.Data[b.ReadPos:])
 	b.ReadPos += 7
 	return r
 }
 
 func (b *Buffer) ReadUint56LE() uint64 {
-	r := netutil.GetUint56LE(b.Data[b.ReadPos:])
+	r := linkutil.GetUint56LE(b.Data[b.ReadPos:])
 	b.ReadPos += 7
 	return r
 }

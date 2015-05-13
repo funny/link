@@ -5,6 +5,8 @@ import (
 	"github.com/funny/link"
 	"github.com/funny/unitest"
 	"math/rand"
+	"net"
+	"sync"
 	"testing"
 	"time"
 )
@@ -49,21 +51,46 @@ func Test_Uint64(t *testing.T) {
 }
 
 func CodecTest(t *testing.T, codec *protocol) {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	unitest.NotError(t, err)
+	defer l.Close()
+
+	var (
+		writer *link.Conn
+		reader *link.Conn
+		wg     sync.WaitGroup
+	)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		c, err := l.Accept()
+		if err != nil {
+			t.Log(err)
+			return
+		}
+		reader = link.NewConn(c, 1024)
+	}()
+
+	c, err := net.Dial("tcp", l.Addr().String())
+	unitest.NotError(t, err)
+	writer = link.NewConn(c, 1024)
+	wg.Wait()
+	unitest.Pass(t, reader != nil)
+
 	rand.Seed(time.Now().UnixNano())
 	var (
 		wbuf = link.MakeBuffer(0, 0)
 		rbuf = link.MakeBuffer(0, 0)
-		tbuf = link.MakeBuffer(0, 0)
 	)
 	for i := 0; i < 10000; i++ {
 		msg := RandMessage(codec)
 
 		codec.Prepend(wbuf, msg)
 		msg.WriteBuffer(wbuf)
-		codec.Write(rbuf, wbuf)
+		codec.Write(writer, wbuf)
 
-		codec.Read(rbuf, tbuf)
-		unitest.Pass(t, bytes.Equal(msg, tbuf.Data))
+		codec.Read(reader, rbuf)
+		unitest.Pass(t, bytes.Equal(msg, rbuf.Data))
 	}
 }
 

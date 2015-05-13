@@ -1,18 +1,14 @@
 package link
 
-import (
-	"io"
-)
-
 type Protocol interface {
 	NewCodec() Codec
 }
 
 type Codec interface {
-	Handshake(rw io.ReadWriter, buf *Buffer) error
+	Handshake(conn *Conn, buf *Buffer) error
 	Prepend(outBuf *Buffer, msg Message)
-	Write(w io.Writer, outBuf *Buffer) error
-	Read(r io.Reader, inBuf *Buffer) error
+	Write(conn *Conn, outBuf *Buffer) error
+	Read(conn *Conn, inBuf *Buffer) error
 }
 
 type Request interface {
