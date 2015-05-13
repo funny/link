@@ -23,10 +23,10 @@ func main() {
 		panic(err)
 	}
 
-	go client.Process(link.DecodeFunc(func(buf *link.Buffer) (link.Request, error) {
+	go client.Process(func(buf *link.Buffer) error {
 		println(string(buf.Data))
-		return nil, nil
-	}))
+		return nil
+	})
 
 	for {
 		var input string

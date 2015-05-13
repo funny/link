@@ -35,16 +35,14 @@ func Test_Server(t *testing.T) {
 		atomic.AddInt32(&sessionStartCount, 1)
 		sessionStart.Done()
 
-		decoder := func(buffer *link.Buffer) (link.Request, error) {
+		session.Process(func(buffer *link.Buffer) error {
 			if !bytes.Equal(buffer.Data, data) {
 				messageMatchFailed = true
 			}
 			atomic.AddInt32(&sessionRequestCount, 1)
 			sessionRequest.Done()
-			return nil, nil
-		}
-
-		session.Process(link.DecodeFunc(decoder))
+			return nil
+		})
 
 		atomic.AddInt32(&sessionCloseCount, 1)
 		sessionClose.Done()

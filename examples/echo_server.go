@@ -42,22 +42,16 @@ func main() {
 	server.Serve(func(session *link.Session) {
 		log("client", session.Conn().RemoteAddr().String(), "in")
 
-		session.Process(link.DecodeFunc(func(buf *link.Buffer) (link.Request, error) {
+		session.Process(func(buf *link.Buffer) error {
 			log("client", session.Conn().RemoteAddr().String(), "say:", string(buf.Data))
-			return EchoRequest(buf.ReadBytes(buf.Length())), nil
-		}))
+			if *asyncChan == 0 {
+				return session.Send(link.Bytes(buf.Data))
+			} else {
+				session.AsyncSend(link.Bytes(buf.Data))
+			}
+			return nil
+		})
 
 		log("client", session.Conn().RemoteAddr().String(), "close")
 	})
-}
-
-type EchoRequest []byte
-
-func (req EchoRequest) Process(session *link.Session) error {
-	if *asyncChan == 0 {
-		return session.Send(link.Bytes(req))
-	} else {
-		session.AsyncSend(link.Bytes(req))
-	}
-	return nil
 }

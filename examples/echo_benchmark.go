@@ -129,9 +129,9 @@ func client(initWait *sync.WaitGroup, conn *CountConn, startChan chan int, resul
 			if t := <-recvTrigger; t == 0 {
 				break
 			}
-			_, err := client.Receive(link.DecodeFunc(func(*link.Buffer) (link.Request, error) {
-				return nil, nil
-			}))
+			err := client.Process(func(*link.Buffer) error {
+				return nil
+			})
 			if err != nil {
 				println("receive:", err.Error())
 				break

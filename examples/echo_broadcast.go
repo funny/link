@@ -32,12 +32,12 @@ func main() {
 		println("client", session.Conn().RemoteAddr().String(), "in")
 		channel.Join(session, nil)
 
-		session.Process(link.DecodeFunc(func(buf *link.Buffer) (link.Request, error) {
+		session.Process(func(buf *link.Buffer) error {
 			channel.Broadcast(link.String(
 				"client " + session.Conn().RemoteAddr().String() + " say: " + string(buf.Data),
 			))
-			return nil, nil
-		}))
+			return nil
+		})
 
 		println("client", session.Conn().RemoteAddr().String(), "close")
 		channel.Exit(session)

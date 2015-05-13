@@ -195,60 +195,55 @@ func (session *Session) sendBuffer(buffer *Buffer) error {
 	return err
 }
 
-// Receive one request.
-func (session *Session) Receive(decoder Decoder) (Request, error) {
+// Process one request.
+func (session *Session) ProcessOnce(handler RequestHandler) error {
 	session.readMutex.Lock()
 	defer session.readMutex.Unlock()
 
+	if codec, ok := session.codec.(FrameCodec); ok {
+		return session.processFrame(codec, handler)
+	}
+
+	if err := session.codec.Read(session.conn, session.inBuffer); err != nil {
+		session.Close()
+		return err
+	}
+
+	if err := handler(session.inBuffer); err != nil {
+		session.Close()
+		return err
+	}
+
+	return nil
+}
+
+func (session *Session) processFrame(codec FrameCodec, handler RequestHandler) error {
 	var (
-		frames FrameRequest
-		req    Request
-		err    error
+		err     error
+		isFinal bool
 	)
 
 	for {
-		err = session.codec.Read(session.conn, session.inBuffer)
-		if err != nil {
+		if isFinal, err = codec.ReadFrame(session.conn, session.inBuffer); err != nil {
 			break
 		}
 
-		req, err = decoder.Decode(session.inBuffer)
-		if err != nil {
+		if err = handler(session.inBuffer); err != nil || isFinal {
 			break
 		}
-
-		if frame, ok := req.(Frame); ok {
-			frames = append(frames, req)
-			if !frame.IsFinalFrame() {
-				continue
-			}
-		}
-		break
 	}
 
 	if err != nil {
 		session.Close()
-		return nil, err
 	}
 
-	if frames != nil {
-		return frames, err
-	}
-
-	return req, err
+	return err
 }
 
 // Loop and process requests.
-func (session *Session) Process(decoder Decoder) error {
+func (session *Session) Process(handler RequestHandler) error {
 	for {
-		req, err := session.Receive(decoder)
-		if err != nil {
-			return err
-		}
-		if req != nil {
-			err = req.Process(session)
-		}
-		if err != nil {
+		if err := session.ProcessOnce(handler); err != nil {
 			return err
 		}
 	}
