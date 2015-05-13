@@ -1,48 +1,63 @@
 package link
 
 import (
-	"github.com/funny/sync"
-	"time"
+	"sync"
+	"sync/atomic"
 )
+
+type SessionFetcher func(*int32, func(*Session))
 
 // Broadcaster.
 type Broadcaster struct {
-	protocol ProtocolState
-	fetcher  func(func(*Session))
+	codec   Codec
+	pool    *MemPool
+	fetcher SessionFetcher
 }
 
 // Broadcast work.
 type BroadcastWork struct {
 	Session *Session
-	AsyncWork
+	c       <-chan error
+}
+
+// Wait work done. Returns error when work failed.
+func (bw BroadcastWork) Wait() error {
+	return <-bw.c
+}
+
+type broadcast struct {
+	*Buffer
+	refNum int32
+}
+
+func (bc *broadcast) Free() {
+	if atomic.AddInt32(&bc.refNum, -1) == 0 {
+		bc.Buffer.free()
+	}
 }
 
 // Create a broadcaster.
-func NewBroadcaster(protocol ProtocolState, fetcher func(func(*Session))) *Broadcaster {
+func NewBroadcaster(codec Codec, pool *MemPool, fetcher SessionFetcher) *Broadcaster {
 	return &Broadcaster{
-		protocol: protocol,
-		fetcher:  fetcher,
+		codec:   codec,
+		pool:    pool,
+		fetcher: fetcher,
 	}
 }
 
-// Broadcast to sessions. The message only encoded once
-// so the performance is better than send message one by one.
-func (b *Broadcaster) Broadcast(message Message, timeout time.Duration) ([]BroadcastWork, error) {
-	buffer := newOutBuffer()
-	b.protocol.PrepareOutBuffer(buffer, message.OutBufferSize())
-	if err := message.WriteOutBuffer(buffer); err != nil {
-		buffer.free()
-		return nil, err
-	}
-	buffer.isBroadcast = true
+// Broadcast to sessions. The response only encoded once
+// so the performance is better than send response one by one.
+func (b *Broadcaster) Broadcast(msg Message) ([]BroadcastWork, error) {
+	buffer := NewPoolBuffer(0, 1024, b.pool)
+	b.codec.Prepend(buffer, msg)
+	msg.WriteBuffer(buffer)
+
+	bc := &broadcast{buffer, 0}
 	works := make([]BroadcastWork, 0, 10)
-	b.fetcher(func(session *Session) {
-		buffer.broadcastUse()
-		works = append(works, BroadcastWork{
-			session,
-			session.asyncSendBuffer(buffer, timeout),
-		})
+	b.fetcher(&bc.refNum, func(session *Session) {
+		works = append(works, session.asyncBroadcast(bc))
 	})
+
 	return works, nil
 }
 
@@ -63,19 +78,18 @@ type channelSession struct {
 }
 
 // Create a channel instance.
-func NewChannel(protocol Protocol, side ProtocolSide) *Channel {
+func NewChannel(protocol Protocol, pool *MemPool) *Channel {
 	channel := &Channel{
 		sessions: make(map[uint64]channelSession),
 	}
-	protocolState, _ := protocol.New(channel, side)
-	channel.broadcaster = NewBroadcaster(protocolState, channel.Fetch)
+	codec := protocol.NewCodec()
+	channel.broadcaster = NewBroadcaster(codec, pool, channel.sessionFetcher)
 	return channel
 }
 
-// Broadcast to channel. The message only encoded once
-// so the performance is better than send message one by one.
-func (channel *Channel) Broadcast(message Message, timeout time.Duration) ([]BroadcastWork, error) {
-	return channel.broadcaster.Broadcast(message, timeout)
+// Broadcast.
+func (channel *Channel) Broadcast(msg Message) ([]BroadcastWork, error) {
+	return channel.broadcaster.Broadcast(msg)
 }
 
 // How mush sessions in this channel.
@@ -116,6 +130,17 @@ func (channel *Channel) Kick(sessionId uint64) {
 		if session.KickCallback != nil {
 			session.KickCallback()
 		}
+	}
+}
+
+func (channel *Channel) sessionFetcher(num *int32, callback func(*Session)) {
+	channel.mutex.RLock()
+	defer channel.mutex.RUnlock()
+
+	*num = int32(len(channel.sessions))
+
+	for _, sesssion := range channel.sessions {
+		callback(sesssion.Session)
 	}
 }
 

@@ -9,46 +9,61 @@ import (
 	"time"
 )
 
-var dialSessionId uint64
+var globalSessionId uint64
 
 // The easy way to create a connection.
-func Dial(network, address string) (*Session, error) {
+func Dial(network, address string, protocol Protocol, pool *MemPool) (*Session, error) {
 	conn, err := net.Dial(network, address)
 	if err != nil {
 		return nil, err
 	}
-	id := atomic.AddUint64(&dialSessionId, 1)
-	return NewSession(id, conn, DefaultProtocol, CLIENT_SIDE, DefaultSendChanSize, DefaultConnBufferSize)
+	id := atomic.AddUint64(&globalSessionId, 1)
+	return NewSession(id, conn, protocol.NewCodec(), pool, DefaultConfig)
 }
 
 // The easy way to create a connection with timeout setting.
-func DialTimeout(network, address string, timeout time.Duration) (*Session, error) {
+func DialTimeout(network, address string, timeout time.Duration, protocol Protocol, pool *MemPool) (*Session, error) {
 	conn, err := net.DialTimeout(network, address, timeout)
 	if err != nil {
 		return nil, err
 	}
-	id := atomic.AddUint64(&dialSessionId, 1)
-	return NewSession(id, conn, DefaultProtocol, CLIENT_SIDE, DefaultSendChanSize, DefaultConnBufferSize)
+	id := atomic.AddUint64(&globalSessionId, 1)
+	return NewSession(id, conn, protocol.NewCodec(), pool, DefaultConfig)
 }
 
-type Decoder func(*InBuffer) error
+type Config struct {
+	SendChanSize       int
+	ReadBufferSize     int
+	RequestBufferSize  int
+	ResponseBufferSize int
+	AsyncSendTimeout   time.Duration
+}
+
+var DefaultConfig = Config{
+	SendChanSize:       1024,
+	ReadBufferSize:     1024,
+	RequestBufferSize:  2048,
+	ResponseBufferSize: 2048,
+	AsyncSendTimeout:   0,
+}
 
 // Session.
 type Session struct {
 	id uint64
 
 	// About network
-	conn     net.Conn
-	protocol ProtocolState
+	codec Codec
+	conn  net.Conn
 
 	// About send and receive
-	readMutex           sync.Mutex
-	sendMutex           sync.Mutex
-	asyncSendChan       chan asyncMessage
-	asyncSendBufferChan chan asyncBuffer
-	inBuffer            *InBuffer
-	outBuffer           *OutBuffer
-	outBufferMutex      sync.Mutex
+	readMutex          sync.Mutex
+	sendMutex          sync.Mutex
+	asyncMessageChan   chan asyncMessage
+	asyncBroadcastChan chan asyncBroadcast
+	asyncSendTimeout   time.Duration
+	inBuffer           *Buffer
+	outBuffer          *Buffer
+	outBufferMutex     sync.Mutex
 
 	// About session close
 	closeChan       chan int
@@ -61,43 +76,35 @@ type Session struct {
 }
 
 // Buffered connection.
-type bufferConn struct {
+type bufferedConn struct {
 	net.Conn
 	reader *bufio.Reader
 }
 
-func newBufferConn(conn net.Conn, readBufferSize int) *bufferConn {
-	return &bufferConn{
+func newBufferedConn(conn net.Conn, readBufferSize int) *bufferedConn {
+	return &bufferedConn{
 		conn,
 		bufio.NewReaderSize(conn, readBufferSize),
 	}
 }
 
-func (conn *bufferConn) Read(d []byte) (int, error) {
+func (conn *bufferedConn) Read(d []byte) (int, error) {
 	return conn.reader.Read(d)
 }
 
 // Create a new session instance.
-func NewSession(id uint64, conn net.Conn, protocol Protocol, side ProtocolSide, sendChanSize int, readBufferSize int) (*Session, error) {
-	if readBufferSize > 0 {
-		conn = newBufferConn(conn, readBufferSize)
-	}
-
-	protocolState, err := protocol.New(conn, side)
-	if err != nil {
-		return nil, err
-	}
-
+func NewSession(id uint64, conn net.Conn, codec Codec, pool *MemPool, config Config) (*Session, error) {
 	session := &Session{
-		id:                  id,
-		conn:                conn,
-		protocol:            protocolState,
-		asyncSendChan:       make(chan asyncMessage, sendChanSize),
-		asyncSendBufferChan: make(chan asyncBuffer, sendChanSize),
-		inBuffer:            newInBuffer(),
-		outBuffer:           newOutBuffer(),
-		closeChan:           make(chan int),
-		closeCallbacks:      list.New(),
+		id:                 id,
+		codec:              codec,
+		conn:               newBufferedConn(conn, config.ReadBufferSize),
+		asyncMessageChan:   make(chan asyncMessage, config.SendChanSize),
+		asyncBroadcastChan: make(chan asyncBroadcast, config.SendChanSize),
+		asyncSendTimeout:   config.AsyncSendTimeout,
+		inBuffer:           NewPoolBuffer(0, config.RequestBufferSize, pool),
+		outBuffer:          NewPoolBuffer(0, config.ResponseBufferSize, pool),
+		closeChan:          make(chan int),
+		closeCallbacks:     list.New(),
 	}
 
 	go session.sendLoop()
@@ -135,55 +142,61 @@ func (session *Session) Close() {
 	}
 }
 
+func (session *Session) handshake() error {
+	return session.codec.Handshake(session.conn, session.inBuffer, session.outBuffer)
+}
+
 // Sync send a message. This method will block on IO.
-func (session *Session) Send(message Message) error {
+func (session *Session) Send(msg Message) error {
 	session.outBufferMutex.Lock()
 	defer session.outBufferMutex.Unlock()
 
-	var err error
-
-	buffer := session.outBuffer
-	session.protocol.PrepareOutBuffer(buffer, message.OutBufferSize())
-
-	err = message.WriteOutBuffer(buffer)
-	if err == nil {
-		err = session.sendBuffer(buffer)
-	}
-
-	buffer.reset()
-	return err
-}
-
-func (session *Session) sendBuffer(buffer *OutBuffer) error {
-	session.sendMutex.Lock()
-	defer session.sendMutex.Unlock()
-
-	return session.protocol.Write(session.conn, buffer)
-}
-
-// Process one request.
-func (session *Session) ProcessOnce(decoder Decoder) error {
-	session.readMutex.Lock()
-	defer session.readMutex.Unlock()
-
-	buffer := session.inBuffer
-	err := session.protocol.Read(session.conn, buffer)
+	session.codec.Prepend(session.outBuffer, msg)
+	err := msg.WriteBuffer(session.outBuffer)
 	if err != nil {
-		buffer.reset()
 		session.Close()
 		return err
 	}
-
-	err = decoder(buffer)
-	buffer.reset()
-
-	return nil
+	return session.sendBuffer(session.outBuffer)
 }
 
-// Process request.
+func (session *Session) sendBuffer(buffer *Buffer) error {
+	session.sendMutex.Lock()
+	defer session.sendMutex.Unlock()
+
+	err := session.codec.Write(session.conn, buffer)
+	if err != nil {
+		session.Close()
+	}
+	return err
+}
+
+// Receive one request.
+func (session *Session) Receive(decoder Decoder) (req Request, err error) {
+	session.readMutex.Lock()
+	defer session.readMutex.Unlock()
+
+	err = session.codec.Read(session.conn, session.inBuffer)
+	if err == nil {
+		req, err = decoder.Decode(session.inBuffer)
+	}
+	if err != nil {
+		session.Close()
+	}
+	return
+}
+
+// Loop and process requests.
 func (session *Session) Process(decoder Decoder) error {
 	for {
-		if err := session.ProcessOnce(decoder); err != nil {
+		req, err := session.Receive(decoder)
+		if err != nil {
+			return err
+		}
+		if req != nil {
+			err = req.Process(session)
+		}
+		if err != nil {
 			return err
 		}
 	}
@@ -205,82 +218,88 @@ type asyncMessage struct {
 	M Message
 }
 
-type asyncBuffer struct {
+type asyncBroadcast struct {
 	C chan<- error
-	B *OutBuffer
+	B *broadcast
 }
 
 // Loop and transport responses.
 func (session *Session) sendLoop() {
 	for {
 		select {
-		case buffer := <-session.asyncSendBufferChan:
-			buffer.C <- session.sendBuffer(buffer.B)
-			buffer.B.broadcastFree()
-		case message := <-session.asyncSendChan:
+		case message := <-session.asyncMessageChan:
 			message.C <- session.Send(message.M)
+		case buffer := <-session.asyncBroadcastChan:
+			buffer.C <- session.sendBuffer(buffer.B.Buffer)
+			buffer.B.Free()
 		case <-session.closeChan:
 			return
 		}
 	}
 }
 
-// Async send a message.
-func (session *Session) AsyncSend(message Message, timeout time.Duration) AsyncWork {
+// Async send a response.
+func (session *Session) AsyncSend(msg Message) AsyncWork {
 	c := make(chan error, 1)
+
 	if session.IsClosed() {
 		c <- SendToClosedError
-	} else {
-		select {
-		case session.asyncSendChan <- asyncMessage{c, message}:
-		default:
-			if timeout == 0 {
-				session.Close()
-				c <- AsyncSendTimeoutError
-			} else {
-				go func() {
-					select {
-					case session.asyncSendChan <- asyncMessage{c, message}:
-					case <-session.closeChan:
-						c <- SendToClosedError
-					case <-time.After(timeout):
-						session.Close()
-						c <- AsyncSendTimeoutError
-					}
-				}()
-			}
+		return AsyncWork{c}
+	}
+
+	select {
+	case session.asyncMessageChan <- asyncMessage{c, msg}:
+	default:
+		if session.asyncSendTimeout == 0 {
+			c <- AsyncSendTimeoutError
+			session.Close()
+		} else {
+			go func() {
+				select {
+				case session.asyncMessageChan <- asyncMessage{c, msg}:
+				case <-session.closeChan:
+					c <- SendToClosedError
+				case <-time.After(session.asyncSendTimeout):
+					session.Close()
+					c <- AsyncSendTimeoutError
+				}
+			}()
 		}
 	}
+
 	return AsyncWork{c}
 }
 
 // Async send a packet.
-func (session *Session) asyncSendBuffer(buffer *OutBuffer, timeout time.Duration) AsyncWork {
+func (session *Session) asyncBroadcast(bc *broadcast) BroadcastWork {
 	c := make(chan error, 1)
+
 	if session.IsClosed() {
 		c <- SendToClosedError
-	} else {
-		select {
-		case session.asyncSendBufferChan <- asyncBuffer{c, buffer}:
-		default:
-			if timeout == 0 {
-				session.Close()
-				c <- AsyncSendTimeoutError
-			} else {
-				go func() {
-					select {
-					case session.asyncSendBufferChan <- asyncBuffer{c, buffer}:
-					case <-session.closeChan:
-						c <- SendToClosedError
-					case <-time.After(timeout):
-						session.Close()
-						c <- AsyncSendTimeoutError
-					}
-				}()
-			}
+		return BroadcastWork{session, c}
+	}
+
+	select {
+	case session.asyncBroadcastChan <- asyncBroadcast{c, bc}:
+	default:
+		if session.asyncSendTimeout == 0 {
+			c <- AsyncSendTimeoutError
+			session.Close()
+		} else {
+			go func() {
+				select {
+				case session.asyncBroadcastChan <- asyncBroadcast{c, bc}:
+				case <-session.closeChan:
+					c <- SendToClosedError
+				case <-time.After(session.asyncSendTimeout):
+					session.Close()
+					c <- AsyncSendTimeoutError
+				}
+			}()
 		}
 	}
-	return AsyncWork{c}
+
+	return BroadcastWork{session, c}
 }
 
 type closeCallback struct {

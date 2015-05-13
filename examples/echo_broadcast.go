@@ -7,7 +7,7 @@ import (
 
 // This is broadcast server demo work with the echo_client.
 // usage:
-//     go run broadcast/main.go
+//     go run echo_broadcast.go
 func main() {
 	server, err := link.Listen("tcp", "127.0.0.1:10010")
 	if err != nil {

@@ -1,22 +1,20 @@
-package link
+package testing
 
 import (
 	"bytes"
-	"github.com/funny/sync"
+	"github.com/funny/rush/link"
+	"github.com/funny/rush/link/protocol/fixhead"
 	"github.com/funny/unitest"
 	"runtime/pprof"
+	"sync"
 	"sync/atomic"
 	"testing"
 )
 
 func Test_Server(t *testing.T) {
-	server, err0 := Listen("tcp", "0.0.0.0:0")
-	unitest.NotError(t, err0)
-
 	var (
-		addr    = server.Listener().Addr().String()
 		data    = []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
-		message = Bytes(data)
+		message = link.Bytes(data)
 
 		sessionStart   sync.WaitGroup
 		sessionClose   sync.WaitGroup
@@ -28,20 +26,25 @@ func Test_Server(t *testing.T) {
 		messageMatchFailed  bool
 	)
 
-	go server.Serve(func(session *Session) {
+	server, err0 := link.Listen("tcp", "0.0.0.0:0", fixhead.Uint32BE, nil)
+	unitest.NotError(t, err0)
+
+	addr := server.Listener().Addr().String()
+
+	go server.Serve(func(session *link.Session) {
 		atomic.AddInt32(&sessionStartCount, 1)
 		sessionStart.Done()
 
-		session.Process(func(msg *InBuffer) error {
-			if !bytes.Equal(msg.Data, data) {
+		decoder := func(buffer *link.Buffer) (link.Request, error) {
+			if !bytes.Equal(buffer.Data, data) {
 				messageMatchFailed = true
 			}
-
 			atomic.AddInt32(&sessionRequestCount, 1)
 			sessionRequest.Done()
+			return nil, nil
+		}
 
-			return nil
-		})
+		session.Process(link.DecodeFunc(decoder))
 
 		atomic.AddInt32(&sessionCloseCount, 1)
 		sessionClose.Done()
@@ -49,11 +52,13 @@ func Test_Server(t *testing.T) {
 
 	// test session start
 	sessionStart.Add(1)
-	client1, err1 := Dial("tcp", addr)
+	sessionClose.Add(1)
+	client1, err1 := link.Dial("tcp", addr, fixhead.Uint32BE, nil)
 	unitest.NotError(t, err1)
 
 	sessionStart.Add(1)
-	client2, err2 := Dial("tcp", addr)
+	sessionClose.Add(1)
+	client2, err2 := link.Dial("tcp", addr, fixhead.Uint32BE, nil)
 	unitest.NotError(t, err2)
 
 	t.Log("check session start")
@@ -80,10 +85,7 @@ func Test_Server(t *testing.T) {
 	unitest.Pass(t, messageMatchFailed == false)
 
 	// test session close
-	sessionClose.Add(1)
 	client1.Close()
-
-	sessionClose.Add(1)
 	client2.Close()
 
 	t.Log("check session close")

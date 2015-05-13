@@ -5,7 +5,6 @@ import (
 	"github.com/funny/sync"
 	"net"
 	"sync/atomic"
-	"time"
 )
 
 // Errors
@@ -15,26 +14,23 @@ var (
 	AsyncSendTimeoutError = errors.New("Async send timeout")
 )
 
-var (
-	DefaultSendChanSize   = 1024                     // Default session send chan buffer size.
-	DefaultConnBufferSize = 1024                     // Default session read buffer size.
-	DefaultProtocol       = PacketN(4, LittleEndian) // Default protocol for utility APIs.
-)
-
 // The easy way to setup a server.
-func Listen(network, address string) (*Server, error) {
+func Listen(network, address string, protocol Protocol, pool *MemPool) (*Server, error) {
 	listener, err := net.Listen(network, address)
 	if err != nil {
 		return nil, err
 	}
-	return NewServer(listener, DefaultProtocol), nil
+	return NewServer(listener, protocol, pool, DefaultConfig), nil
 }
 
 // Server.
 type Server struct {
+	Config
+
 	// About network
 	listener    net.Listener
 	protocol    Protocol
+	pool        *MemPool
 	broadcaster *Broadcaster
 
 	// About sessions
@@ -46,22 +42,20 @@ type Server struct {
 	stopFlag int32
 	stopWait sync.WaitGroup
 
-	SendChanSize   int         // Session send chan buffer size.
-	ReadBufferSize int         // Session read buffer size.
-	State          interface{} // server state.
+	State interface{} // server state.
 }
 
 // Create a server.
-func NewServer(listener net.Listener, protocol Protocol) *Server {
+func NewServer(listener net.Listener, protocol Protocol, pool *MemPool, config Config) *Server {
 	server := &Server{
-		listener:       listener,
-		protocol:       protocol,
-		sessions:       make(map[uint64]*Session),
-		SendChanSize:   DefaultSendChanSize,
-		ReadBufferSize: DefaultConnBufferSize,
+		listener: listener,
+		protocol: protocol,
+		pool:     pool,
+		sessions: make(map[uint64]*Session),
+		Config:   config,
 	}
-	protocolState, _ := protocol.New(server, SERVER_SIDE)
-	server.broadcaster = NewBroadcaster(protocolState, server.fetchSession)
+	codec := protocol.NewCodec()
+	server.broadcaster = NewBroadcaster(codec, pool, server.sessionFetcher)
 	return server
 }
 
@@ -75,14 +69,13 @@ func (server *Server) Protocol() Protocol {
 	return server.protocol
 }
 
-// Broadcast to channel. The message only encoded once
-// so the performance is better than send message one by one.
-func (server *Server) Broadcast(message Message, timeout time.Duration) ([]BroadcastWork, error) {
-	return server.broadcaster.Broadcast(message, timeout)
+// Broadcast.
+func (server *Server) Broadcast(msg Message) ([]BroadcastWork, error) {
+	return server.broadcaster.Broadcast(msg)
 }
 
 // Accept incoming connection once.
-func (server *Server) Accept() (*Session, error) {
+func (server *Server) accept() (*Session, error) {
 	for {
 		conn, err := server.listener.Accept()
 		if err != nil {
@@ -101,14 +94,20 @@ func (server *Server) Accept() (*Session, error) {
 // Loop and accept incoming connections. The callback will called asynchronously when each session start.
 func (server *Server) Serve(handler func(*Session)) error {
 	for {
-		session, err := server.Accept()
+		session, err := server.accept()
 		if err != nil {
 			if server.Stop() {
 				return err
 			}
 			return nil
 		}
-		go handler(session)
+		go func() {
+			if err := session.handshake(); err != nil {
+				session.Close()
+				return
+			}
+			handler(session)
+		}()
 	}
 	return nil
 }
@@ -125,7 +124,7 @@ func (server *Server) Stop() bool {
 }
 
 func (server *Server) newSession(id uint64, conn net.Conn) *Session {
-	session, _ := NewSession(id, conn, server.protocol, SERVER_SIDE, server.SendChanSize, server.ReadBufferSize)
+	session, _ := NewSession(id, conn, server.protocol.NewCodec(), server.pool, server.Config)
 	if session == nil {
 		return nil
 	}
@@ -168,9 +167,11 @@ func (server *Server) copySessions() []*Session {
 }
 
 // Fetch sessions.
-func (server *Server) fetchSession(callback func(*Session)) {
+func (server *Server) sessionFetcher(num *int32, callback func(*Session)) {
 	server.sessionMutex.Lock()
 	defer server.sessionMutex.Unlock()
+
+	*num = int32(len(server.sessions))
 
 	for _, session := range server.sessions {
 		callback(session)

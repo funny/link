@@ -3,104 +3,68 @@ package link
 import (
 	"bytes"
 	"github.com/funny/unitest"
-	"runtime"
 	"testing"
 )
 
 func Test_Buffer(t *testing.T) {
-	var buffer = newOutBuffer()
-
+	buffer := MakeBuffer(0, 0)
 	PrepareBuffer(buffer)
-
-	VerifyBuffer(t, &InBuffer{Data: buffer.Data})
+	VerifyBuffer(t, buffer)
 }
 
-func PrepareBuffer(buffer *OutBuffer) {
-	buffer.WriteUint8(123)
-	buffer.WriteUint16LE(0xFFEE)
-	buffer.WriteUint16BE(0xFFEE)
-	buffer.WriteUint32LE(0xFFEEDDCC)
-	buffer.WriteUint32BE(0xFFEEDDCC)
-	buffer.WriteUint64LE(0xFFEEDDCCBBAA9988)
-	buffer.WriteUint64BE(0xFFEEDDCCBBAA9988)
+func PrepareBuffer(buffer *Buffer) {
+	buffer.WriteVarint(0x12345678AABBCCDD)
+	buffer.WriteUvarint(0x12345678AABBCCDD)
+	buffer.WriteUint8(0x12)
+	buffer.WriteUint16LE(0x1234)
+	buffer.WriteUint16BE(0x1234)
+	buffer.WriteUint24LE(0x123456)
+	buffer.WriteUint24BE(0x123456)
+	buffer.WriteUint32LE(0x12345678)
+	buffer.WriteUint32BE(0x12345678)
+	buffer.WriteUint40LE(0x12345678AA)
+	buffer.WriteUint40BE(0x12345678AA)
+	buffer.WriteUint48LE(0x12345678AABB)
+	buffer.WriteUint48BE(0x12345678AABB)
+	buffer.WriteUint56LE(0x12345678AABBCC)
+	buffer.WriteUint56BE(0x12345678AABBCC)
+	buffer.WriteUint64LE(0x12345678AABBCCDD)
+	buffer.WriteUint64BE(0x12345678AABBCCDD)
 	buffer.WriteFloat32LE(88.01)
 	buffer.WriteFloat64LE(99.02)
 	buffer.WriteFloat32BE(88.01)
 	buffer.WriteFloat64BE(99.02)
-	buffer.WriteRune('好')
 	buffer.WriteString("Hello1")
 	buffer.WriteBytes([]byte("Hello2"))
-	buffer.WriteBytes([]byte("Hello3"))
-	buffer.WriteVarint(0x7FEEDDCCBBAA9988)
-	buffer.WriteUvarint(0xFFEEDDCCBBAA9988)
+
+	buffer.WriteRune('好')
 }
 
-func VerifyBuffer(t *testing.T, buffer *InBuffer) {
-	unitest.Pass(t, buffer.ReadUint8() == 123)
-	unitest.Pass(t, buffer.ReadUint16LE() == 0xFFEE)
-	unitest.Pass(t, buffer.ReadUint16BE() == 0xFFEE)
-	unitest.Pass(t, buffer.ReadUint32LE() == 0xFFEEDDCC)
-	unitest.Pass(t, buffer.ReadUint32BE() == 0xFFEEDDCC)
-	unitest.Pass(t, buffer.ReadUint64LE() == 0xFFEEDDCCBBAA9988)
-	unitest.Pass(t, buffer.ReadUint64BE() == 0xFFEEDDCCBBAA9988)
+func VerifyBuffer(t *testing.T, buffer *Buffer) {
+	unitest.Pass(t, buffer.ReadVarint() == 0x12345678AABBCCDD)
+	unitest.Pass(t, buffer.ReadUvarint() == 0x12345678AABBCCDD)
+	unitest.Pass(t, buffer.ReadUint8() == 0x12)
+	unitest.Pass(t, buffer.ReadUint16LE() == 0x1234)
+	unitest.Pass(t, buffer.ReadUint16BE() == 0x1234)
+	unitest.Pass(t, buffer.ReadUint24LE() == 0x123456)
+	unitest.Pass(t, buffer.ReadUint24BE() == 0x123456)
+	unitest.Pass(t, buffer.ReadUint32LE() == 0x12345678)
+	unitest.Pass(t, buffer.ReadUint32BE() == 0x12345678)
+	unitest.Pass(t, buffer.ReadUint40LE() == 0x12345678AA)
+	unitest.Pass(t, buffer.ReadUint40BE() == 0x12345678AA)
+	unitest.Pass(t, buffer.ReadUint48LE() == 0x12345678AABB)
+	unitest.Pass(t, buffer.ReadUint48BE() == 0x12345678AABB)
+	unitest.Pass(t, buffer.ReadUint56LE() == 0x12345678AABBCC)
+	unitest.Pass(t, buffer.ReadUint56BE() == 0x12345678AABBCC)
+	unitest.Pass(t, buffer.ReadUint64LE() == 0x12345678AABBCCDD)
+	unitest.Pass(t, buffer.ReadUint64BE() == 0x12345678AABBCCDD)
 	unitest.Pass(t, buffer.ReadFloat32LE() == 88.01)
 	unitest.Pass(t, buffer.ReadFloat64LE() == 99.02)
 	unitest.Pass(t, buffer.ReadFloat32BE() == 88.01)
 	unitest.Pass(t, buffer.ReadFloat64BE() == 99.02)
-	unitest.Pass(t, buffer.ReadRune() == '好')
 	unitest.Pass(t, buffer.ReadString(6) == "Hello1")
 	unitest.Pass(t, bytes.Equal(buffer.ReadBytes(6), []byte("Hello2")))
-	unitest.Pass(t, bytes.Equal(buffer.Slice(6), []byte("Hello3")))
-	unitest.Pass(t, buffer.ReadVarint() == 0x7FEEDDCCBBAA9988)
-	unitest.Pass(t, buffer.ReadUvarint() == 0xFFEEDDCCBBAA9988)
-}
 
-func Benchmark_NewBuffer(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		x := newInBuffer()
-		x.free()
-	}
-	b.StopTimer()
-	state := BufferPoolState()
-	b.Logf("Hit Rate: %2.2f%%", state.InHitRate*100.0)
-	b.StartTimer()
-}
-
-func Benchmark_SetFinalizer1(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		var x = &InBuffer{}
-		runtime.SetFinalizer(x, func(x *InBuffer) {
-		})
-	}
-}
-
-func Benchmark_SetFinalizer2(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		var x = &InBuffer{}
-		runtime.SetFinalizer(x, nil)
-	}
-}
-
-func Benchmark_MakeBytes_512(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		_ = make([]byte, 512)
-	}
-}
-
-func Benchmark_MakeBytes_1024(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		_ = make([]byte, 1024)
-	}
-}
-
-func Benchmark_MakeBytes_4096(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		_ = make([]byte, 4096)
-	}
-}
-
-func Benchmark_MakeBytes_8192(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		_ = make([]byte, 8192)
-	}
+	r, _, _ := buffer.ReadRune()
+	unitest.Pass(t, r == '好')
 }

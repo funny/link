@@ -3,18 +3,19 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/funny/link"
-	"github.com/funny/sync"
+	"github.com/funny/rush/link"
+	"github.com/funny/rush/link/protocol/fixhead"
 	"net"
+	"sync"
 	"time"
 )
 
 var (
-	serverAddr  = flag.String("addr", "", "target server address")
+	serverAddr  = flag.String("addr", "127.0.0.1:10010", "echo server address")
 	clientNum   = flag.Int("num", 1, "client number")
 	messageSize = flag.Int("size", 64, "test message size")
 	runTime     = flag.Int("time", 10, "benchmark run time in seconds")
-	bufferSize  = flag.Int("buffer", 1024, "read buffer size")
+	asyncChan   = flag.Int("async", 10000, "async send chan size, 0 == sync send")
 )
 
 type ClientResult struct {
@@ -26,10 +27,14 @@ type ClientResult struct {
 // This is an benchmark tool work with the echo_server.
 //
 // Start echo_server with 'bench' flag
-//     go run echo_server/main.go -bench
+//     go run echo_server.go -bench
 //
 // Start benchmark with echo_server address
-//     go run benchmark/main.go -addr="127.0.0.1:10010"
+//     go run echo_benchmark.go
+//     go run echo_benchmark.go -num=100
+//     go run echo_benchmark.go -size=1024
+//     go run echo_benchmark.go -time=20
+//     go run echo_benchmark.go -addr="127.0.0.1:10010"
 func main() {
 	flag.Parse()
 
@@ -39,11 +44,16 @@ func main() {
 		initWait   = new(sync.WaitGroup)
 		startChan  = make(chan int)
 		resultChan = make(chan ClientResult)
+		pool       = link.NewMemPool(10, 1, 10)
 	)
+
+	link.DefaultConfig.RequestBufferSize = 1024
+	link.DefaultConfig.ResponseBufferSize = 1024
+	link.DefaultConfig.SendChanSize = *asyncChan
 
 	for i := 0; i < *clientNum; i++ {
 		initWait.Add(1)
-		go client(initWait, startChan, resultChan, timeout, msg)
+		go client(initWait, startChan, resultChan, timeout, msg, pool)
 	}
 
 	initWait.Wait()
@@ -83,19 +93,18 @@ func (conn *CountConn) Write(p []byte) (int, error) {
 	return conn.Conn.Write(p)
 }
 
-func client(initWait *sync.WaitGroup, startChan chan int, resultChan chan ClientResult, timeout time.Time, message link.Message) {
+func client(initWait *sync.WaitGroup, startChan chan int, resultChan chan ClientResult, timeout time.Time, msg link.Response, pool *link.MemPool) {
 	conn, err := net.DialTimeout("tcp", *serverAddr, time.Second*3)
 	if err != nil {
 		panic(err)
 	}
 
 	conn = &CountConn{conn, 0, 0}
-	client, _ := link.NewSession(0, conn, link.DefaultProtocol, link.CLIENT_SIDE, link.DefaultSendChanSize, *bufferSize)
+
+	client, _ := link.NewSession(0, conn, fixhead.Uint16BE, pool, link.DefaultConfig)
 	defer client.Close()
 
-	sendCount := 0
-	recvCount := 0
-	sendDone := false
+	recvTrigger := make(chan int, 1024)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -103,15 +112,14 @@ func client(initWait *sync.WaitGroup, startChan chan int, resultChan chan Client
 		defer wg.Done()
 		initWait.Done()
 		for {
-			err := client.ProcessOnce(func(*link.InBuffer) error {
-				return nil
-			})
-			recvCount += 1
-			if sendDone && recvCount == sendCount {
+			if t := <-recvTrigger; t == 0 {
 				break
 			}
+			_, err := client.Receive(link.DecodeFunc(func(*link.Buffer) (link.Request, error) {
+				return nil, nil
+			}))
 			if err != nil {
-				println(err.Error())
+				println("receive:", err.Error())
 				break
 			}
 		}
@@ -119,13 +127,23 @@ func client(initWait *sync.WaitGroup, startChan chan int, resultChan chan Client
 
 	<-startChan
 
+	sendCount := 0
+
 	for timeout.After(time.Now()) {
-		if err := client.Send(message); err != nil {
+		recvTrigger <- 1
+		var err error
+		if *asyncChan == 0 {
+			client.Send(msg)
+		} else {
+			client.AsyncSend(msg)
+		}
+		if err != nil {
+			println("send:", err.Error())
 			break
 		}
 		sendCount += 1
 	}
-	sendDone = true
+	recvTrigger <- 0
 	wg.Wait()
 
 	resultChan <- ClientResult{
