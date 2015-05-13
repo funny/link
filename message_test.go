@@ -17,16 +17,16 @@ type MyData struct {
 func Test_Message_Raw(t *testing.T) {
 	var data = []byte{1, 2, 3, 4, 5, 6}
 
-	var buffer = newOutBuffer()
-	err := Bytes(data).WriteOutBuffer(buffer)
+	var buffer = MakeBuffer(0, 0)
+	err := Bytes(data).WriteBuffer(buffer)
 	unitest.NotError(t, err)
 
 	unitest.Pass(t, bytes.Equal(data, buffer.Data))
 }
 
 func Test_Message_Json(t *testing.T) {
-	var buffer = newOutBuffer()
-	err := Json(MyData{Id: 1, Msg: "Test"}).WriteOutBuffer(buffer)
+	var buffer = MakeBuffer(0, 0)
+	err := Json(MyData{Id: 1, Msg: "Test"}).WriteBuffer(buffer)
 	unitest.NotError(t, err)
 
 	var data MyData
@@ -37,8 +37,8 @@ func Test_Message_Json(t *testing.T) {
 }
 
 func Test_Message_Gob(t *testing.T) {
-	var buffer = newOutBuffer()
-	err := Gob(MyData{Id: 1, Msg: "Test"}).WriteOutBuffer(buffer)
+	var buffer = MakeBuffer(0, 0)
+	err := Gob(MyData{Id: 1, Msg: "Test"}).WriteBuffer(buffer)
 	unitest.NotError(t, err)
 
 	var data MyData
@@ -49,8 +49,8 @@ func Test_Message_Gob(t *testing.T) {
 }
 
 func Test_Message_Xml(t *testing.T) {
-	var buffer = newOutBuffer()
-	err := Xml(MyData{Id: 1, Msg: "Test"}).WriteOutBuffer(buffer)
+	var buffer = MakeBuffer(0, 0)
+	err := Xml(MyData{Id: 1, Msg: "Test"}).WriteBuffer(buffer)
 	unitest.NotError(t, err)
 
 	var data MyData
