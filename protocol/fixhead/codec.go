@@ -20,7 +20,7 @@ func (protocol *protocol) NewCodec() link.Codec {
 	return protocol
 }
 
-func (codec *protocol) Handshake(rw io.ReadWriter, inBuf, outBuf *link.Buffer) error {
+func (codec *protocol) Handshake(rw io.ReadWriter, buf *link.Buffer) error {
 	return nil
 }
 

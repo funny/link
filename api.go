@@ -9,7 +9,7 @@ type Protocol interface {
 }
 
 type Codec interface {
-	Handshake(rw io.ReadWriter, inBuf, outBuf *Buffer) error
+	Handshake(rw io.ReadWriter, buf *Buffer) error
 	Prepend(outBuf *Buffer, msg Message)
 	Write(w io.Writer, outBuf *Buffer) error
 	Read(r io.Reader, inBuf *Buffer) error
