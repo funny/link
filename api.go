@@ -11,17 +11,23 @@ type Codec interface {
 	Read(conn *Conn, inBuf *Buffer) error
 }
 
-type FrameCodec interface {
-	ReadFrame(conn *Conn, inBuf *Buffer) (isFinal bool, err error)
+type Message interface {
+	WriteBuffer(*Buffer) error
 }
 
-type Frame interface {
-	IsFinalFrame() bool
+type Sizeable interface {
+	BufferSize() int
+}
+
+type FrameCodec interface {
+	PrependFrame(outBuf *Buffer, frame FrameMessage)
+	WriteFrame(conn *Conn, outBuf *Buffer) error
+	ReadFrame(conn *Conn, inBuf *Buffer) (isFinal bool, err error)
 }
 
 type FrameMessage interface {
 	Message
-	Frame
+	IsFinalFrame() bool
 	NextFrame() FrameMessage
 }
 

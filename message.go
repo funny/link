@@ -6,12 +6,16 @@ import (
 	"encoding/xml"
 )
 
-type Message interface {
-	WriteBuffer(*Buffer) error
+type SingleFrame struct {
+	Message
 }
 
-type Sizeable interface {
-	BufferSize() int
+func (frame SingleFrame) IsFinalFrame() bool {
+	return true
+}
+
+func (frame SingleFrame) NextFrame() FrameMessage {
+	return nil
 }
 
 // A func implement the Message interface.

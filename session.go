@@ -158,29 +158,54 @@ func (session *Session) Send(msg Message) error {
 	session.sendMutex.Lock()
 	defer session.sendMutex.Unlock()
 
+	if codec, ok := session.codec.(FrameCodec); ok {
+		frame, ok := msg.(FrameMessage)
+		if !ok {
+			frame = SingleFrame{msg}
+		}
+		return session.sendFrame(codec, frame)
+	}
+
+	session.codec.Prepend(session.outBuffer, msg)
+
+	if err := msg.WriteBuffer(session.outBuffer); err != nil {
+		session.Close()
+		return err
+	}
+
+	if err := session.codec.Write(session.conn, session.outBuffer); err != nil {
+		session.Close()
+		return err
+	}
+
+	return nil
+}
+
+func (session *Session) sendFrame(codec FrameCodec, frame FrameMessage) error {
 	var err error
 
 	for {
-		session.codec.Prepend(session.outBuffer, msg)
+		codec.PrependFrame(session.outBuffer, frame)
 
-		if err = msg.WriteBuffer(session.outBuffer); err != nil {
+		if err := frame.WriteBuffer(session.outBuffer); err != nil {
 			break
 		}
 
-		if err = session.codec.Write(session.conn, session.outBuffer); err != nil {
+		if err := codec.WriteFrame(session.conn, session.outBuffer); err != nil {
 			break
 		}
 
-		if frame, ok := msg.(FrameMessage); ok && !frame.IsFinalFrame() {
-			msg = frame.NextFrame()
-			continue
+		if frame.IsFinalFrame() {
+			break
 		}
-		break
+
+		frame = frame.NextFrame()
 	}
 
 	if err != nil {
 		session.Close()
 	}
+
 	return err
 }
 
