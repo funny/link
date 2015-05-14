@@ -129,7 +129,7 @@ func client(initWait *sync.WaitGroup, conn *CountConn, startChan chan int, resul
 			if t := <-recvTrigger; t == 0 {
 				break
 			}
-			err := client.Process(func(*link.Buffer) error {
+			err := client.ProcessOnce(func(*link.Buffer) error {
 				return nil
 			})
 			if err != nil {
