@@ -158,12 +158,8 @@ func (session *Session) Send(msg Message) error {
 	session.sendMutex.Lock()
 	defer session.sendMutex.Unlock()
 
-	if codec, ok := session.codec.(FrameCodec); ok {
-		frame, ok := msg.(FrameMessage)
-		if !ok {
-			frame = SingleFrame{msg}
-		}
-		return session.sendFrame(codec, frame)
+	if frame, ok := msg.(FrameMessage); ok {
+		return session.sendFrame(session.codec.(FrameCodec), frame)
 	}
 
 	session.codec.Prepend(session.outBuffer, msg)

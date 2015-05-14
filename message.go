@@ -6,18 +6,6 @@ import (
 	"encoding/xml"
 )
 
-type SingleFrame struct {
-	Message
-}
-
-func (frame SingleFrame) IsFinalFrame() bool {
-	return true
-}
-
-func (frame SingleFrame) NextFrame() FrameMessage {
-	return nil
-}
-
 // A func implement the Message interface.
 type MessageFunc func(*Buffer) error
 
