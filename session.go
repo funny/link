@@ -150,7 +150,10 @@ func (session *Session) Close() {
 }
 
 func (session *Session) handshake() error {
-	return session.codec.Handshake(session.conn, session.inBuffer)
+	if codec, ok := session.codec.(Handshake); ok {
+		return codec.Handshake(session.conn, session.inBuffer)
+	}
+	return nil
 }
 
 // Sync send a message. This method will block on IO.

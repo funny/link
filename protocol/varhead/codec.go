@@ -19,10 +19,6 @@ func (protocol protocol) NewCodec() link.Codec {
 	return protocol
 }
 
-func (codec protocol) Handshake(conn *link.Conn, buf *link.Buffer) error {
-	return nil
-}
-
 func (codec protocol) Prepend(buf *link.Buffer, msg link.Message) {
 	size := 1024
 	if sizeable, ok := msg.(link.Sizeable); ok {
