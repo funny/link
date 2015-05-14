@@ -161,51 +161,12 @@ func (session *Session) Send(msg Message) error {
 	session.sendMutex.Lock()
 	defer session.sendMutex.Unlock()
 
-	if frame, ok := msg.(FrameMessage); ok {
-		return session.sendFrame(session.codec.(FrameCodec), frame)
-	}
-
-	session.codec.Prepend(session.outBuffer, msg)
-
-	if err := msg.WriteBuffer(session.outBuffer); err != nil {
-		session.Close()
-		return err
-	}
-
-	if err := session.codec.Write(session.conn, session.outBuffer); err != nil {
+	if err := session.codec.SendMessage(session.conn, session.outBuffer, msg); err != nil {
 		session.Close()
 		return err
 	}
 
 	return nil
-}
-
-func (session *Session) sendFrame(codec FrameCodec, frame FrameMessage) error {
-	var err error
-
-	for {
-		codec.PrependFrame(session.outBuffer, frame)
-
-		if err := frame.WriteBuffer(session.outBuffer); err != nil {
-			break
-		}
-
-		if err := codec.WriteFrame(session.conn, session.outBuffer); err != nil {
-			break
-		}
-
-		if frame.IsFinalFrame() {
-			break
-		}
-
-		frame = frame.NextFrame()
-	}
-
-	if err != nil {
-		session.Close()
-	}
-
-	return err
 }
 
 // Process one request.
@@ -213,44 +174,12 @@ func (session *Session) ProcessOnce(handler RequestHandler) error {
 	session.readMutex.Lock()
 	defer session.readMutex.Unlock()
 
-	if codec, ok := session.codec.(FrameCodec); ok {
-		return session.processFrame(codec, handler)
-	}
-
-	if err := session.codec.Read(session.conn, session.inBuffer); err != nil {
-		session.Close()
-		return err
-	}
-
-	if err := handler(session.inBuffer); err != nil {
+	if err := session.codec.ProcessRequest(session.conn, session.inBuffer, handler); err != nil {
 		session.Close()
 		return err
 	}
 
 	return nil
-}
-
-func (session *Session) processFrame(codec FrameCodec, handler RequestHandler) error {
-	var (
-		err     error
-		isFinal bool
-	)
-
-	for {
-		if isFinal, err = codec.ReadFrame(session.conn, session.inBuffer); err != nil {
-			break
-		}
-
-		if err = handler(session.inBuffer); err != nil || isFinal {
-			break
-		}
-	}
-
-	if err != nil {
-		session.Close()
-	}
-
-	return err
 }
 
 // Loop and process requests.
@@ -289,20 +218,20 @@ func (session *Session) sendLoop() {
 		select {
 		case message := <-session.asyncMessageChan:
 			message.C <- session.Send(message.M)
-		case buffer := <-session.asyncBroadcastChan:
-			buffer.C <- session.sendBuffer(buffer.B.Buffer)
-			buffer.B.Free()
+		case broadcast := <-session.asyncBroadcastChan:
+			broadcast.C <- session.sendBroadcast(broadcast.B.Buffer)
+			broadcast.B.Free()
 		case <-session.closeChan:
 			return
 		}
 	}
 }
 
-func (session *Session) sendBuffer(buffer *Buffer) error {
+func (session *Session) sendBroadcast(buf *Buffer) error {
 	session.sendMutex.Lock()
 	defer session.sendMutex.Unlock()
 
-	err := session.codec.Write(session.conn, buffer)
+	err := session.codec.SendBroadcast(session.conn, buf)
 	if err != nil {
 		session.Close()
 	}

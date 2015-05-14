@@ -49,15 +49,15 @@ func NewBroadcaster(codec Codec, pool *MemPool, fetcher SessionFetcher) *Broadca
 // so the performance is better than send response one by one.
 func (b *Broadcaster) Broadcast(msg Message) ([]BroadcastWork, error) {
 	buffer := NewPoolBuffer(0, 1024, b.pool)
-	b.codec.Prepend(buffer, msg)
-	msg.WriteBuffer(buffer)
+	if err := b.codec.MakeBroadcast(buffer, msg); err != nil {
+		return nil, err
+	}
 
 	bc := &broadcast{buffer, 0}
 	works := make([]BroadcastWork, 0, 10)
 	b.fetcher(&bc.refNum, func(session *Session) {
 		works = append(works, session.asyncBroadcast(bc))
 	})
-
 	return works, nil
 }
 

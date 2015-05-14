@@ -49,18 +49,17 @@ func Test_DelimitCodec(t *testing.T) {
 	for i := 0; i < 10000; i++ {
 		msg1 := RandMessage()
 
-		codec.Prepend(wbuf, msg1)
-		msg1.WriteBuffer(wbuf)
-		codec.Write(writer, wbuf)
+		codec.SendMessage(writer, wbuf, msg1)
 
-		codec.Read(reader, rbuf)
-		decoder := base64.NewDecoder(base64.StdEncoding, rbuf)
-		msg2, err := ioutil.ReadAll(decoder)
-		if err != nil {
-			t.Log(err)
-		}
-
-		unitest.Pass(t, bytes.Equal(msg1, msg2))
+		codec.ProcessRequest(reader, rbuf, func(buf *link.Buffer) error {
+			decoder := base64.NewDecoder(base64.StdEncoding, buf)
+			msg2, err := ioutil.ReadAll(decoder)
+			if err != nil {
+				t.Log(err)
+			}
+			unitest.Pass(t, bytes.Equal(msg1, msg2))
+			return nil
+		})
 	}
 }
 

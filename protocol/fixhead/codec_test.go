@@ -85,12 +85,12 @@ func CodecTest(t *testing.T, codec *protocol) {
 	for i := 0; i < 10000; i++ {
 		msg := RandMessage(codec)
 
-		codec.Prepend(wbuf, msg)
-		msg.WriteBuffer(wbuf)
-		codec.Write(writer, wbuf)
+		codec.SendMessage(writer, wbuf, msg)
 
-		codec.Read(reader, rbuf)
-		unitest.Pass(t, bytes.Equal(msg, rbuf.Data))
+		codec.ProcessRequest(reader, rbuf, func(buf *link.Buffer) error {
+			unitest.Pass(t, bytes.Equal(msg, buf.Data))
+			return nil
+		})
 	}
 }
 
