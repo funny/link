@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func Test_Uvarint(t *testing.T) {
+func Test_DelimitCodec(t *testing.T) {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	unitest.NotError(t, err)
 	defer l.Close()

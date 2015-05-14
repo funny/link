@@ -205,17 +205,6 @@ func (session *Session) sendFrame(codec FrameCodec, frame FrameMessage) error {
 	return err
 }
 
-func (session *Session) sendBuffer(buffer *Buffer) error {
-	session.sendMutex.Lock()
-	defer session.sendMutex.Unlock()
-
-	err := session.codec.Write(session.conn, buffer)
-	if err != nil {
-		session.Close()
-	}
-	return err
-}
-
 // Process one request.
 func (session *Session) ProcessOnce(handler RequestHandler) error {
 	session.readMutex.Lock()
@@ -304,6 +293,17 @@ func (session *Session) sendLoop() {
 			return
 		}
 	}
+}
+
+func (session *Session) sendBuffer(buffer *Buffer) error {
+	session.sendMutex.Lock()
+	defer session.sendMutex.Unlock()
+
+	err := session.codec.Write(session.conn, buffer)
+	if err != nil {
+		session.Close()
+	}
+	return err
 }
 
 // Async send a response.
