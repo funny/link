@@ -32,19 +32,19 @@ func DialTimeout(network, address string, timeout time.Duration, protocol Protoc
 }
 
 type Config struct {
-	SendChanSize       int
-	ReadBufferSize     int
-	RequestBufferSize  int
-	ResponseBufferSize int
-	AsyncSendTimeout   time.Duration
+	SendChanSize     int
+	ReadBufferSize   int
+	InBufferSize     int
+	OutBufferSize    int
+	AsyncSendTimeout time.Duration
 }
 
 var DefaultConfig = Config{
-	SendChanSize:       1024,
-	ReadBufferSize:     1024,
-	RequestBufferSize:  2048,
-	ResponseBufferSize: 2048,
-	AsyncSendTimeout:   0,
+	SendChanSize:     1024,
+	ReadBufferSize:   1024,
+	InBufferSize:     2048,
+	OutBufferSize:    2048,
+	AsyncSendTimeout: 0,
 }
 
 // Session.
@@ -108,8 +108,8 @@ func NewSession(id uint64, conn net.Conn, codec Codec, pool *MemPool, config Con
 		asyncMessageChan:   make(chan asyncMessage, config.SendChanSize),
 		asyncBroadcastChan: make(chan asyncBroadcast, config.SendChanSize),
 		asyncSendTimeout:   config.AsyncSendTimeout,
-		inBuffer:           NewPoolBuffer(0, config.RequestBufferSize, pool),
-		outBuffer:          NewPoolBuffer(0, config.ResponseBufferSize, pool),
+		inBuffer:           NewPoolBuffer(0, config.InBufferSize, pool),
+		outBuffer:          NewPoolBuffer(0, config.OutBufferSize, pool),
 		closeChan:          make(chan int),
 		closeCallbacks:     list.New(),
 	}

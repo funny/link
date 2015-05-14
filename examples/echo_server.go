@@ -27,8 +27,8 @@ func log(v ...interface{}) {
 func main() {
 	flag.Parse()
 
-	link.DefaultConfig.RequestBufferSize = 1024
-	link.DefaultConfig.ResponseBufferSize = 1024
+	link.DefaultConfig.InBufferSize = 1024
+	link.DefaultConfig.OutBufferSize = 1024
 	link.DefaultConfig.SendChanSize = *asyncChan
 	pool := link.NewMemPool(10, 1, 10)
 
