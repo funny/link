@@ -40,6 +40,8 @@ func (pool *MemPool) Alloc(size, capacity int) *mem {
 		}
 		m := pool.classes[(capacity-pool.off)/1024].Pop()
 		if m != nil {
+			// reset its length to given size
+			m.Data = m.Data[:size]
 			return m
 		}
 	}

@@ -60,6 +60,7 @@ func (b *Buffer) grows(n int) (i int) {
 		copy(mem.Data, b.Data)
 		b.pool.Free(b.mem)
 		b.mem = mem
+		return
 	}
 
 	data := make([]byte, newLen, cap(b.Data)/4+newLen)
