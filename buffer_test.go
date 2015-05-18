@@ -12,6 +12,13 @@ func Test_Buffer(t *testing.T) {
 	VerifyBuffer(t, buffer)
 }
 
+func Test_PoolBuffer(t *testing.T) {
+	pool := NewMemPool(10, 1, 10)
+	buffer := NewPoolBuffer(0, 0, pool)
+	PrepareBuffer(buffer)
+	VerifyBuffer(t, buffer)
+}
+
 func PrepareBuffer(buffer *Buffer) {
 	buffer.WriteVarint(0x12345678AABBCCDD)
 	buffer.WriteUvarint(0x12345678AABBCCDD)
@@ -36,6 +43,7 @@ func PrepareBuffer(buffer *Buffer) {
 	buffer.WriteFloat64BE(99.02)
 	buffer.WriteString("Hello1")
 	buffer.WriteBytes([]byte("Hello2"))
+	buffer.WriteBytes(bytes.Repeat([]byte("l"), 4096))
 
 	buffer.WriteRune('好')
 }
@@ -64,6 +72,7 @@ func VerifyBuffer(t *testing.T, buffer *Buffer) {
 	unitest.Pass(t, buffer.ReadFloat64BE() == 99.02)
 	unitest.Pass(t, buffer.ReadString(6) == "Hello1")
 	unitest.Pass(t, bytes.Equal(buffer.ReadBytes(6), []byte("Hello2")))
+	unitest.Pass(t, bytes.Equal(buffer.ReadBytes(4096), bytes.Repeat([]byte("l"), 4096)))
 
 	r, _, _ := buffer.ReadRune()
 	unitest.Pass(t, r == '好')
