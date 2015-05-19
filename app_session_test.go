@@ -7,6 +7,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 type SessionTestMessage []byte
@@ -100,6 +101,58 @@ func Test_Session(t *testing.T) {
 	unitest.Pass(t, sessionCloseCount == 2)
 
 	MakeSureSessionGoroutineExit(t)
+}
+
+type TimeoutMessage struct {
+}
+
+func (msg TimeoutMessage) Receive(conn *Conn) error {
+	conn.ReadPacket(SplitByUint16BE)
+	return nil
+}
+
+func Test_ServerSessionTimeout(t *testing.T) {
+	server, err0 := Serve("tcp", "0.0.0.0:0")
+	unitest.NotError(t, err0)
+
+	addr := server.Listener().Addr().String()
+
+	var sessionClose sync.WaitGroup
+
+	go server.Serve(func(session *Session) {
+		session.receiveTimeout = 500 * time.Millisecond
+		session.Receive(TimeoutMessage{})
+		sessionClose.Done()
+	})
+
+	sessionClose.Add(1)
+	_, err1 := Connect("tcp", addr)
+	unitest.NotError(t, err1)
+
+	sessionClose.Wait()
+}
+
+func Test_ClientSessionTimeout(t *testing.T) {
+	server, err0 := Serve("tcp", "0.0.0.0:0")
+	unitest.NotError(t, err0)
+
+	addr := server.Listener().Addr().String()
+
+	var sessionClose sync.WaitGroup
+
+	go server.Serve(func(session *Session) {
+		var in TimeoutMessage
+		session.Receive(in)
+		sessionClose.Done()
+	})
+
+	sessionClose.Add(1)
+	client1, err1 := Connect("tcp", addr)
+	unitest.NotError(t, err1)
+
+	client1.receiveTimeout = 500 * time.Millisecond
+	client1.Receive(TimeoutMessage{})
+	sessionClose.Wait()
 }
 
 func MakeSureSessionGoroutineExit(t *testing.T) {

@@ -23,6 +23,8 @@ type InMessage interface {
 
 type SessionConfig struct {
 	AutoFlush         bool
+	SendTimeout       time.Duration
+	ReceiveTimeout    time.Duration
 	AsyncSendTimeout  time.Duration
 	AsyncSendChanSize int
 }
@@ -35,6 +37,10 @@ type Session struct {
 	recvMutex        sync.Mutex
 	sendMutex        sync.Mutex
 	autoFlush        bool
+	sendTimeout      time.Duration
+	sendDeadline     time.Time
+	receiveTimeout   time.Duration
+	receiveDeadline  time.Time
 	asyncSendChan    chan asyncOutMessage
 	asyncSendTimeout time.Duration
 
@@ -88,20 +94,27 @@ func (session *Session) Flush() {
 	session.sendMutex.Lock()
 	defer session.sendMutex.Unlock()
 
+	session.sendDeadline = time.Now().Add(session.sendTimeout)
 	session.conn.Flush()
+	session.sendDeadline = time.Time{}
 }
 
 func (session *Session) Send(msg OutMessage) error {
 	session.sendMutex.Lock()
 	defer session.sendMutex.Unlock()
 
+	if session.sendTimeout != 0 {
+		session.sendDeadline = time.Now().Add(session.sendTimeout)
+	}
 	if err := msg.Send(session.conn); err != nil {
 		session.Close()
 		return err
 	}
-
 	if session.autoFlush {
 		session.conn.Flush()
+	}
+	if session.sendTimeout != 0 {
+		session.sendDeadline = time.Time{}
 	}
 
 	if session.conn.WError() != nil {
@@ -116,9 +129,15 @@ func (session *Session) Receive(message InMessage) error {
 	session.recvMutex.Lock()
 	defer session.recvMutex.Unlock()
 
+	if session.receiveTimeout != 0 {
+		session.receiveDeadline = time.Now().Add(session.receiveTimeout)
+	}
 	if err := message.Receive(session.conn); err != nil {
 		session.Close()
 		return err
+	}
+	if session.receiveTimeout != 0 {
+		session.receiveDeadline = time.Time{}
 	}
 
 	if session.conn.RError() != nil {
@@ -126,6 +145,11 @@ func (session *Session) Receive(message InMessage) error {
 		return session.conn.RError()
 	}
 	return nil
+}
+
+func (session *Session) IsTimeout(now time.Time) bool {
+	return (!session.sendDeadline.IsZero() && session.sendDeadline.Before(now)) ||
+		(!session.receiveDeadline.IsZero() && session.receiveDeadline.Before(now))
 }
 
 type AsyncWork struct {

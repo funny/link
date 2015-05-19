@@ -4,6 +4,7 @@ import (
 	"net"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 type Config struct {
@@ -22,6 +23,7 @@ type Server struct {
 
 	// About server start and stop
 	stopFlag int32
+	stopChan chan int
 	stopWait sync.WaitGroup
 
 	State interface{} // server state.
@@ -31,8 +33,10 @@ func NewServer(listener *Listener, config Config) *Server {
 	server := &Server{
 		listener: listener,
 		sessions: make(map[uint64]*Session),
+		stopChan: make(chan int),
 		Config:   config,
 	}
+	go server.checkAlive()
 	return server
 }
 
@@ -73,6 +77,7 @@ func (server *Server) Serve(handler func(*Session)) error {
 func (server *Server) Stop() bool {
 	if atomic.CompareAndSwapInt32(&server.stopFlag, 0, 1) {
 		server.listener.Close()
+		close(server.stopChan)
 		server.closeSessions()
 		server.stopWait.Wait()
 		return true
@@ -129,5 +134,23 @@ func (server *Server) closeSessions() {
 	sessions := server.copySessions()
 	for _, session := range sessions {
 		session.Close()
+	}
+}
+
+func (server *Server) checkAlive() {
+	tick := time.NewTicker(time.Second)
+	for {
+		select {
+		case <-tick.C:
+			now := time.Now()
+			server.sessionFetcher(func(session *Session) {
+				if session.IsTimeout(now) {
+					go session.Close()
+				}
+			})
+		case <-server.stopChan:
+			tick.Stop()
+			return
+		}
 	}
 }

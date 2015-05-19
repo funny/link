@@ -81,7 +81,7 @@ func (channel *Channel) Kick(sessionId uint64) {
 	}
 }
 
-// Fetch the sessions. NOTE: Invoke Kick() or Exit() in fetch callback will dead lock.
+// Fetch the sessions. NOTE: Dead lock happends if invoke Kick() or Exit() in fetch callback.
 func (channel *Channel) Fetch(callback func(*Session)) {
 	channel.mutex.RLock()
 	defer channel.mutex.RUnlock()
