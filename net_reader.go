@@ -53,7 +53,7 @@ func (conn *Conn) seek(n int) []byte {
 	if conn.rerr != nil {
 		return nil
 	}
-	b := conn.b[:n]
+	b := conn.rb[:n]
 	_, conn.rerr = io.ReadFull(conn.r, b)
 	return b
 }

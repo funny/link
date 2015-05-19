@@ -40,7 +40,8 @@ type Conn struct {
 	c    net.Conn
 	r    *bufio.Reader
 	w    *bufio.Writer
-	b    [10]byte
+	rb   [10]byte
+	wb   [10]byte
 	rerr error
 	werr error
 }
