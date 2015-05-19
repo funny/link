@@ -5,7 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/funny/link"
-	"github.com/funny/link/protocol/fixhead"
+	_ "github.com/funny/unitest"
 	"io"
 	"net"
 	"os/exec"
@@ -20,21 +20,40 @@ var (
 	clientNum   = flag.Int("num", 1, "client number")
 	messageSize = flag.Int("size", 64, "test message size")
 	runTime     = flag.Int("time", 10, "benchmark run time in seconds")
-	asyncChan   = flag.Int("async", 10000, "async send chan size, 0 == sync send")
 	proces      = flag.Int("procs", 1, "how many benchmark process")
 	waitMaster  = flag.Bool("wait", false, "DO NOT USE")
 )
 
-type ClientResult struct {
-	SendCount  int
-	ReadCount  int
-	WriteCount int
+type CountConn struct {
+	net.Conn
+	SendCount  uint32
+	RecvCount  uint32
+	ReadCount  uint32
+	WriteCount uint32
 }
 
-type childProc struct {
-	Cmd    *exec.Cmd
-	Stdin  io.WriteCloser
-	Stdout bytes.Buffer
+func (conn *CountConn) Read(p []byte) (n int, err error) {
+	n, err = conn.Conn.Read(p)
+	atomic.AddUint32(&conn.ReadCount, 1)
+	return
+}
+
+func (conn *CountConn) Write(p []byte) (n int, err error) {
+	n, err = conn.Conn.Write(p)
+	atomic.AddUint32(&conn.WriteCount, 1)
+	return
+}
+
+type Message []byte
+
+func (msg Message) Send(conn *link.Conn) error {
+	conn.WritePacket(msg, link.SplitByUint16BE)
+	return nil
+}
+
+func (msg Message) Receive(conn *link.Conn) error {
+	conn.ReadPacket(link.SplitByUint16BE)
+	return nil
 }
 
 const OutputFormat = "Send Count: %d, Recv Count: %d, Read Count: %d, Write Count: %d\n"
@@ -58,30 +77,23 @@ func main() {
 	}
 
 	var (
-		msg        = link.Bytes(make([]byte, *messageSize))
-		timeout    = time.Now().Add(time.Second * time.Duration(*runTime))
-		initWait   = new(sync.WaitGroup)
-		startChan  = make(chan int)
-		resultChan = make(chan ClientResult)
-		pool       = link.NewMemPool(10, 1, 10)
-		conns      = make([]*CountConn, 0, *clientNum)
+		msg       = Message(make([]byte, *messageSize))
+		timeout   = time.Now().Add(time.Second * time.Duration(*runTime))
+		initWait  = new(sync.WaitGroup)
+		startChan = make(chan int)
+		conns     = make([]*CountConn, 0, *clientNum)
 	)
 
-	link.DefaultConfig.InBufferSize = 1024
-	link.DefaultConfig.OutBufferSize = 1024
-	link.DefaultConfig.SendChanSize = *asyncChan
-
 	for i := 0; i < *clientNum; i++ {
+		initWait.Add(2)
 		conn, err := net.DialTimeout("tcp", *serverAddr, time.Second*3)
 		if err != nil {
 			panic(err)
 		}
-		initWait.Add(2)
 		countConn := &CountConn{Conn: conn}
 		conns = append(conns, countConn)
-		go client(initWait, countConn, startChan, resultChan, timeout, msg, pool)
+		go client(initWait, countConn, startChan, timeout, msg)
 	}
-
 	initWait.Wait()
 	close(startChan)
 
@@ -89,38 +101,18 @@ func main() {
 	var sum CountConn
 	for i := 0; i < *clientNum; i++ {
 		conn := conns[i]
-		conn.Close()
+		conn.Conn.Close()
 		sum.SendCount += conn.SendCount
 		sum.RecvCount += conn.RecvCount
 		sum.ReadCount += conn.ReadCount
 		sum.WriteCount += conn.WriteCount
 	}
-
 	fmt.Printf(OutputFormat, sum.SendCount, sum.RecvCount, sum.ReadCount, sum.WriteCount)
 }
 
-type CountConn struct {
-	net.Conn
-	SendCount  uint32
-	RecvCount  uint32
-	ReadCount  uint32
-	WriteCount uint32
-}
-
-func (conn *CountConn) Read(p []byte) (n int, err error) {
-	n, err = conn.Conn.Read(p)
-	atomic.AddUint32(&conn.ReadCount, 1)
-	return
-}
-
-func (conn *CountConn) Write(p []byte) (n int, err error) {
-	n, err = conn.Conn.Write(p)
-	atomic.AddUint32(&conn.WriteCount, 1)
-	return
-}
-
-func client(initWait *sync.WaitGroup, conn *CountConn, startChan chan int, resultChan chan ClientResult, timeout time.Time, msg link.Message, pool *link.MemPool) {
-	client, _ := link.NewSession(0, conn, fixhead.Uint16BE, pool, link.DefaultConfig)
+func client(initWait *sync.WaitGroup, conn *CountConn, startChan chan int, timeout time.Time, msg Message) {
+	c := link.NewConn(conn, link.DefaultConfig.ConnConfig)
+	client, _ := link.NewSession(0, c, link.DefaultConfig.SessionConfig)
 
 	var wg sync.WaitGroup
 
@@ -131,15 +123,9 @@ func client(initWait *sync.WaitGroup, conn *CountConn, startChan chan int, resul
 		<-startChan
 
 		for {
-			var err error
-			if *asyncChan == 0 {
-				err = client.Send(msg)
-			} else {
-				client.AsyncSend(msg)
-			}
-			if err != nil {
+			if err := client.Send(msg); err != nil {
 				if timeout.After(time.Now()) {
-					println("send:", err.Error())
+					println("send error:", err.Error())
 				}
 				break
 			}
@@ -153,13 +139,11 @@ func client(initWait *sync.WaitGroup, conn *CountConn, startChan chan int, resul
 		initWait.Done()
 		<-startChan
 
+		var msg Message
 		for {
-			err := client.ProcessOnce(func(*link.Buffer) error {
-				return nil
-			})
-			if err != nil {
+			if err := client.Receive(msg); err != nil {
 				if timeout.After(time.Now()) {
-					println("receive:", err.Error())
+					println("recv error:", err.Error())
 				}
 				break
 			}
@@ -168,6 +152,12 @@ func client(initWait *sync.WaitGroup, conn *CountConn, startChan chan int, resul
 	}()
 
 	wg.Wait()
+}
+
+type childProc struct {
+	Cmd    *exec.Cmd
+	Stdin  io.WriteCloser
+	Stdout bytes.Buffer
 }
 
 func MultiProcess() bool {
@@ -181,15 +171,11 @@ func MultiProcess() bool {
 	cmds := make([]*childProc, *proces)
 	for i := 0; i < *proces; i++ {
 		cmd := exec.Command(
-			"go",
-			"run",
-			"echo_benchmark.go",
+			"go", "run", "echo_benchmark.go", "wait",
 			"addr="+*serverAddr,
 			"num="+strconv.Itoa(*clientNum / *proces),
 			"size="+strconv.Itoa(*messageSize),
 			"time="+strconv.Itoa(*runTime),
-			"async="+strconv.Itoa(*asyncChan),
-			"wait",
 		)
 		stdin, err := cmd.StdinPipe()
 		if err != nil {
@@ -216,24 +202,21 @@ func MultiProcess() bool {
 		output := cmds[i].Stdout.String()
 		fmt.Print(output)
 
-		var conn CountConn
+		var c CountConn
 		fmt.Sscanf(output, OutputFormat,
-			&conn.SendCount,
-			&conn.RecvCount,
-			&conn.ReadCount,
-			&conn.WriteCount,
+			&c.SendCount,
+			&c.RecvCount,
+			&c.ReadCount,
+			&c.WriteCount,
 		)
 
-		sum.SendCount += conn.SendCount
-		sum.RecvCount += conn.RecvCount
-		sum.ReadCount += conn.ReadCount
-		sum.WriteCount += conn.WriteCount
+		sum.SendCount += c.SendCount
+		sum.RecvCount += c.RecvCount
+		sum.ReadCount += c.ReadCount
+		sum.WriteCount += c.WriteCount
 	}
 
 	fmt.Println("--------------------")
-	fmt.Printf(OutputFormat,
-		sum.SendCount, sum.RecvCount, sum.ReadCount, sum.WriteCount,
-	)
-
+	fmt.Printf(OutputFormat, sum.SendCount, sum.RecvCount, sum.ReadCount, sum.WriteCount)
 	return true
 }

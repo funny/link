@@ -4,38 +4,51 @@ import (
 	"flag"
 	"fmt"
 	"github.com/funny/link"
-	"github.com/funny/link/protocol/fixhead"
 )
 
 var (
-	serverAddr = flag.String("addr", "127.0.0.1:10010", "echo server address")
+	addr = flag.String("addr", "127.0.0.1:10010", "echo server address")
 )
 
-// This is an echo client demo work with the echo_server.
-// usage:
-//     go run main.go
-//     go run main.go -addr="127.0.0.1:10010"
 func main() {
 	flag.Parse()
 
-	client, err := link.Dial("tcp", *serverAddr, fixhead.Uint16BE, nil)
+	session, err := link.Connet("tcp", *addr)
 	if err != nil {
 		panic(err)
 	}
 
-	go client.Process(func(buf *link.Buffer) error {
-		println(string(buf.Data))
-		return nil
-	})
+	go func() {
+		var msg Message
+		for {
+			if err := session.Receive(msg); err != nil {
+				break
+			}
+		}
+	}()
 
 	for {
-		var input string
-		if _, err := fmt.Scanf("%s\n", &input); err != nil {
+		var msg Message
+		if _, err := fmt.Scanf("%s\n", &msg); err != nil {
 			break
 		}
-		client.Send(link.String(input))
+		session.Send(msg)
 	}
 
-	client.Close()
+	session.Close()
 	println("bye")
+}
+
+type Message string
+
+func (msg Message) Send(conn *link.Conn) error {
+	fmt.Printf("send: %s\n", msg)
+	conn.WritePacket([]byte(msg), link.SplitByUint16BE)
+	return nil
+}
+
+func (msg Message) Receive(conn *link.Conn) error {
+	m := conn.ReadPacket(link.SplitByUint16BE)
+	fmt.Printf("recv: %s\n", m)
+	return nil
 }
