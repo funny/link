@@ -18,7 +18,12 @@ func Dial(network, address string, protocol Protocol, pool *MemPool) (*Session, 
 		return nil, err
 	}
 	id := atomic.AddUint64(&globalSessionId, 1)
-	return NewSession(id, conn, protocol.NewCodec(), pool, DefaultConfig)
+	session := NewSession(id, conn, protocol.NewCodec(), pool, DefaultConfig)
+	err = session.Handshake()
+	if err != nil {
+		return nil, err
+	}
+	return session, nil
 }
 
 // The easy way to create a connection with timeout setting.
@@ -28,7 +33,12 @@ func DialTimeout(network, address string, timeout time.Duration, protocol Protoc
 		return nil, err
 	}
 	id := atomic.AddUint64(&globalSessionId, 1)
-	return NewSession(id, conn, protocol.NewCodec(), pool, DefaultConfig)
+	session := NewSession(id, conn, protocol.NewCodec(), pool, DefaultConfig)
+	err = session.Handshake()
+	if err != nil {
+		return nil, err
+	}
+	return session, nil
 }
 
 type Config struct {
@@ -100,7 +110,7 @@ func (conn *Conn) Close() error {
 }
 
 // Create a new session instance.
-func NewSession(id uint64, conn net.Conn, codec Codec, pool *MemPool, config Config) (*Session, error) {
+func NewSession(id uint64, conn net.Conn, codec Codec, pool *MemPool, config Config) *Session {
 	session := &Session{
 		id:                 id,
 		codec:              codec,
@@ -116,7 +126,7 @@ func NewSession(id uint64, conn net.Conn, codec Codec, pool *MemPool, config Con
 
 	go session.sendLoop()
 
-	return session, nil
+	return session
 }
 
 // Get session id.
@@ -149,7 +159,7 @@ func (session *Session) Close() {
 	}
 }
 
-func (session *Session) handshake() error {
+func (session *Session) Handshake() error {
 	if codec, ok := session.codec.(Handshake); ok {
 		return codec.Handshake(session.conn, session.inBuffer)
 	}
