@@ -1,8 +1,8 @@
 package main
 
 import (
+	"fmt"
 	"github.com/funny/link"
-	"github.com/funny/link/protocol/fixhead"
 	"time"
 )
 
@@ -10,36 +10,51 @@ import (
 // usage:
 //     go run echo_broadcast.go
 func main() {
-	server, err := link.Listen("tcp", "127.0.0.1:10010", fixhead.Uint16BE, nil)
+	server, err := link.Serve("tcp", "127.0.0.1:10010")
 	if err != nil {
 		panic(err)
 	}
 
-	channel := link.NewChannel(fixhead.Uint16BE, nil)
+	channel := link.NewChannel()
 	go func() {
 		for {
 			time.Sleep(time.Second * 2)
 			// broadcast to server sessions
-			server.Broadcast(link.String("server say: " + time.Now().String()))
+			server.Broadcast(Message("server say: " + time.Now().String()))
 			// broadcast to channel sessions
-			channel.Broadcast(link.String("channel say: " + time.Now().String()))
+			channel.Broadcast(Message("channel say: " + time.Now().String()))
 		}
 	}()
 
 	println("server start")
 
 	server.Serve(func(session *link.Session) {
-		println("client", session.Conn().RemoteAddr().String(), "in")
+		addr := session.Conn().RemoteAddr().String()
+		println("client", addr, "connected")
 		channel.Join(session, nil)
 
-		session.Process(func(buf *link.Buffer) error {
-			channel.Broadcast(link.String(
-				"client " + session.Conn().RemoteAddr().String() + " say: " + string(buf.Data),
-			))
-			return nil
-		})
+		for {
+			var msg Message
+			if err := session.Receive(&msg); err != nil {
+				break
+			}
+			println(addr, "say:", string(msg))
+			channel.Broadcast(msg)
+		}
 
-		println("client", session.Conn().RemoteAddr().String(), "close")
+		println("client", addr, "closed")
 		channel.Exit(session)
 	})
+}
+
+type Message []byte
+
+func (msg Message) Send(conn *link.Conn) error {
+	conn.WritePacket([]byte(msg), link.SplitByUint16BE)
+	return nil
+}
+
+func (msg *Message) Receive(conn *link.Conn) error {
+	*msg = conn.ReadPacket(link.SplitByUint16BE)
+	return nil
 }

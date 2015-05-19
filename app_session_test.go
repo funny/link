@@ -1,9 +1,7 @@
-package testing
+package link
 
 import (
 	"bytes"
-	"github.com/funny/link"
-	"github.com/funny/link/protocol/fixhead"
 	"github.com/funny/unitest"
 	"runtime/pprof"
 	"sync"
@@ -11,10 +9,21 @@ import (
 	"testing"
 )
 
-func Test_Server(t *testing.T) {
+type SessionTestMessage []byte
+
+func (msg SessionTestMessage) Send(conn *Conn) error {
+	conn.WritePacket(msg, SplitByUint16BE)
+	return nil
+}
+
+func (msg *SessionTestMessage) Receive(conn *Conn) error {
+	*msg = conn.ReadPacket(SplitByUint16BE)
+	return nil
+}
+
+func Test_Session(t *testing.T) {
 	var (
-		data    = []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
-		message = link.Bytes(data)
+		out = SessionTestMessage{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
 
 		sessionStart   sync.WaitGroup
 		sessionClose   sync.WaitGroup
@@ -26,23 +35,26 @@ func Test_Server(t *testing.T) {
 		messageMatchFailed  bool
 	)
 
-	server, err0 := link.Listen("tcp", "0.0.0.0:0", fixhead.Uint32BE, nil)
+	server, err0 := Serve("tcp", "0.0.0.0:0")
 	unitest.NotError(t, err0)
 
 	addr := server.Listener().Addr().String()
 
-	go server.Serve(func(session *link.Session) {
+	go server.Serve(func(session *Session) {
 		atomic.AddInt32(&sessionStartCount, 1)
 		sessionStart.Done()
 
-		session.Process(func(buffer *link.Buffer) error {
-			if !bytes.Equal(buffer.Data, data) {
+		for {
+			var in SessionTestMessage
+			if err := session.Receive(&in); err != nil {
+				break
+			}
+			if !bytes.Equal(out, in) {
 				messageMatchFailed = true
 			}
 			atomic.AddInt32(&sessionRequestCount, 1)
 			sessionRequest.Done()
-			return nil
-		})
+		}
 
 		atomic.AddInt32(&sessionCloseCount, 1)
 		sessionClose.Done()
@@ -51,32 +63,30 @@ func Test_Server(t *testing.T) {
 	// test session start
 	sessionStart.Add(1)
 	sessionClose.Add(1)
-	client1, err1 := link.Dial("tcp", addr, fixhead.Uint32BE, nil)
+	client1, err1 := Connect("tcp", addr)
 	unitest.NotError(t, err1)
 
 	sessionStart.Add(1)
 	sessionClose.Add(1)
-	client2, err2 := link.Dial("tcp", addr, fixhead.Uint32BE, nil)
+	client2, err2 := Connect("tcp", addr)
 	unitest.NotError(t, err2)
 
-	t.Log("check session start")
 	sessionStart.Wait()
 	unitest.Pass(t, sessionStartCount == 2)
 
 	// test session request
 	sessionRequest.Add(1)
-	unitest.NotError(t, client1.Send(message))
+	unitest.NotError(t, client1.Send(out))
 
 	sessionRequest.Add(1)
-	unitest.NotError(t, client2.Send(message))
+	unitest.NotError(t, client2.Send(out))
 
 	sessionRequest.Add(1)
-	unitest.NotError(t, client1.Send(message))
+	unitest.NotError(t, client1.Send(out))
 
 	sessionRequest.Add(1)
-	unitest.NotError(t, client2.Send(message))
+	unitest.NotError(t, client2.Send(out))
 
-	t.Log("check session request")
 	sessionRequest.Wait()
 
 	unitest.Pass(t, sessionRequestCount == 4)
@@ -86,7 +96,6 @@ func Test_Server(t *testing.T) {
 	client1.Close()
 	client2.Close()
 
-	t.Log("check session close")
 	sessionClose.Wait()
 	unitest.Pass(t, sessionCloseCount == 2)
 
