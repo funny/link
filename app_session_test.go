@@ -21,7 +21,7 @@ func (msg *SessionTestMessage) Receive(conn *Conn) error {
 	return nil
 }
 
-func Test_Server(t *testing.T) {
+func Test_Session(t *testing.T) {
 	var (
 		out = SessionTestMessage{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
 
@@ -71,7 +71,6 @@ func Test_Server(t *testing.T) {
 	client2, err2 := Connect("tcp", addr)
 	unitest.NotError(t, err2)
 
-	t.Log("check session start")
 	sessionStart.Wait()
 	unitest.Pass(t, sessionStartCount == 2)
 
@@ -88,7 +87,6 @@ func Test_Server(t *testing.T) {
 	sessionRequest.Add(1)
 	unitest.NotError(t, client2.Send(out))
 
-	t.Log("check session request")
 	sessionRequest.Wait()
 
 	unitest.Pass(t, sessionRequestCount == 4)
@@ -98,7 +96,6 @@ func Test_Server(t *testing.T) {
 	client1.Close()
 	client2.Close()
 
-	t.Log("check session close")
 	sessionClose.Wait()
 	unitest.Pass(t, sessionCloseCount == 2)
 
