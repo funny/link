@@ -24,6 +24,10 @@ type Spliter interface {
 	Write(conn *Conn, b []byte) error
 }
 
+type Limiter interface {
+	Limit(conn *Conn) *io.LimitedReader
+}
+
 type DelimSpliter struct {
 	delim byte
 }
@@ -69,6 +73,11 @@ func (s HeadSpliter) Write(conn *Conn, b []byte) error {
 	}
 	_, err := conn.w.Write(b)
 	return err
+}
+
+func (s HeadSpliter) Limit(conn *Conn) *io.LimitedReader {
+	n := s.ReadHead(conn)
+	return &io.LimitedReader{conn.Reader(), int64(n)}
 }
 
 var (
