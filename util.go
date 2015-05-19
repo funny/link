@@ -48,7 +48,7 @@ func Dial(network, address string) (*Conn, error) {
 	return NewConn(c, DefaultConfig.ConnConfig), nil
 }
 
-func Connet(network, address string) (*Session, error) {
+func Connect(network, address string) (*Session, error) {
 	conn, err := Dial(network, address)
 	if err != nil {
 		return nil, err

@@ -13,7 +13,7 @@ var (
 func main() {
 	flag.Parse()
 
-	session, err := link.Connet("tcp", *addr)
+	session, err := link.Connect("tcp", *addr)
 	if err != nil {
 		panic(err)
 	}
