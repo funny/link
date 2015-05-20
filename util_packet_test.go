@@ -18,7 +18,7 @@ func RandBytes(n int) []byte {
 }
 
 func Test_Delim_Spliter(t *testing.T) {
-	NetTest(t, 1000, func(r, w *Conn) {
+	ConnTest(t, 1000, func(r, w *Conn) {
 		b1 := RandBytes(1024)
 		b2 := make([]byte, base64.StdEncoding.EncodedLen(len(b1)))
 		base64.StdEncoding.Encode(b2, b1)
@@ -38,7 +38,7 @@ func Test_Delim_Spliter(t *testing.T) {
 }
 
 func Test_Uvarint_Spliter(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		b1 := RandBytes(1024)
 		w.WritePacket(b1, SplitByUvarint)
 		w.Flush()
@@ -51,7 +51,7 @@ func Test_Uvarint_Spliter(t *testing.T) {
 }
 
 func Test_Uint8_Spliter(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		b1 := RandBytes(256)
 		w.WritePacket(b1, SplitByUint8)
 		w.Flush()
@@ -64,7 +64,7 @@ func Test_Uint8_Spliter(t *testing.T) {
 }
 
 func Test_Uint16BE_Spliter(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		b1 := RandBytes(1024)
 		w.WritePacket(b1, SplitByUint16BE)
 		w.Flush()
@@ -77,7 +77,7 @@ func Test_Uint16BE_Spliter(t *testing.T) {
 }
 
 func Test_Uint16LE_Spliter(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		b1 := RandBytes(1024)
 		w.WritePacket(b1, SplitByUint16LE)
 		w.Flush()
@@ -90,7 +90,7 @@ func Test_Uint16LE_Spliter(t *testing.T) {
 }
 
 func Test_Uint24BE_Spliter(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		b1 := RandBytes(1024)
 		w.WritePacket(b1, SplitByUint24BE)
 		w.Flush()
@@ -103,7 +103,7 @@ func Test_Uint24BE_Spliter(t *testing.T) {
 }
 
 func Test_Uint24LE_Spliter(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		b1 := RandBytes(1024)
 		w.WritePacket(b1, SplitByUint24LE)
 		w.Flush()
@@ -116,7 +116,7 @@ func Test_Uint24LE_Spliter(t *testing.T) {
 }
 
 func Test_Uint32BE_Spliter(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		b1 := RandBytes(1024)
 		w.WritePacket(b1, SplitByUint32BE)
 		w.Flush()
@@ -129,7 +129,7 @@ func Test_Uint32BE_Spliter(t *testing.T) {
 }
 
 func Test_Uint32LE_Spliter(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		b1 := RandBytes(1024)
 		w.WritePacket(b1, SplitByUint32LE)
 		unitest.NotError(t, w.werr)
@@ -143,7 +143,7 @@ func Test_Uint32LE_Spliter(t *testing.T) {
 }
 
 func Test_Uint40BE_Spliter(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		b1 := RandBytes(1024)
 		w.WritePacket(b1, SplitByUint40BE)
 		w.Flush()
@@ -156,7 +156,7 @@ func Test_Uint40BE_Spliter(t *testing.T) {
 }
 
 func Test_Uint40LE_Spliter(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		b1 := RandBytes(1024)
 		w.WritePacket(b1, SplitByUint40LE)
 		w.Flush()
@@ -169,7 +169,7 @@ func Test_Uint40LE_Spliter(t *testing.T) {
 }
 
 func Test_Uint48BE_Spliter(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		b1 := RandBytes(1024)
 		w.WritePacket(b1, SplitByUint48BE)
 		w.Flush()
@@ -182,7 +182,7 @@ func Test_Uint48BE_Spliter(t *testing.T) {
 }
 
 func Test_Uint48LE_Spliter(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		b1 := RandBytes(1024)
 		w.WritePacket(b1, SplitByUint48LE)
 		w.Flush()
@@ -195,7 +195,7 @@ func Test_Uint48LE_Spliter(t *testing.T) {
 }
 
 func Test_Uint56BE_Spliter(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		b1 := RandBytes(1024)
 		w.WritePacket(b1, SplitByUint56BE)
 		w.Flush()
@@ -208,7 +208,7 @@ func Test_Uint56BE_Spliter(t *testing.T) {
 }
 
 func Test_Uint56LE_Spliter(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		b1 := RandBytes(1024)
 		w.WritePacket(b1, SplitByUint56LE)
 		unitest.NotError(t, w.werr)
@@ -222,7 +222,7 @@ func Test_Uint56LE_Spliter(t *testing.T) {
 }
 
 func Test_Uint64BE_Spliter(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		b1 := RandBytes(1024)
 		w.WritePacket(b1, SplitByUint64BE)
 		w.Flush()
@@ -235,7 +235,7 @@ func Test_Uint64BE_Spliter(t *testing.T) {
 }
 
 func Test_Uint64LE_Spliter(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		b1 := RandBytes(1024)
 		w.WritePacket(b1, SplitByUint64LE)
 		w.Flush()

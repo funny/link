@@ -13,7 +13,7 @@ type TestMessage struct {
 }
 
 func Test_JSON(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		b1 := TestMessage{rand.Intn(0xFFFFFFFF), RandBytes(1024)}
 		err := JSON{b1, SplitByLine}.Send(w)
 		w.Flush()
@@ -30,7 +30,7 @@ func Test_JSON(t *testing.T) {
 }
 
 func Test_GOB(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		b1 := TestMessage{rand.Intn(0xFFFFFFFF), RandBytes(1024)}
 		err := GOB{b1, SplitByUint16BE}.Send(w)
 		w.Flush()

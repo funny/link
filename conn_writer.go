@@ -11,6 +11,25 @@ func (conn *Conn) Flush() {
 	conn.w.Flush()
 }
 
+func (conn *Conn) Write(b []byte) (n int, err error) {
+	n, err = conn.w.Write(b)
+	conn.werr = err
+	return
+}
+
+func (conn *Conn) WriteByte(b byte) (err error) {
+	err = conn.w.WriteByte(b)
+	conn.werr = err
+	return
+}
+
+func (conn *Conn) WritePacket(b []byte, spliter Spliter) {
+	if conn.werr != nil {
+		return
+	}
+	spliter.Write(conn, b)
+}
+
 func (conn *Conn) WriteBytes(b []byte) {
 	if conn.werr != nil {
 		return
@@ -20,6 +39,10 @@ func (conn *Conn) WriteBytes(b []byte) {
 
 func (conn *Conn) WriteString(s string) {
 	conn.WriteBytes([]byte(s))
+}
+
+func (conn *Conn) WriteRune(r rune) {
+	_, conn.werr = conn.w.WriteRune(r)
 }
 
 func (conn *Conn) WriteUvarint(v uint64) {

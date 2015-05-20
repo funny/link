@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func NetTest(t *testing.T, n int, test func(r, w *Conn)) {
+func ConnTest(t *testing.T, n int, test func(r, w *Conn)) {
 	listener, err := Listen("tcp", "0.0.0.0:0")
 	unitest.NotError(t, err)
 	defer func() { unitest.NotError(t, listener.Close()) }()
@@ -37,7 +37,7 @@ func NetTest(t *testing.T, n int, test func(r, w *Conn)) {
 }
 
 func Test_Uint8(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		v1 := uint8(rand.Intn(256))
 		w.WriteUint8(v1)
 		w.Flush()
@@ -50,7 +50,7 @@ func Test_Uint8(t *testing.T) {
 }
 
 func Test_Uint16BE(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		v1 := uint16(rand.Intn(0xFFFF))
 		w.WriteUint16BE(v1)
 		w.Flush()
@@ -63,7 +63,7 @@ func Test_Uint16BE(t *testing.T) {
 }
 
 func Test_Uint16LE(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		v1 := uint16(rand.Intn(0xFFFF))
 		w.WriteUint16LE(v1)
 		w.Flush()
@@ -76,7 +76,7 @@ func Test_Uint16LE(t *testing.T) {
 }
 
 func Test_Uint24BE(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		v1 := uint32(rand.Intn(0xFFFFFF))
 		w.WriteUint24BE(v1)
 		w.Flush()
@@ -89,7 +89,7 @@ func Test_Uint24BE(t *testing.T) {
 }
 
 func Test_Uint24LE(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		v1 := uint32(rand.Intn(0xFFFFFF))
 		w.WriteUint24LE(v1)
 		w.Flush()
@@ -102,7 +102,7 @@ func Test_Uint24LE(t *testing.T) {
 }
 
 func Test_Uint32BE(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		v1 := uint32(rand.Intn(0xFFFFFFFF))
 		w.WriteUint32BE(v1)
 		w.Flush()
@@ -115,7 +115,7 @@ func Test_Uint32BE(t *testing.T) {
 }
 
 func Test_Uint32LE(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		v1 := uint32(rand.Intn(0xFFFFFFFF))
 		w.WriteUint32LE(v1)
 		unitest.NotError(t, w.werr)
@@ -129,7 +129,7 @@ func Test_Uint32LE(t *testing.T) {
 }
 
 func Test_Uint40BE(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		v1 := uint64(rand.Intn(0xFFFFFFFFFF))
 		w.WriteUint64BE(v1)
 		w.Flush()
@@ -142,7 +142,7 @@ func Test_Uint40BE(t *testing.T) {
 }
 
 func Test_Uint40LE(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		v1 := uint64(rand.Intn(0xFFFFFFFFFF))
 		w.WriteUint40LE(v1)
 		w.Flush()
@@ -155,7 +155,7 @@ func Test_Uint40LE(t *testing.T) {
 }
 
 func Test_Uint48BE(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		v1 := uint64(rand.Intn(0xFFFFFFFFFFFF))
 		w.WriteUint48BE(v1)
 		w.Flush()
@@ -168,7 +168,7 @@ func Test_Uint48BE(t *testing.T) {
 }
 
 func Test_Uint48LE(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		v1 := uint64(rand.Intn(0xFFFFFFFFFFFF))
 		w.WriteUint48LE(v1)
 		w.Flush()
@@ -181,7 +181,7 @@ func Test_Uint48LE(t *testing.T) {
 }
 
 func Test_Uint56BE(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		v1 := uint64(rand.Intn(0xFFFFFFFFFFFFFF))
 		w.WriteUint56BE(v1)
 		w.Flush()
@@ -194,7 +194,7 @@ func Test_Uint56BE(t *testing.T) {
 }
 
 func Test_Uint56LE(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		v1 := uint64(rand.Intn(0xFFFFFFFFFFFFFF))
 		w.WriteUint56LE(v1)
 		w.Flush()
@@ -207,7 +207,7 @@ func Test_Uint56LE(t *testing.T) {
 }
 
 func Test_Uint64BE(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		v1 := uint64(rand.Int63n(0x7FFFFFFFFFFFFFFF))
 		w.WriteUint64BE(v1)
 		w.Flush()
@@ -220,7 +220,7 @@ func Test_Uint64BE(t *testing.T) {
 }
 
 func Test_Uint64LE(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		v1 := uint64(rand.Int63n(0x7FFFFFFFFFFFFFFF))
 		w.WriteUint64LE(v1)
 		w.Flush()
@@ -233,7 +233,7 @@ func Test_Uint64LE(t *testing.T) {
 }
 
 func Test_Uvarint(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		v1 := uint64(rand.Int63n(0x7FFFFFFFFFFFFFFF))
 		w.WriteUvarint(v1)
 		w.Flush()
@@ -246,7 +246,7 @@ func Test_Uvarint(t *testing.T) {
 }
 
 func Test_Varint(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		v1 := int64(rand.Int63n(0x7FFFFFFFFFFFFFFF))
 		w.WriteVarint(v1)
 		w.Flush()
@@ -259,7 +259,7 @@ func Test_Varint(t *testing.T) {
 }
 
 func Test_Float32BE(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		v1 := float32(rand.NormFloat64())
 		w.WriteFloat32BE(v1)
 		w.Flush()
@@ -272,7 +272,7 @@ func Test_Float32BE(t *testing.T) {
 }
 
 func Test_Float32LE(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		v1 := float32(rand.NormFloat64())
 		w.WriteFloat32LE(v1)
 		w.Flush()
@@ -285,7 +285,7 @@ func Test_Float32LE(t *testing.T) {
 }
 
 func Test_Float64BE(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		v1 := rand.NormFloat64()
 		w.WriteFloat64BE(v1)
 		w.Flush()
@@ -298,7 +298,7 @@ func Test_Float64BE(t *testing.T) {
 }
 
 func Test_Float64LE(t *testing.T) {
-	NetTest(t, 10000, func(r, w *Conn) {
+	ConnTest(t, 10000, func(r, w *Conn) {
 		v1 := rand.NormFloat64()
 		w.WriteFloat64LE(v1)
 		w.Flush()

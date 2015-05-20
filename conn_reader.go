@@ -6,6 +6,39 @@ import (
 	"math"
 )
 
+var _ Reader = &Conn{}
+
+func (conn *Conn) Read(b []byte) (n int, err error) {
+	n, err = conn.r.Read(b)
+	conn.rerr = err
+	return
+}
+
+func (conn *Conn) ReadByte() (b byte, err error) {
+	b, err = conn.r.ReadByte()
+	conn.rerr = err
+	return
+}
+
+func (conn *Conn) ReadRune() (r rune, n int, err error) {
+	r, n, err = conn.r.ReadRune()
+	conn.rerr = err
+	return
+}
+
+func (conn *Conn) Delim(delim byte) (b []byte) {
+	b, conn.rerr = conn.r.ReadBytes(delim)
+	return
+}
+
+func (conn *Conn) ReadPacket(spliter Spliter) (b []byte) {
+	if conn.rerr != nil {
+		return nil
+	}
+	b = spliter.Read(conn)
+	return
+}
+
 func (conn *Conn) ReadFull(b []byte) (n int, err error) {
 	if conn.rerr != nil {
 		return 0, conn.rerr

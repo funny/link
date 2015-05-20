@@ -13,14 +13,6 @@ var (
 	AsyncSendTimeoutError = errors.New("Async send timeout")
 )
 
-type OutMessage interface {
-	Send(conn *Conn) error
-}
-
-type InMessage interface {
-	Receive(conn *Conn) error
-}
-
 type SessionConfig struct {
 	AutoFlush         bool
 	SendTimeout       time.Duration
@@ -94,9 +86,15 @@ func (session *Session) Flush() {
 	session.sendMutex.Lock()
 	defer session.sendMutex.Unlock()
 
-	session.sendDeadline = time.Now().Add(session.sendTimeout)
+	if session.sendTimeout != 0 {
+		session.sendDeadline = time.Now().Add(session.sendTimeout)
+	}
+
 	session.conn.Flush()
-	session.sendDeadline = time.Time{}
+
+	if session.sendTimeout != 0 {
+		session.sendDeadline = time.Time{}
+	}
 }
 
 func (session *Session) Send(msg OutMessage) error {
@@ -106,20 +104,23 @@ func (session *Session) Send(msg OutMessage) error {
 	if session.sendTimeout != 0 {
 		session.sendDeadline = time.Now().Add(session.sendTimeout)
 	}
+
 	if err := msg.Send(session.conn); err != nil {
 		session.Close()
 		return err
 	}
+
 	if session.autoFlush {
 		session.conn.Flush()
 	}
+
 	if session.sendTimeout != 0 {
 		session.sendDeadline = time.Time{}
 	}
 
-	if session.conn.WError() != nil {
+	if session.conn.WriterError() != nil {
 		session.Close()
-		return session.conn.WError()
+		return session.conn.WriterError()
 	}
 
 	return nil
@@ -132,18 +133,21 @@ func (session *Session) Receive(message InMessage) error {
 	if session.receiveTimeout != 0 {
 		session.receiveDeadline = time.Now().Add(session.receiveTimeout)
 	}
+
 	if err := message.Receive(session.conn); err != nil {
 		session.Close()
 		return err
 	}
+
 	if session.receiveTimeout != 0 {
 		session.receiveDeadline = time.Time{}
 	}
 
-	if session.conn.RError() != nil {
+	if session.conn.ReaderError() != nil {
 		session.Close()
-		return session.conn.RError()
+		return session.conn.ReaderError()
 	}
+
 	return nil
 }
 
@@ -153,11 +157,11 @@ func (session *Session) IsTimeout(now time.Time) bool {
 }
 
 type AsyncWork struct {
-	c <-chan error
+	C <-chan error
 }
 
 func (aw AsyncWork) Wait() error {
-	return <-aw.c
+	return <-aw.C
 }
 
 type asyncOutMessage struct {

@@ -74,5 +74,5 @@ func (conn *Conn) LocalAddr() net.Addr   { return conn.c.LocalAddr() }
 func (conn *Conn) RemoteAddr() net.Addr  { return conn.c.RemoteAddr() }
 func (conn *Conn) Reader() *bufio.Reader { return conn.r }
 func (conn *Conn) Writer() *bufio.Writer { return conn.w }
-func (conn *Conn) RError() error         { return conn.rerr }
-func (conn *Conn) WError() error         { return conn.werr }
+func (conn *Conn) ReaderError() error    { return conn.rerr }
+func (conn *Conn) WriterError() error    { return conn.werr }
