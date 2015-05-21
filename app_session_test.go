@@ -2,6 +2,7 @@ package link
 
 import (
 	"bytes"
+	"github.com/funny/binary"
 	"github.com/funny/unitest"
 	"runtime/pprof"
 	"sync"
@@ -12,13 +13,13 @@ import (
 
 type SessionTestMessage []byte
 
-func (msg SessionTestMessage) Send(conn Writer) error {
-	conn.WritePacket(msg, SplitByUint16BE)
+func (msg SessionTestMessage) Send(conn *binary.Writer) error {
+	conn.WritePacket(msg, binary.SplitByUint16BE)
 	return nil
 }
 
-func (msg *SessionTestMessage) Receive(conn Reader) error {
-	*msg = conn.ReadPacket(SplitByUint16BE)
+func (msg *SessionTestMessage) Receive(conn *binary.Reader) error {
+	*msg = conn.ReadPacket(binary.SplitByUint16BE)
 	return nil
 }
 
@@ -106,8 +107,8 @@ func Test_Session(t *testing.T) {
 type TimeoutMessage struct {
 }
 
-func (msg TimeoutMessage) Receive(conn Reader) error {
-	conn.ReadPacket(SplitByUint16BE)
+func (msg TimeoutMessage) Receive(conn *binary.Reader) error {
+	conn.ReadPacket(binary.SplitByUint16BE)
 	return nil
 }
 

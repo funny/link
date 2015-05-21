@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/funny/binary"
 	"github.com/funny/link"
 )
 
@@ -41,14 +42,14 @@ func main() {
 
 type Message string
 
-func (msg Message) Send(conn *link.Conn) error {
+func (msg Message) Send(conn *binary.Writer) error {
 	fmt.Printf("send: %s\n", msg)
-	conn.WritePacket([]byte(msg), link.SplitByUint16BE)
+	conn.WritePacket([]byte(msg), binary.SplitByUint16BE)
 	return nil
 }
 
-func (msg Message) Receive(conn *link.Conn) error {
-	m := conn.ReadPacket(link.SplitByUint16BE)
+func (msg Message) Receive(conn *binary.Reader) error {
+	m := conn.ReadPacket(binary.SplitByUint16BE)
 	fmt.Printf("recv: %s\n", m)
 	return nil
 }

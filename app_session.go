@@ -90,7 +90,7 @@ func (session *Session) Flush() {
 		session.sendDeadline = time.Now().Add(session.sendTimeout)
 	}
 
-	session.conn.Flush()
+	session.conn.w.Flush()
 
 	if session.sendTimeout != 0 {
 		session.sendDeadline = time.Time{}
@@ -105,22 +105,22 @@ func (session *Session) Send(msg OutMessage) error {
 		session.sendDeadline = time.Now().Add(session.sendTimeout)
 	}
 
-	if err := msg.Send(session.conn); err != nil {
+	if err := msg.Send(session.conn.w); err != nil {
 		session.Close()
 		return err
 	}
 
 	if session.autoFlush {
-		session.conn.Flush()
+		session.conn.w.Flush()
 	}
 
 	if session.sendTimeout != 0 {
 		session.sendDeadline = time.Time{}
 	}
 
-	if session.conn.WriterError() != nil {
+	if session.conn.w.Error() != nil {
 		session.Close()
-		return session.conn.WriterError()
+		return session.conn.w.Error()
 	}
 
 	return nil
@@ -134,7 +134,7 @@ func (session *Session) Receive(message InMessage) error {
 		session.receiveDeadline = time.Now().Add(session.receiveTimeout)
 	}
 
-	if err := message.Receive(session.conn); err != nil {
+	if err := message.Receive(session.conn.r); err != nil {
 		session.Close()
 		return err
 	}
@@ -143,9 +143,9 @@ func (session *Session) Receive(message InMessage) error {
 		session.receiveDeadline = time.Time{}
 	}
 
-	if session.conn.ReaderError() != nil {
+	if session.conn.r.Error() != nil {
 		session.Close()
-		return session.conn.ReaderError()
+		return session.conn.r.Error()
 	}
 
 	return nil

@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/funny/binary"
 	"github.com/funny/link"
 	_ "github.com/funny/unitest"
 )
@@ -38,13 +39,13 @@ func main() {
 
 type Message []byte
 
-func (msg Message) Send(conn *link.Conn) error {
-	conn.WritePacket(msg, link.SplitByUint16BE)
+func (msg Message) Send(conn *binary.Writer) error {
+	conn.WritePacket(msg, binary.SplitByUint16BE)
 	return nil
 }
 
-func (msg *Message) Receive(conn *link.Conn) error {
-	*msg = conn.ReadPacket(link.SplitByUint16BE)
+func (msg *Message) Receive(conn *binary.Reader) error {
+	*msg = conn.ReadPacket(binary.SplitByUint16BE)
 	return nil
 }
 

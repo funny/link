@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"github.com/funny/binary"
 	"github.com/funny/link"
 	_ "github.com/funny/unitest"
 	"io"
@@ -46,13 +47,13 @@ func (conn *CountConn) Write(p []byte) (n int, err error) {
 
 type Message []byte
 
-func (msg Message) Send(conn *link.Conn) error {
-	conn.WritePacket(msg, link.SplitByUint16BE)
+func (msg Message) Send(conn *binary.Writer) error {
+	conn.WritePacket(msg, binary.SplitByUint16BE)
 	return nil
 }
 
-func (msg Message) Receive(conn *link.Conn) error {
-	conn.ReadPacket(link.SplitByUint16BE)
+func (msg Message) Receive(conn *binary.Reader) error {
+	conn.ReadPacket(binary.SplitByUint16BE)
 	return nil
 }
 
@@ -112,7 +113,7 @@ func main() {
 
 func client(initWait *sync.WaitGroup, conn *CountConn, startChan chan int, timeout time.Time, msg Message) {
 	c := link.NewConn(conn, link.DefaultConfig.ConnConfig)
-	client, _ := link.NewSession(0, c, link.DefaultConfig.SessionConfig)
+	client := link.NewSession(0, c, link.DefaultConfig.SessionConfig)
 
 	var wg sync.WaitGroup
 

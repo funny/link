@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"github.com/funny/binary"
 	"github.com/funny/link"
 	"time"
 )
@@ -49,12 +49,12 @@ func main() {
 
 type Message []byte
 
-func (msg Message) Send(conn *link.Conn) error {
-	conn.WritePacket([]byte(msg), link.SplitByUint16BE)
+func (msg Message) Send(conn *binary.Writer) error {
+	conn.WritePacket([]byte(msg), binary.SplitByUint16BE)
 	return nil
 }
 
-func (msg *Message) Receive(conn *link.Conn) error {
-	*msg = conn.ReadPacket(link.SplitByUint16BE)
+func (msg *Message) Receive(conn *binary.Reader) error {
+	*msg = conn.ReadPacket(binary.SplitByUint16BE)
 	return nil
 }

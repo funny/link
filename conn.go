@@ -1,7 +1,7 @@
 package link
 
 import (
-	"bufio"
+	"github.com/funny/binary"
 	"net"
 	"time"
 )
@@ -37,42 +37,28 @@ func (listener *Listener) Close() error {
 }
 
 type Conn struct {
-	c    net.Conn
-	r    *bufio.Reader
-	w    *bufio.Writer
-	rb   [10]byte
-	wb   [10]byte
-	rerr error
-	werr error
+	c net.Conn
+	r *binary.Reader
+	w *binary.Writer
 }
 
 func NewConn(c net.Conn, config ConnConfig) *Conn {
 	return &Conn{
 		c: c,
-		r: bufio.NewReaderSize(c, config.ReadBufferSize),
-		w: bufio.NewWriterSize(c, config.WriteBufferSize),
+		r: binary.NewBufioReader(c, config.ReadBufferSize),
+		w: binary.NewBufioWriter(c, config.WriteBufferSize),
 	}
 }
 
 func (conn *Conn) Close() (err error) {
-	if conn.werr == nil && conn.rerr == nil {
+	if conn.w.Error() == nil && conn.r.Error() == nil {
 		conn.c.SetDeadline(time.Now().Add(time.Second * 3))
-		conn.Flush()
+		conn.w.Flush()
 	}
 	return conn.c.Close()
 }
 
-func (conn *Conn) Reset(c net.Conn) {
-	conn.c = c
-	conn.r.Reset(c)
-	conn.w.Reset(c)
-	conn.rerr = nil
-	conn.werr = nil
-}
-
-func (conn *Conn) LocalAddr() net.Addr   { return conn.c.LocalAddr() }
-func (conn *Conn) RemoteAddr() net.Addr  { return conn.c.RemoteAddr() }
-func (conn *Conn) Reader() *bufio.Reader { return conn.r }
-func (conn *Conn) Writer() *bufio.Writer { return conn.w }
-func (conn *Conn) ReaderError() error    { return conn.rerr }
-func (conn *Conn) WriterError() error    { return conn.werr }
+func (conn *Conn) LocalAddr() net.Addr    { return conn.c.LocalAddr() }
+func (conn *Conn) RemoteAddr() net.Addr   { return conn.c.RemoteAddr() }
+func (conn *Conn) Reader() *binary.Reader { return conn.r }
+func (conn *Conn) Writer() *binary.Writer { return conn.w }
