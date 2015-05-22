@@ -8,6 +8,7 @@ import (
 	"github.com/funny/link"
 	_ "github.com/funny/unitest"
 	"io"
+	"math/rand"
 	"net"
 	"os/exec"
 	"strconv"
@@ -22,6 +23,7 @@ var (
 	messageSize = flag.Int("size", 64, "test message size")
 	runTime     = flag.Int("time", 10, "benchmark run time in seconds")
 	proces      = flag.Int("procs", 1, "how many benchmark process")
+	randsize    = flag.Bool("rand", false, "random message size")
 	waitMaster  = flag.Bool("wait", false, "DO NOT USE")
 )
 
@@ -86,13 +88,15 @@ func main() {
 	)
 
 	for i := 0; i < *clientNum; i++ {
-		initWait.Add(2)
 		conn, err := net.DialTimeout("tcp", *serverAddr, time.Second*3)
 		if err != nil {
 			panic(err)
 		}
+
 		countConn := &CountConn{Conn: conn}
 		conns = append(conns, countConn)
+
+		initWait.Add(2)
 		go client(initWait, countConn, startChan, timeout, msg)
 	}
 	initWait.Wait()
@@ -124,7 +128,11 @@ func client(initWait *sync.WaitGroup, conn *CountConn, startChan chan int, timeo
 		<-startChan
 
 		for {
-			if err := client.Send(msg); err != nil {
+			outMsg := msg
+			if *randsize {
+				outMsg = Message(make([]byte, rand.Intn(*messageSize)))
+			}
+			if err := client.Send(outMsg); err != nil {
 				if timeout.After(time.Now()) {
 					println("send error:", err.Error())
 				}
@@ -140,9 +148,9 @@ func client(initWait *sync.WaitGroup, conn *CountConn, startChan chan int, timeo
 		initWait.Done()
 		<-startChan
 
-		var msg Message
+		var inMsg Message
 		for {
-			if err := client.Receive(msg); err != nil {
+			if err := client.Receive(inMsg); err != nil {
 				if timeout.After(time.Now()) {
 					println("recv error:", err.Error())
 				}
