@@ -4,7 +4,6 @@ import (
 	"net"
 	"sync"
 	"sync/atomic"
-	"time"
 )
 
 type Config struct {
@@ -36,7 +35,6 @@ func NewServer(listener *Listener, config Config) *Server {
 		stopChan: make(chan int),
 		Config:   config,
 	}
-	go server.checkAlive()
 	return server
 }
 
@@ -134,23 +132,5 @@ func (server *Server) closeSessions() {
 	sessions := server.copySessions()
 	for _, session := range sessions {
 		session.Close()
-	}
-}
-
-func (server *Server) checkAlive() {
-	tick := time.NewTicker(time.Second)
-	for {
-		select {
-		case <-tick.C:
-			now := time.Now()
-			server.sessionFetcher(func(session *Session) {
-				if session.IsTimeout(now) {
-					go session.Close()
-				}
-			})
-		case <-server.stopChan:
-			tick.Stop()
-			return
-		}
 	}
 }

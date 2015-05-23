@@ -1,3 +1,9 @@
+2015-05-21
+
+* 将旧版的Buffer和新版的Conn中关于协议解析的方法统一成binary.Reader和binary.Writer
+* 将旧版Buffer实现io相关接口的部分提取到binary.Buffer
+* 将InMessage和OutMessage的参数改为binary.Reader和binary.Writer，使用者既可以使用基于bufio的通讯层，也可以实现基于Buffer的网络层
+
 2015-05-19
 
 * 简化设计，明确库的定位
