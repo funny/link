@@ -36,6 +36,9 @@ type Session struct {
 	closeFlag       int32
 	closeEventMutex sync.Mutex
 	closeCallbacks  *list.List
+
+	// Put your session state here.
+	State interface{}
 }
 
 func NewSession(id uint64, conn *Conn, config SessionConfig) *Session {
