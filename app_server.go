@@ -24,8 +24,6 @@ type Server struct {
 	stopFlag int32
 	stopChan chan int
 	stopWait sync.WaitGroup
-
-	State interface{} // server state.
 }
 
 func NewServer(listener *Listener, config Config) *Server {

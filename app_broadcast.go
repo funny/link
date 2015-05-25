@@ -25,9 +25,6 @@ func Broadcast(msg OutMessage, fetcher SessionFetcher) ([]BroadcastWork, error) 
 type Channel struct {
 	mutex    sync.RWMutex
 	sessions map[uint64]channelSession
-
-	// channel state
-	State interface{}
 }
 
 type channelSession struct {
