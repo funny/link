@@ -15,8 +15,6 @@ var (
 
 type SessionConfig struct {
 	AutoFlush         bool
-	SendTimeout       time.Duration
-	ReceiveTimeout    time.Duration
 	AsyncSendTimeout  time.Duration
 	AsyncSendChanSize int
 }
@@ -29,10 +27,7 @@ type Session struct {
 	recvMutex        sync.Mutex
 	sendMutex        sync.Mutex
 	autoFlush        bool
-	sendTimeout      time.Duration
-	sendDeadline     time.Time
-	receiveTimeout   time.Duration
-	receiveDeadline  time.Time
+	sendLoopFlag     int32
 	asyncSendChan    chan asyncOutMessage
 	asyncSendTimeout time.Duration
 
@@ -47,7 +42,7 @@ type Session struct {
 }
 
 func NewSession(id uint64, conn *Conn, config SessionConfig) *Session {
-	session := &Session{
+	return &Session{
 		id:               id,
 		conn:             conn,
 		autoFlush:        config.AutoFlush,
@@ -56,10 +51,6 @@ func NewSession(id uint64, conn *Conn, config SessionConfig) *Session {
 		closeChan:        make(chan int),
 		closeCallbacks:   list.New(),
 	}
-
-	go session.sendLoop()
-
-	return session
 }
 
 func (session *Session) Id() uint64 {
@@ -86,24 +77,12 @@ func (session *Session) Flush() {
 	session.sendMutex.Lock()
 	defer session.sendMutex.Unlock()
 
-	if session.sendTimeout != 0 {
-		session.sendDeadline = time.Now().Add(session.sendTimeout)
-	}
-
 	session.conn.w.Flush()
-
-	if session.sendTimeout != 0 {
-		session.sendDeadline = time.Time{}
-	}
 }
 
 func (session *Session) Send(msg OutMessage) error {
 	session.sendMutex.Lock()
 	defer session.sendMutex.Unlock()
-
-	if session.sendTimeout != 0 {
-		session.sendDeadline = time.Now().Add(session.sendTimeout)
-	}
 
 	if err := msg.Send(session.conn.w); err != nil {
 		session.Close()
@@ -112,10 +91,6 @@ func (session *Session) Send(msg OutMessage) error {
 
 	if session.autoFlush {
 		session.conn.w.Flush()
-	}
-
-	if session.sendTimeout != 0 {
-		session.sendDeadline = time.Time{}
 	}
 
 	if session.conn.w.Error() != nil {
@@ -130,17 +105,9 @@ func (session *Session) Receive(message InMessage) error {
 	session.recvMutex.Lock()
 	defer session.recvMutex.Unlock()
 
-	if session.receiveTimeout != 0 {
-		session.receiveDeadline = time.Now().Add(session.receiveTimeout)
-	}
-
 	if err := message.Receive(session.conn.r); err != nil {
 		session.Close()
 		return err
-	}
-
-	if session.receiveTimeout != 0 {
-		session.receiveDeadline = time.Time{}
 	}
 
 	if session.conn.r.Error() != nil {
@@ -149,11 +116,6 @@ func (session *Session) Receive(message InMessage) error {
 	}
 
 	return nil
-}
-
-func (session *Session) IsTimeout(now time.Time) bool {
-	return (!session.sendDeadline.IsZero() && session.sendDeadline.Before(now)) ||
-		(!session.receiveDeadline.IsZero() && session.receiveDeadline.Before(now))
 }
 
 type AsyncWork struct {
@@ -167,6 +129,12 @@ func (aw AsyncWork) Wait() error {
 type asyncOutMessage struct {
 	C chan<- error
 	M OutMessage
+}
+
+func (session *Session) initSendLoop() {
+	if atomic.CompareAndSwapInt32(&session.sendLoopFlag, 0, 1) {
+		go session.sendLoop()
+	}
 }
 
 func (session *Session) sendLoop() {
@@ -187,6 +155,8 @@ func (session *Session) AsyncSend(msg OutMessage) AsyncWork {
 		c <- SendToClosedError
 		return AsyncWork{c}
 	}
+
+	session.initSendLoop()
 
 	select {
 	case session.asyncSendChan <- asyncOutMessage{c, msg}:
