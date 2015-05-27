@@ -111,7 +111,7 @@ func MakeSureSessionGoroutineExit(t *testing.T) {
 		t.Fatalf("Dump goroutine failed: %v", err)
 	}
 
-	if n := bytes.Index(buff.Bytes(), []byte("sendLoop")); n >= 0 {
+	if n := bytes.Index(buff.Bytes(), []byte("asyncSendLoop")); n >= 0 {
 		t.Log(buff.String())
 		t.Fatalf("Some session goroutine running")
 	}

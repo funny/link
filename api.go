@@ -12,7 +12,6 @@ var (
 		},
 		SessionConfig{
 			AutoFlush:         true,
-			AsyncSendTimeout:  0,
 			AsyncSendChanSize: 1000,
 		},
 	}

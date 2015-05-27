@@ -5,17 +5,15 @@ import (
 	"errors"
 	"sync"
 	"sync/atomic"
-	"time"
 )
 
 var (
-	SendToClosedError     = errors.New("Send to closed session")
-	AsyncSendTimeoutError = errors.New("Async send timeout")
+	SendToClosedError      = errors.New("Send to closed session")
+	AsyncSendBlockingError = errors.New("Async send blocking")
 )
 
 type SessionConfig struct {
 	AutoFlush         bool
-	AsyncSendTimeout  time.Duration
 	AsyncSendChanSize int
 }
 
@@ -24,12 +22,11 @@ type Session struct {
 	conn *Conn
 
 	// About send and receive
-	recvMutex        sync.Mutex
-	sendMutex        sync.Mutex
-	autoFlush        bool
-	sendLoopFlag     int32
-	asyncSendChan    chan asyncOutMessage
-	asyncSendTimeout time.Duration
+	recvMutex     sync.Mutex
+	sendMutex     sync.Mutex
+	autoFlush     bool
+	sendLoopFlag  int32
+	asyncSendChan chan asyncOutMessage
 
 	// About session close
 	closeChan       chan int
@@ -43,13 +40,12 @@ type Session struct {
 
 func NewSession(id uint64, conn *Conn, config SessionConfig) *Session {
 	return &Session{
-		id:               id,
-		conn:             conn,
-		autoFlush:        config.AutoFlush,
-		asyncSendChan:    make(chan asyncOutMessage, config.AsyncSendChanSize),
-		asyncSendTimeout: config.AsyncSendTimeout,
-		closeChan:        make(chan int),
-		closeCallbacks:   list.New(),
+		id:             id,
+		conn:           conn,
+		autoFlush:      config.AutoFlush,
+		asyncSendChan:  make(chan asyncOutMessage, config.AsyncSendChanSize),
+		closeChan:      make(chan int),
+		closeCallbacks: list.New(),
 	}
 }
 
@@ -131,13 +127,13 @@ type asyncOutMessage struct {
 	M OutMessage
 }
 
-func (session *Session) initSendLoop() {
+func (session *Session) initAsyncSendLoop() {
 	if atomic.CompareAndSwapInt32(&session.sendLoopFlag, 0, 1) {
-		go session.sendLoop()
+		go session.asyncSendLoop()
 	}
 }
 
-func (session *Session) sendLoop() {
+func (session *Session) asyncSendLoop() {
 	for {
 		select {
 		case msg := <-session.asyncSendChan:
@@ -156,26 +152,13 @@ func (session *Session) AsyncSend(msg OutMessage) AsyncWork {
 		return AsyncWork{c}
 	}
 
-	session.initSendLoop()
+	session.initAsyncSendLoop()
 
 	select {
 	case session.asyncSendChan <- asyncOutMessage{c, msg}:
 	default:
-		if session.asyncSendTimeout == 0 {
-			session.Close()
-			c <- AsyncSendTimeoutError
-		} else {
-			go func() {
-				select {
-				case session.asyncSendChan <- asyncOutMessage{c, msg}:
-				case <-session.closeChan:
-					c <- SendToClosedError
-				case <-time.After(session.asyncSendTimeout):
-					session.Close()
-					c <- AsyncSendTimeoutError
-				}
-			}()
-		}
+		session.Close()
+		c <- AsyncSendBlockingError
 	}
 
 	return AsyncWork{c}
