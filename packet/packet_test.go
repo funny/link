@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"math/rand"
 	"runtime/pprof"
-	"sync"
 	"testing"
 	"time"
 
@@ -32,23 +31,17 @@ func Test_Packet(t *testing.T) {
 	server, err := link.Listen("tcp", "0.0.0.0:0", protocol)
 	unitest.NotError(t, err)
 
-	var wait sync.WaitGroup
-	wait.Add(1)
-	go func() {
-		wait.Done()
-		server.Serve(func(session *link.Session) {
-			for {
-				var msg RAW
-				if err := session.Receive(&msg); err != nil {
-					break
-				}
-				if err := session.Send(msg); err != nil {
-					break
-				}
+	go server.Serve(func(session *link.Session) {
+		for {
+			var msg RAW
+			if err := session.Receive(&msg); err != nil {
+				break
 			}
-		})
-	}()
-	wait.Wait()
+			if err := session.Send(msg); err != nil {
+				break
+			}
+		}
+	})
 
 	session, err := link.Dial("tcp", server.Listener().Addr().String(), protocol)
 	unitest.NotError(t, err)

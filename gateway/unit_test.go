@@ -15,6 +15,10 @@ import (
 	"github.com/funny/unitest"
 )
 
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
 func RandBytes(n int) []byte {
 	n = rand.Intn(n)
 	b := make([]byte, n)
