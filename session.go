@@ -8,25 +8,27 @@ import (
 )
 
 var (
-	SendToClosedError      = errors.New("Send to closed session")
-	AsyncSendBlockingError = errors.New("Async send blocking")
+	ErrSendToClosed = errors.New("Send to closed session")
+	ErrSendBlocking = errors.New("Async send blocking")
 )
 
+var DefaultConfig = SessionConfig{
+	SendChanSize: 1000,
+}
+
 type SessionConfig struct {
-	AutoFlush         bool
-	AsyncSendChanSize int
+	SendChanSize int
 }
 
 type Session struct {
 	id   uint64
-	conn *Conn
+	conn Conn
 
 	// About send and receive
-	recvMutex     sync.Mutex
-	sendMutex     sync.Mutex
-	autoFlush     bool
-	sendLoopFlag  int32
-	asyncSendChan chan asyncOutMessage
+	recvMutex    sync.Mutex
+	sendMutex    sync.Mutex
+	sendLoopFlag int32
+	sendChan     chan asyncOutMessage
 
 	// About session close
 	closeChan       chan int
@@ -34,85 +36,53 @@ type Session struct {
 	closeEventMutex sync.Mutex
 	closeCallbacks  *list.List
 
-	// Put your session state here.
+	// Session state
 	State interface{}
 }
 
-func NewSession(id uint64, conn *Conn, config SessionConfig) *Session {
+func NewSession(id uint64, conn Conn) *Session {
 	return &Session{
 		id:             id,
 		conn:           conn,
-		autoFlush:      config.AutoFlush,
-		asyncSendChan:  make(chan asyncOutMessage, config.AsyncSendChanSize),
+		sendChan:       make(chan asyncOutMessage, conn.Config().SendChanSize),
 		closeChan:      make(chan int),
 		closeCallbacks: list.New(),
 	}
 }
 
-func (session *Session) Id() uint64 {
-	return session.id
-}
-
-func (session *Session) Conn() *Conn {
-	return session.conn
-}
-
-func (session *Session) IsClosed() bool {
-	return atomic.LoadInt32(&session.closeFlag) != 0
-}
-
 func (session *Session) Close() {
 	if atomic.CompareAndSwapInt32(&session.closeFlag, 0, 1) {
-		session.conn.Close()
-		close(session.closeChan)
 		session.invokeCloseCallbacks()
+		close(session.closeChan)
+		session.conn.Close()
 	}
 }
 
-func (session *Session) Flush() {
-	session.sendMutex.Lock()
-	defer session.sendMutex.Unlock()
-
-	session.conn.w.Flush()
-}
-
-func (session *Session) Send(msg OutMessage) error {
-	session.sendMutex.Lock()
-	defer session.sendMutex.Unlock()
-
-	if err := msg.Send(session.conn.w); err != nil {
-		session.Close()
-		return err
-	}
-
-	if session.autoFlush {
-		session.conn.w.Flush()
-	}
-
-	if session.conn.w.Error() != nil {
-		session.Close()
-		return session.conn.w.Error()
-	}
-
-	return nil
-}
-
-func (session *Session) Receive(message InMessage) error {
+func (session *Session) Receive(msg interface{}) error {
 	session.recvMutex.Lock()
 	defer session.recvMutex.Unlock()
 
-	if err := message.Receive(session.conn.r); err != nil {
+	if err := session.conn.Receive(msg); err != nil {
 		session.Close()
 		return err
 	}
-
-	if session.conn.r.Error() != nil {
-		session.Close()
-		return session.conn.r.Error()
-	}
-
 	return nil
 }
+
+func (session *Session) Send(msg interface{}) error {
+	session.sendMutex.Lock()
+	defer session.sendMutex.Unlock()
+
+	if err := session.conn.Send(msg); err != nil {
+		session.Close()
+		return err
+	}
+	return nil
+}
+
+func (session *Session) Id() uint64     { return session.id }
+func (session *Session) Conn() Conn     { return session.conn }
+func (session *Session) IsClosed() bool { return atomic.LoadInt32(&session.closeFlag) != 0 }
 
 type AsyncWork struct {
 	C <-chan error
@@ -124,7 +94,7 @@ func (aw AsyncWork) Wait() error {
 
 type asyncOutMessage struct {
 	C chan<- error
-	M OutMessage
+	M interface{}
 }
 
 func (session *Session) initAsyncSendLoop() {
@@ -136,7 +106,7 @@ func (session *Session) initAsyncSendLoop() {
 func (session *Session) asyncSendLoop() {
 	for {
 		select {
-		case msg := <-session.asyncSendChan:
+		case msg := <-session.sendChan:
 			msg.C <- session.Send(msg.M)
 		case <-session.closeChan:
 			return
@@ -144,21 +114,21 @@ func (session *Session) asyncSendLoop() {
 	}
 }
 
-func (session *Session) AsyncSend(msg OutMessage) AsyncWork {
+func (session *Session) AsyncSend(msg interface{}) AsyncWork {
 	c := make(chan error, 1)
 
 	if session.IsClosed() {
-		c <- SendToClosedError
+		c <- ErrSendToClosed
 		return AsyncWork{c}
 	}
 
 	session.initAsyncSendLoop()
 
 	select {
-	case session.asyncSendChan <- asyncOutMessage{c, msg}:
+	case session.sendChan <- asyncOutMessage{c, msg}:
 	default:
 		session.Close()
-		c <- AsyncSendBlockingError
+		c <- ErrSendBlocking
 	}
 
 	return AsyncWork{c}

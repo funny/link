@@ -4,25 +4,8 @@ import (
 	"sync"
 )
 
-type SessionFetcher func(func(*Session))
-
-type BroadcastWork struct {
-	*Session
-	AsyncWork
-}
-
-func Broadcast(msg OutMessage, fetcher SessionFetcher) ([]BroadcastWork, error) {
-	works := make([]BroadcastWork, 0, 10)
-	fetcher(func(session *Session) {
-		works = append(works, BroadcastWork{
-			session,
-			session.AsyncSend(msg),
-		})
-	})
-	return works, nil
-}
-
 type Channel struct {
+	protocol ServerProtocol
 	mutex    sync.RWMutex
 	sessions map[uint64]channelSession
 
@@ -35,15 +18,16 @@ type channelSession struct {
 	KickCallback func()
 }
 
-func NewChannel() *Channel {
+func NewChannel(protocol ServerProtocol) *Channel {
 	channel := &Channel{
+		protocol: protocol,
 		sessions: make(map[uint64]channelSession),
 	}
 	return channel
 }
 
-func (channel *Channel) Broadcast(msg OutMessage) ([]BroadcastWork, error) {
-	return Broadcast(msg, channel.Fetch)
+func (channel *Channel) Broadcast(msg interface{}) error {
+	return channel.protocol.Broadcast(msg, channel.Fetch)
 }
 
 func (channel *Channel) Len() int {

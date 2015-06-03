@@ -4,9 +4,6 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"github.com/funny/binary"
-	"github.com/funny/link"
-	_ "github.com/funny/unitest"
 	"io"
 	"math/rand"
 	"net"
@@ -15,6 +12,11 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/funny/binary"
+	"github.com/funny/link"
+	"github.com/funny/link/packet"
+	_ "github.com/funny/unitest"
 )
 
 var (
@@ -47,18 +49,6 @@ func (conn *CountConn) Write(p []byte) (n int, err error) {
 	return
 }
 
-type Message []byte
-
-func (msg Message) Send(conn *binary.Writer) error {
-	conn.WritePacket(msg, binary.SplitByUint16BE)
-	return nil
-}
-
-func (msg Message) Receive(conn *binary.Reader) error {
-	conn.ReadPacket(binary.SplitByUint16BE)
-	return nil
-}
-
 const OutputFormat = "Send Count: %d, Recv Count: %d, Read Count: %d, Write Count: %d\n"
 
 // This is an benchmark tool work with the echo_server.
@@ -80,7 +70,7 @@ func main() {
 	}
 
 	var (
-		msg       = Message(make([]byte, *messageSize))
+		msg       = packet.RAW(make([]byte, *messageSize))
 		timeout   = time.Now().Add(time.Second * time.Duration(*runTime))
 		initWait  = new(sync.WaitGroup)
 		startChan = make(chan int)
@@ -115,9 +105,10 @@ func main() {
 	fmt.Printf(OutputFormat, sum.SendCount, sum.RecvCount, sum.ReadCount, sum.WriteCount)
 }
 
-func client(initWait *sync.WaitGroup, conn *CountConn, startChan chan int, timeout time.Time, msg Message) {
-	c := link.NewConn(conn, link.DefaultConfig.ConnConfig)
-	client := link.NewSession(0, c, link.DefaultConfig.SessionConfig)
+func client(initWait *sync.WaitGroup, conn *CountConn, startChan chan int, timeout time.Time, msg packet.RAW) {
+	client := link.NewSession(0, packet.NewConn(conn, packet.New(
+		binary.SplitByUint16BE, 1024, 1024, 1024,
+	)))
 
 	var wg sync.WaitGroup
 
@@ -130,7 +121,7 @@ func client(initWait *sync.WaitGroup, conn *CountConn, startChan chan int, timeo
 		for {
 			outMsg := msg
 			if *randsize {
-				outMsg = Message(make([]byte, rand.Intn(*messageSize)))
+				outMsg = packet.RAW(make([]byte, rand.Intn(*messageSize)))
 			}
 			if err := client.Send(outMsg); err != nil {
 				if timeout.After(time.Now()) {
@@ -148,9 +139,9 @@ func client(initWait *sync.WaitGroup, conn *CountConn, startChan chan int, timeo
 		initWait.Done()
 		<-startChan
 
-		var inMsg Message
+		var inMsg packet.RAW
 		for {
-			if err := client.Receive(inMsg); err != nil {
+			if err := client.Receive(&inMsg); err != nil {
 				if timeout.After(time.Now()) {
 					println("recv error:", err.Error())
 				}

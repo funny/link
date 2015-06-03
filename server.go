@@ -1,21 +1,14 @@
 package link
 
 import (
-	"net"
 	"sync"
 	"sync/atomic"
 )
 
-type Config struct {
-	ConnConfig
-	SessionConfig
-}
-
 type Server struct {
-	listener *Listener
+	listener Listener
 
 	// About sessions
-	Config
 	maxSessionId uint64
 	sessions     map[uint64]*Session
 	sessionMutex sync.Mutex
@@ -25,49 +18,44 @@ type Server struct {
 	stopChan chan int
 	stopWait sync.WaitGroup
 
-	State interface{} // server state.
+	// server state.
+	State interface{}
 }
 
-func NewServer(listener *Listener, config Config) *Server {
+func NewServer(listener Listener) *Server {
 	server := &Server{
 		listener: listener,
 		sessions: make(map[uint64]*Session),
 		stopChan: make(chan int),
-		Config:   config,
 	}
 	return server
 }
 
-func (server *Server) Listener() net.Listener {
-	return server.listener.l
+func (server *Server) Listener() Listener {
+	return server.listener
 }
 
-func (server *Server) Broadcast(msg OutMessage) ([]BroadcastWork, error) {
-	return Broadcast(msg, server.sessionFetcher)
-}
-
-func (server *Server) Accept() (*Session, error) {
-	conn, err := server.listener.Accept()
-	if err != nil {
-		return nil, err
-	}
-	session := server.newSession(
-		atomic.AddUint64(&server.maxSessionId, 1),
-		conn,
-	)
-	return session, nil
+func (server *Server) Broadcast(msg interface{}) error {
+	return server.listener.Protocol().Broadcast(msg, server.sessionFetcher)
 }
 
 func (server *Server) Serve(handler func(*Session)) error {
 	for {
-		session, err := server.Accept()
+		conn, err := server.listener.Accept()
 		if err != nil {
 			if server.Stop() {
 				return err
 			}
 			return nil
 		}
-		go handler(session)
+		go func() {
+			if server.listener.Handshake(conn) != nil {
+				return
+			}
+			session := server.newSession(conn)
+			handler(session)
+			//session.Close()
+		}()
 	}
 	return nil
 }
@@ -92,8 +80,9 @@ func (server *Server) sessionFetcher(callback func(*Session)) {
 	}
 }
 
-func (server *Server) newSession(id uint64, conn *Conn) *Session {
-	session := NewSession(id, conn, server.SessionConfig)
+func (server *Server) newSession(conn Conn) *Session {
+	id := atomic.AddUint64(&server.maxSessionId, 1)
+	session := NewSession(id, conn)
 	server.putSession(session)
 	return session
 }

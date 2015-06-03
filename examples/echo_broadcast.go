@@ -1,32 +1,44 @@
 package main
 
 import (
+	"flag"
+	"time"
+
 	"github.com/funny/binary"
 	"github.com/funny/link"
-	"time"
+	"github.com/funny/link/packet"
+)
+
+var (
+	addr = flag.String("addr", ":10010", "echo server address")
 )
 
 // This is broadcast server demo work with the echo_client.
 // usage:
 //     go run echo_broadcast.go
 func main() {
-	server, err := link.Serve("tcp", "127.0.0.1:10010")
+	flag.Parse()
+
+	protocol := packet.New(
+		binary.SplitByUint16BE, 1024, 1024, 1024,
+	)
+
+	server, err := link.Listen("tcp", *addr, protocol)
 	if err != nil {
 		panic(err)
 	}
+	println("server start:", server.Listener().Addr().String())
 
-	channel := link.NewChannel()
+	channel := link.NewChannel(protocol)
 	go func() {
 		for {
 			time.Sleep(time.Second * 2)
 			// broadcast to server sessions
-			server.Broadcast(Message("server say: " + time.Now().String()))
+			server.Broadcast(packet.RAW("server say: " + time.Now().String()))
 			// broadcast to channel sessions
-			channel.Broadcast(Message("channel say: " + time.Now().String()))
+			channel.Broadcast(packet.RAW("channel say: " + time.Now().String()))
 		}
 	}()
-
-	println("server start")
 
 	server.Serve(func(session *link.Session) {
 		addr := session.Conn().RemoteAddr().String()
@@ -34,7 +46,7 @@ func main() {
 		channel.Join(session, nil)
 
 		for {
-			var msg Message
+			var msg packet.RAW
 			if err := session.Receive(&msg); err != nil {
 				break
 			}
@@ -45,16 +57,4 @@ func main() {
 		println("client", addr, "closed")
 		channel.Exit(session)
 	})
-}
-
-type Message []byte
-
-func (msg Message) Send(conn *binary.Writer) error {
-	conn.WritePacket([]byte(msg), binary.SplitByUint16BE)
-	return nil
-}
-
-func (msg *Message) Receive(conn *binary.Reader) error {
-	*msg = conn.ReadPacket(binary.SplitByUint16BE)
-	return nil
 }

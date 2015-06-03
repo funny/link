@@ -3,8 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
+
 	"github.com/funny/binary"
 	"github.com/funny/link"
+	"github.com/funny/link/packet"
 	_ "github.com/funny/unitest"
 )
 
@@ -16,17 +18,19 @@ var (
 func main() {
 	flag.Parse()
 
-	server, err := link.Serve("tcp", *addr)
+	server, err := link.Listen("tcp", *addr, packet.New(
+		binary.SplitByUint16BE, 1024, 1024, 1024,
+	))
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("server start:", server.Listener().Addr().String())
+	println("server start:", server.Listener().Addr().String())
 
 	server.Serve(func(session *link.Session) {
 		addr := session.Conn().RemoteAddr().String()
 		log(addr, "connected")
 		for {
-			var msg Message
+			var msg packet.RAW
 			if err := session.Receive(&msg); err != nil {
 				break
 			}
@@ -35,18 +39,6 @@ func main() {
 		}
 		log(addr, "closed")
 	})
-}
-
-type Message []byte
-
-func (msg Message) Send(conn *binary.Writer) error {
-	conn.WritePacket(msg, binary.SplitByUint16BE)
-	return nil
-}
-
-func (msg *Message) Receive(conn *binary.Reader) error {
-	*msg = conn.ReadPacket(binary.SplitByUint16BE)
-	return nil
 }
 
 func log(v ...interface{}) {
