@@ -101,7 +101,7 @@ func (conn *Conn) Send(msg interface{}) error {
 	if err := msg.(OutMessage).Marshal(conn.Writer); err != nil {
 		return err
 	}
-	return conn.Writer.Error()
+	return conn.Writer.Flush()
 }
 
 func (conn *Conn) Config() link.SessionConfig { return conn.config }

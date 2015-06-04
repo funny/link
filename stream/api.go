@@ -11,12 +11,3 @@ type InMessage interface {
 type OutMessage interface {
 	Marshal(*binary.Writer) error
 }
-
-var Flush flushMsg
-
-type flushMsg struct {
-}
-
-func (_ flushMsg) Marshal(w *binary.Writer) error {
-	return w.Flush()
-}

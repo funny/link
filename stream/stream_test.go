@@ -34,7 +34,7 @@ func (msg *TestMessage) Unmarshal(r *binary.Reader) error {
 
 func (msg TestMessage) Marshal(w *binary.Writer) error {
 	w.WritePacket(msg, binary.SplitByUvarint)
-	return w.Flush()
+	return nil
 }
 
 func Test_Stream(t *testing.T) {
