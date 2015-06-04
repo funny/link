@@ -84,7 +84,11 @@ func (conn *Conn) Receive(msg interface{}) error {
 			return fast.Unmarshal(r)
 		}
 	}
-	return msg.(InMessage).Unmarshal(conn.Reader.ReadPacket(conn.Spliter))
+	data := conn.Reader.ReadPacket(conn.Spliter)
+	if conn.Reader.Error() != nil {
+		return conn.Reader.Error()
+	}
+	return msg.(InMessage).Unmarshal(data)
 }
 
 func (conn *Conn) Send(msg interface{}) error {
@@ -97,10 +101,10 @@ func (conn *Conn) Send(msg interface{}) error {
 			return conn.Writer.Flush()
 		}
 	}
-	b, err := msg.(OutMessage).Marshal()
+	data, err := msg.(OutMessage).Marshal()
 	if err != nil {
 		return err
 	}
-	conn.Writer.WritePacket(b, conn.Spliter)
+	conn.Writer.WritePacket(data, conn.Spliter)
 	return conn.Writer.Flush()
 }
