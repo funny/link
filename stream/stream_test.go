@@ -40,7 +40,7 @@ func (msg TestMessage) Marshal(w *binary.Writer) error {
 func Test_Stream(t *testing.T) {
 	protocol := New(1024, 1024, 1024)
 
-	server, err := link.Listen("tcp", "0.0.0.0:0", protocol)
+	server, err := link.Serve("tcp", "0.0.0.0:0", protocol)
 	unitest.NotError(t, err)
 	addr := server.Listener().Addr().String()
 
@@ -56,7 +56,7 @@ func Test_Stream(t *testing.T) {
 		}
 	})
 
-	session, err := link.Dial("tcp", addr, protocol)
+	session, err := link.Connect("tcp", addr, protocol)
 	unitest.NotError(t, err)
 	for i := 0; i < 100000; i++ {
 		p := RandBytes(1024)

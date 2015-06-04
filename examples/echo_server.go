@@ -18,7 +18,7 @@ var (
 func main() {
 	flag.Parse()
 
-	server, err := link.Listen("tcp", *addr, packet.New(
+	server, err := link.Serve("tcp", *addr, packet.New(
 		binary.SplitByUint16BE, 1024, 1024, 1024,
 	))
 	if err != nil {

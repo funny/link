@@ -93,7 +93,6 @@ func (this *backendLink) newConn(waitId uint64, addr []byte) link.Conn {
 	this.connMutex.RLock()
 	conn, exists := this.conns[clientId]
 	this.connMutex.RUnlock()
-
 	if exists {
 		conn.close(true)
 	}

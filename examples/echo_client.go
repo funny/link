@@ -15,7 +15,7 @@ var (
 func main() {
 	flag.Parse()
 
-	session, err := link.Dial("tcp", *addr, packet.New(
+	session, err := link.Connect("tcp", *addr, packet.New(
 		binary.SplitByUint16BE, 1024, 1024, 1024,
 	))
 	if err != nil {

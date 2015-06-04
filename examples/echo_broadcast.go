@@ -23,7 +23,7 @@ func main() {
 		binary.SplitByUint16BE, 1024, 1024, 1024,
 	)
 
-	server, err := link.Listen("tcp", *addr, protocol)
+	server, err := link.Serve("tcp", *addr, protocol)
 	if err != nil {
 		panic(err)
 	}
@@ -33,10 +33,8 @@ func main() {
 	go func() {
 		for {
 			time.Sleep(time.Second * 2)
-			// broadcast to server sessions
-			server.Broadcast(packet.RAW("server say: " + time.Now().String()))
-			// broadcast to channel sessions
-			channel.Broadcast(packet.RAW("channel say: " + time.Now().String()))
+			server.Broadcast(packet.RAW("server broadcast: " + time.Now().String()))
+			channel.Broadcast(packet.RAW("channel broadcast: " + time.Now().String()))
 		}
 	}()
 

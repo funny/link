@@ -5,20 +5,23 @@ import (
 	"time"
 
 	"github.com/funny/link"
+	"github.com/funny/link/packet"
 	"github.com/funny/link/stream"
 )
+
+type ClientHandshaker func(client *link.Session) (linkId uint64, err error)
 
 type Frontend struct {
 	server     *link.Server
 	maxLinkId  uint64
 	links      map[uint64]*frontendLink
 	linksMutex sync.RWMutex
-	handshaker func(*link.Session) (uint64, error)
+	handshaker ClientHandshaker
 }
 
-func NewFrontend(server *link.Server, handshaker func(*link.Session) (uint64, error)) *Frontend {
+func NewFrontend(listener *packet.Listener, handshaker ClientHandshaker) *Frontend {
 	front := &Frontend{
-		server:     server,
+		server:     link.NewServer(listener),
 		links:      make(map[uint64]*frontendLink),
 		handshaker: handshaker,
 	}
@@ -54,7 +57,7 @@ func (front *Frontend) Stop() {
 }
 
 func (front *Frontend) AddBackend(network, address string, protocol *stream.Protocol) (uint64, error) {
-	session, err := link.DialTimeout(network, address, time.Second*3, protocol)
+	session, err := link.ConnectTimeout(network, address, time.Second*3, protocol)
 	if err != nil {
 		return 0, err
 	}

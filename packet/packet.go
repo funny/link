@@ -20,7 +20,7 @@ func New(spliter binary.Spliter, readBufferSize, writeBufferSize, sendChanSize i
 }
 
 func (protocol *Protocol) NewListener(listener net.Listener) link.Listener {
-	return &Listener{listener, protocol}
+	return NewListener(listener, protocol)
 }
 
 func (protocol *Protocol) NewClientConn(conn net.Conn) (link.Conn, error) {
@@ -37,6 +37,10 @@ func (protocol *Protocol) NewClientConn(conn net.Conn) (link.Conn, error) {
 type Listener struct {
 	listener net.Listener
 	protocol *Protocol
+}
+
+func NewListener(listener net.Listener, protocol *Protocol) *Listener {
+	return &Listener{listener, protocol}
 }
 
 func (l *Listener) Accept() (link.Conn, error) {

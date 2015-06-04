@@ -28,7 +28,7 @@ func RandBytes(n int) []byte {
 func Test_Packet(t *testing.T) {
 	protocol := New(binary.SplitByUvarint, 1024, 1024, 1024)
 
-	server, err := link.Listen("tcp", "0.0.0.0:0", protocol)
+	server, err := link.Serve("tcp", "0.0.0.0:0", protocol)
 	unitest.NotError(t, err)
 
 	go server.Serve(func(session *link.Session) {
@@ -43,7 +43,7 @@ func Test_Packet(t *testing.T) {
 		}
 	})
 
-	session, err := link.Dial("tcp", server.Listener().Addr().String(), protocol)
+	session, err := link.Connect("tcp", server.Listener().Addr().String(), protocol)
 	unitest.NotError(t, err)
 	for i := 0; i < 100000; i++ {
 		p := RandBytes(1024)

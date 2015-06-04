@@ -19,6 +19,10 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
+var protocol = packet.New(
+	binary.SplitByUint32BE, 1024, 1024, 1024,
+)
+
 func RandBytes(n int) []byte {
 	n = rand.Intn(n)
 	b := make([]byte, n)
@@ -29,7 +33,7 @@ func RandBytes(n int) []byte {
 }
 
 func StartTestBackend(t *testing.T, handler func(*link.Session)) *link.Server {
-	backend, err := link.Listen("tcp", "0.0.0.0:0", NewBackend(
+	backend, err := link.Serve("tcp", "0.0.0.0:0", NewBackend(
 		1024, 1024, 1024,
 	))
 	unitest.NotError(t, err)
@@ -38,16 +42,16 @@ func StartTestBackend(t *testing.T, handler func(*link.Session)) *link.Server {
 }
 
 func StartTestGateway(t *testing.T, backendAddr string) *Frontend {
-	server, err := link.Listen("tcp", "0.0.0.0:0", packet.New(
-		binary.SplitByUint32BE, 1024, 1024, 1024,
-	))
+	listener, err := link.Listen("tcp", "0.0.0.0:0", protocol)
 	unitest.NotError(t, err)
 
 	var linkIds []uint64
 
-	gateway := NewFrontend(server, func(_ *link.Session) (uint64, error) {
-		return linkIds[rand.Intn(len(linkIds))], nil
-	})
+	gateway := NewFrontend(listener.(*packet.Listener),
+		func(_ *link.Session) (uint64, error) {
+			return linkIds[rand.Intn(len(linkIds))], nil
+		},
+	)
 
 	for i := 0; i < 10; i++ {
 		id, err := gateway.AddBackend("tcp",
@@ -77,9 +81,7 @@ func Test_Gateway_Simple(t *testing.T) {
 	gateway := StartTestGateway(t, backend.Listener().Addr().String())
 	gatewayAddr := gateway.server.Listener().Addr().String()
 
-	client, err := link.Dial("tcp", gatewayAddr, packet.New(
-		binary.SplitByUint32BE, 1024, 1024, 1024,
-	))
+	client, err := link.Connect("tcp", gatewayAddr, protocol)
 	unitest.NotError(t, err)
 	for i := 0; i < 10000; i++ {
 		msg1 := RandBytes(1024)
@@ -127,9 +129,7 @@ func Test_Gateway_Complex(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			client, err := link.Dial("tcp", gatewayAddr, packet.New(
-				binary.SplitByUint32BE, 1024, 1024, 1024,
-			))
+			client, err := link.Connect("tcp", gatewayAddr, protocol)
 			unitest.NotError(t, err)
 
 			for j := 0; j < 500; j++ {
@@ -201,9 +201,7 @@ func Test_Broadcast(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			client, err := link.Dial("tcp", gatewayAddr, packet.New(
-				binary.SplitByUvarint, 1024, 1024, 1024,
-			))
+			client, err := link.Connect("tcp", gatewayAddr, protocol)
 			unitest.NotError(t, err)
 
 			for j := 0; j < 10000; j++ {

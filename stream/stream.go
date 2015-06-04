@@ -21,7 +21,7 @@ func New(readBufferSize, writeBufferSize, sendChanSize int) *Protocol {
 }
 
 func (protocol *Protocol) NewListener(listener net.Listener) link.Listener {
-	return &Listener{listener, protocol}
+	return NewListener(listener, protocol)
 }
 
 func (protocol *Protocol) Broadcast(msg interface{}, fetcher link.SessionFetcher) error {
@@ -42,6 +42,10 @@ func (protocol *Protocol) NewClientConn(conn net.Conn) (link.Conn, error) {
 type Listener struct {
 	listener net.Listener
 	protocol *Protocol
+}
+
+func NewListener(listener net.Listener, protocol *Protocol) link.Listener {
+	return &Listener{listener, protocol}
 }
 
 func (l *Listener) Accept() (link.Conn, error) {
