@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	ErrSendToClosed = errors.New("Send to closed session")
-	ErrSendBlocking = errors.New("Async send blocking")
+	ErrClosed   = errors.New("Session closed")
+	ErrBlocking = errors.New("Operation blocking")
 )
 
 var DefaultConfig = SessionConfig{
@@ -28,7 +28,7 @@ type Session struct {
 	recvMutex    sync.Mutex
 	sendMutex    sync.Mutex
 	sendLoopFlag int32
-	sendChan     chan asyncOutMessage
+	sendChan     chan interface{}
 
 	// About session close
 	closeChan       chan int
@@ -44,11 +44,15 @@ func NewSession(id uint64, conn Conn) *Session {
 	return &Session{
 		id:             id,
 		conn:           conn,
-		sendChan:       make(chan asyncOutMessage, conn.Config().SendChanSize),
+		sendChan:       make(chan interface{}, conn.Config().SendChanSize),
 		closeChan:      make(chan int),
 		closeCallbacks: list.New(),
 	}
 }
+
+func (session *Session) Id() uint64     { return session.id }
+func (session *Session) Conn() Conn     { return session.conn }
+func (session *Session) IsClosed() bool { return atomic.LoadInt32(&session.closeFlag) != 0 }
 
 func (session *Session) Close() {
 	if atomic.CompareAndSwapInt32(&session.closeFlag, 0, 1) {
@@ -80,58 +84,34 @@ func (session *Session) Send(msg interface{}) error {
 	return nil
 }
 
-func (session *Session) Id() uint64     { return session.id }
-func (session *Session) Conn() Conn     { return session.conn }
-func (session *Session) IsClosed() bool { return atomic.LoadInt32(&session.closeFlag) != 0 }
-
-type AsyncWork struct {
-	C <-chan error
-}
-
-func (aw AsyncWork) Wait() error {
-	return <-aw.C
-}
-
-type asyncOutMessage struct {
-	C chan<- error
-	M interface{}
-}
-
-func (session *Session) initAsyncSendLoop() {
-	if atomic.CompareAndSwapInt32(&session.sendLoopFlag, 0, 1) {
-		go session.asyncSendLoop()
-	}
-}
-
-func (session *Session) asyncSendLoop() {
-	for {
-		select {
-		case msg := <-session.sendChan:
-			msg.C <- session.Send(msg.M)
-		case <-session.closeChan:
-			return
-		}
-	}
-}
-
-func (session *Session) AsyncSend(msg interface{}) AsyncWork {
-	c := make(chan error, 1)
-
+func (session *Session) AsyncSend(msg interface{}) error {
 	if session.IsClosed() {
-		c <- ErrSendToClosed
-		return AsyncWork{c}
+		return ErrClosed
 	}
 
-	session.initAsyncSendLoop()
+	if atomic.CompareAndSwapInt32(&session.sendLoopFlag, 0, 1) {
+		go func() {
+			for {
+				select {
+				case msg := <-session.sendChan:
+					if err := session.Send(msg); err != nil {
+						return
+					}
+				case <-session.closeChan:
+					return
+				}
+			}
+		}()
+	}
 
 	select {
-	case session.sendChan <- asyncOutMessage{c, msg}:
+	case session.sendChan <- msg:
 	default:
 		session.Close()
-		c <- ErrSendBlocking
+		return ErrBlocking
 	}
 
-	return AsyncWork{c}
+	return nil
 }
 
 type closeCallback struct {

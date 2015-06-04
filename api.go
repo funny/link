@@ -80,8 +80,7 @@ func Connect(network, address string, protocol ClientProtocol) (*Session, error)
 	if err != nil {
 		return nil, err
 	}
-	id := atomic.AddUint64(&autoSessionId, 1)
-	return NewSession(id, conn), nil
+	return NewSession(atomic.AddUint64(&autoSessionId, 1), conn), nil
 }
 
 func ConnectTimeout(network, address string, timeout time.Duration, protocol ClientProtocol) (*Session, error) {
@@ -89,6 +88,5 @@ func ConnectTimeout(network, address string, timeout time.Duration, protocol Cli
 	if err != nil {
 		return nil, err
 	}
-	id := atomic.AddUint64(&autoSessionId, 1)
-	return NewSession(id, conn), nil
+	return NewSession(atomic.AddUint64(&autoSessionId, 1), conn), nil
 }
