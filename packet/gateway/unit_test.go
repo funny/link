@@ -67,7 +67,7 @@ func StartTestGateway(t *testing.T, backendAddr string) *Frontend {
 
 func Test_Gateway_Simple(t *testing.T) {
 	backend := StartTestBackend(t, func(session *link.Session) {
-		var msg RAW
+		var msg packet.RAW
 		for {
 			if err := session.Receive(&msg); err != nil {
 				break
@@ -109,7 +109,7 @@ func Test_Gateway_Simple(t *testing.T) {
 
 func Test_Gateway_Complex(t *testing.T) {
 	backend := StartTestBackend(t, func(session *link.Session) {
-		var msg RAW
+		var msg packet.RAW
 		for {
 			if err := session.Receive(&msg); err != nil {
 				break
@@ -173,7 +173,7 @@ func Test_Broadcast(t *testing.T) {
 		channel.Join(session, nil)
 		clientWait.Done()
 		for {
-			var msg RAW
+			var msg packet.RAW
 			if err := session.Receive(&msg); err != nil {
 				break
 			}
@@ -186,7 +186,7 @@ func Test_Broadcast(t *testing.T) {
 		clientWait.Wait()
 		for i := 0; i < 10000; i++ {
 			msg := RandBytes(10)
-			channel.Broadcast(RAW(msg))
+			channel.Broadcast(packet.RAW(msg))
 			broadcastWait.Add(clientNum)
 			broadcastWait.Wait()
 		}

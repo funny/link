@@ -94,7 +94,7 @@ func (flink *frontendLink) newClient(waitId, clientId uint64) {
 	go func() {
 		var (
 			inMsg  packet.RAW
-			outMsg = gatewayMsg{Command: CMD_NEW_3, ClientId: clientId}
+			outMsg = gatewayMsg{Command: CMD_NEW_3, ClientId: clientId, Message: &inMsg}
 		)
 
 		if err := flink.session.Send(&outMsg); err != nil {
@@ -103,12 +103,12 @@ func (flink *frontendLink) newClient(waitId, clientId uint64) {
 		}
 
 		outMsg.Command = CMD_MSG
+
 		for {
 			if err := session.Receive(&inMsg); err != nil {
 				flink.delClient(clientId, true)
 				break
 			}
-			outMsg.Data = inMsg
 			if err := flink.session.Send(&outMsg); err != nil {
 				flink.Close()
 				break

@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"github.com/funny/binary"
+	"github.com/funny/link/packet"
 )
 
 const (
@@ -20,6 +21,7 @@ type gatewayMsg struct {
 	ClientId  uint64
 	ClientIds []uint64
 	Data      []byte
+	Message   interface{}
 }
 
 func (msg *gatewayMsg) Unmarshal(r *binary.Reader) error {
@@ -64,13 +66,27 @@ func (msg *gatewayMsg) Marshal(w *binary.Writer) error {
 		w.WriteUint64BE(msg.ClientId)
 	case CMD_MSG:
 		w.WriteUint64BE(msg.ClientId)
-		w.WritePacket(msg.Data, binary.SplitByUvarint)
+		goto ENCODE
 	case CMD_BRD:
 		w.WriteUvarint(uint64(len(msg.ClientIds)))
 		for i := 0; i < len(msg.ClientIds); i++ {
 			w.WriteUvarint(msg.ClientIds[i])
 		}
-		w.WritePacket(msg.Data, binary.SplitByUvarint)
+		goto ENCODE
+	}
+	return w.Flush()
+ENCODE:
+	if fast, ok := msg.Message.(packet.FastOutMessage); ok {
+		binary.SplitByUvarint.WriteHead(w, fast.MarshalSize())
+		if err := fast.Marshal(w); err != nil {
+			return err
+		}
+	} else {
+		data, err := msg.Message.(packet.OutMessage).Marshal()
+		if err != nil {
+			return err
+		}
+		w.WritePacket(data, binary.SplitByUvarint)
 	}
 	return w.Flush()
 }

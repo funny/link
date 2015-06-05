@@ -4,7 +4,6 @@ import (
 	"net"
 
 	"github.com/funny/link"
-	"github.com/funny/link/packet"
 	"github.com/funny/link/stream"
 )
 
@@ -31,10 +30,6 @@ func (backend *Backend) NewListener(listener net.Listener) link.Listener {
 }
 
 func (backend *Backend) Broadcast(msg interface{}, fetcher link.SessionFetcher) error {
-	data, err := msg.(packet.OutMessage).Marshal()
-	if err != nil {
-		return err
-	}
 	var server *BackendListener
 	ids := make([]uint64, 0, 10)
 	fetcher(func(session *link.Session) {
@@ -44,6 +39,6 @@ func (backend *Backend) Broadcast(msg interface{}, fetcher link.SessionFetcher) 
 			server = conn.link.listener
 		}
 	})
-	server.broadcast(ids, data)
+	server.broadcast(ids, msg)
 	return nil
 }

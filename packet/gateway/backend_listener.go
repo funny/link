@@ -46,13 +46,13 @@ func (this *BackendListener) delLink(id uint64) {
 	}
 }
 
-func (this *BackendListener) broadcast(ids []uint64, data []byte) {
+func (this *BackendListener) broadcast(ids []uint64, msg interface{}) {
 	this.linkMutex.RLock()
 	defer this.linkMutex.RUnlock()
 
 	for _, link := range this.links {
 		link.session.AsyncSend(&gatewayMsg{
-			Command: CMD_BRD, ClientIds: ids, Data: data,
+			Command: CMD_BRD, ClientIds: ids, Message: msg,
 		})
 	}
 }

@@ -5,20 +5,10 @@ import (
 	"net"
 	"sync/atomic"
 
+	"github.com/funny/binary"
 	"github.com/funny/link"
 	"github.com/funny/link/packet"
 )
-
-type RAW []byte
-
-func (r *RAW) Unmarshal(b []byte) error {
-	*r = b
-	return nil
-}
-
-func (r RAW) Marshal() ([]byte, error) {
-	return r, nil
-}
 
 type clientAddr struct {
 	network []byte
@@ -69,16 +59,17 @@ func (c *BackendConn) Receive(msg interface{}) error {
 	if !ok {
 		return io.EOF
 	}
+	if fast, ok := msg.(packet.FastInMessage); ok {
+		return fast.Unmarshal(
+			&io.LimitedReader{binary.NewBuffer(data), int64(len(data))},
+		)
+	}
 	return msg.(packet.InMessage).Unmarshal(data)
 }
 
 func (c *BackendConn) Send(msg interface{}) error {
-	data, err := msg.(packet.OutMessage).Marshal()
-	if err != nil {
-		return err
-	}
 	return c.link.session.Send(&gatewayMsg{
-		Command: CMD_MSG, ClientId: c.id, Data: data,
+		Command: CMD_MSG, ClientId: c.id, Message: msg,
 	})
 }
 
