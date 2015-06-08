@@ -25,7 +25,7 @@ func RandBytes(n int) []byte {
 	return b
 }
 
-func Test_Packet(t *testing.T) {
+func PacketTest(t *testing.T, callback func(*link.Session)) {
 	protocol := New(binary.SplitByUvarint, 1024, 1024, 1024)
 
 	server, err := link.Serve("tcp", "0.0.0.0:0", protocol)
@@ -45,20 +45,46 @@ func Test_Packet(t *testing.T) {
 
 	session, err := link.Connect("tcp", server.Listener().Addr().String(), protocol)
 	unitest.NotError(t, err)
-	for i := 0; i < 100000; i++ {
-		p := RandBytes(1024)
-		err = session.Send(RAW(p))
-		unitest.NotError(t, err)
-
-		var msg2 RAW
-		err = session.Receive(&msg2)
-		unitest.NotError(t, err)
-		unitest.Pass(t, bytes.Equal(p, msg2))
-	}
+	callback(session)
 	session.Close()
 	server.Stop()
 
 	MakeSureSessionGoroutineExit(t)
+}
+func Test_Packet(t *testing.T) {
+	PacketTest(t, func(session *link.Session) {
+		for i := 0; i < 100000; i++ {
+			msg1 := RandBytes(1024)
+			err := session.Send(RAW(msg1))
+			unitest.NotError(t, err)
+
+			var msg2 RAW
+			err = session.Receive(&msg2)
+			unitest.NotError(t, err)
+			unitest.Pass(t, bytes.Equal(msg1, msg2))
+		}
+	})
+}
+
+type TestObject struct {
+	X, Y, Z int
+}
+
+func Test_JSON(t *testing.T) {
+	PacketTest(t, func(session *link.Session) {
+		for i := 0; i < 50000; i++ {
+			msg1 := TestObject{
+				X: rand.Int(), Y: rand.Int(), Z: rand.Int(),
+			}
+			err := session.Send(JSON{msg1})
+			unitest.NotError(t, err)
+
+			var msg2 TestObject
+			err = session.Receive(JSON{&msg2})
+			unitest.NotError(t, err)
+			unitest.Pass(t, msg1 == msg2)
+		}
+	})
 }
 
 func MakeSureSessionGoroutineExit(t *testing.T) {

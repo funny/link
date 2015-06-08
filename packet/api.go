@@ -1,7 +1,6 @@
 package packet
 
 import (
-	"encoding/gob"
 	"encoding/json"
 	"io"
 
@@ -53,25 +52,5 @@ func (msg JSON) Marshal() ([]byte, error) {
 }
 
 func (msg JSON) Unmarshal(r *io.LimitedReader) error {
-	if err := json.NewDecoder(r).Decode(msg.V); err != nil {
-		return err
-	}
-	return nil
-}
-
-type GOB struct{ V interface{} }
-
-func (msg GOB) Marshal() ([]byte, error) {
-	w := binary.MakeBuffer(0, 1024)
-	if err := gob.NewEncoder(w).Encode(msg.V); err != nil {
-		return nil, err
-	}
-	return w.Bytes(), nil
-}
-
-func (msg GOB) Unmarshal(r *io.LimitedReader) error {
-	if err := gob.NewDecoder(r).Decode(msg.V); err != nil {
-		return err
-	}
-	return nil
+	return json.NewDecoder(r).Decode(msg.V)
 }
