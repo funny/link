@@ -49,11 +49,7 @@ func (msg *RAW) Unmarshal(r *io.LimitedReader) error {
 type JSON struct{ V interface{} }
 
 func (msg JSON) Marshal() ([]byte, error) {
-	w := binary.MakeBuffer(0, 1024)
-	if err := json.NewEncoder(w).Encode(msg.V); err != nil {
-		return nil, err
-	}
-	return w.Bytes(), nil
+	return json.Marshal(msg.V)
 }
 
 func (msg JSON) Unmarshal(r *io.LimitedReader) error {
