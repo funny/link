@@ -33,8 +33,9 @@ func main() {
 	go func() {
 		for {
 			time.Sleep(time.Second * 2)
-			server.Broadcast(packet.RAW("server broadcast: " + time.Now().String()))
-			channel.Broadcast(packet.RAW("channel broadcast: " + time.Now().String()))
+			now := time.Now().Format("2006-01-02 15:04:05")
+			server.Broadcast(packet.RAW("from server: " + now))
+			channel.Broadcast(packet.RAW("from channel: " + now))
 		}
 	}()
 
@@ -49,7 +50,7 @@ func main() {
 				break
 			}
 			println(addr, "say:", string(msg))
-			channel.Broadcast(msg)
+			channel.Broadcast(packet.RAW("from " + addr + ": " + string(msg)))
 		}
 
 		println("client", addr, "closed")

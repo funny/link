@@ -28,7 +28,7 @@ func main() {
 			if err := session.Receive(&msg); err != nil {
 				break
 			}
-			fmt.Printf("recv: %s\n", msg)
+			fmt.Printf("%s\n", msg)
 		}
 	}()
 
@@ -37,7 +37,6 @@ func main() {
 		if _, err := fmt.Scanf("%s\n", &msg); err != nil {
 			break
 		}
-		fmt.Printf("send: %s\n", msg)
 		session.Send(packet.RAW(msg))
 	}
 
