@@ -29,7 +29,10 @@ func (backend *Backend) NewListener(listener net.Listener) link.Listener {
 	return NewBackendListener(link.NewServer(backend.protocol.NewListener(listener)))
 }
 
-func (backend *Backend) Broadcast(msg interface{}, fetcher link.SessionFetcher) error {
+type Broadcast struct {
+}
+
+func (_ Broadcast) Broadcast(msg interface{}, fetcher link.SessionFetcher) error {
 	var server *BackendListener
 	ids := make([]uint64, 0, 10)
 	fetcher(func(session *link.Session) {

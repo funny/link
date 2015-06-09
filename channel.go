@@ -5,7 +5,7 @@ import (
 )
 
 type Channel struct {
-	protocol ServerProtocol
+	protocol BroadcastProtocol
 	mutex    sync.RWMutex
 	sessions map[uint64]channelSession
 
@@ -18,7 +18,7 @@ type channelSession struct {
 	KickCallback func()
 }
 
-func NewChannel(protocol ServerProtocol) *Channel {
+func NewChannel(protocol BroadcastProtocol) *Channel {
 	channel := &Channel{
 		protocol: protocol,
 		sessions: make(map[uint64]channelSession),

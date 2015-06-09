@@ -29,12 +29,10 @@ func main() {
 	}
 	println("server start:", server.Listener().Addr().String())
 
-	channel := link.NewChannel(protocol)
+	channel := link.NewChannel(link.DefaultBroadcast)
 	go func() {
-		for {
-			time.Sleep(time.Second * 2)
+		for range time.Tick(time.Second * 2) {
 			now := time.Now().Format("2006-01-02 15:04:05")
-			server.Broadcast(packet.RAW("from server: " + now))
 			channel.Broadcast(packet.RAW("from channel: " + now))
 		}
 	}()

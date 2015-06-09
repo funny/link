@@ -163,7 +163,7 @@ func Test_Gateway_Complex(t *testing.T) {
 func Test_Broadcast(t *testing.T) {
 	var (
 		clientNum     = 20
-		channel       *link.Channel
+		channel       = link.NewChannel(Broadcast{})
 		broadcastWait sync.WaitGroup
 		clientWait    sync.WaitGroup
 	)
@@ -180,7 +180,6 @@ func Test_Broadcast(t *testing.T) {
 			broadcastWait.Done()
 		}
 	})
-	channel = link.NewChannel(backend.Listener().Protocol())
 
 	go func() {
 		clientWait.Wait()

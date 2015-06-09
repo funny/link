@@ -35,10 +35,6 @@ func (server *Server) Listener() Listener {
 	return server.listener
 }
 
-func (server *Server) Broadcast(msg interface{}) error {
-	return server.listener.Protocol().Broadcast(msg, server.sessionFetcher)
-}
-
 func (server *Server) Serve(handler func(*Session)) error {
 	for {
 		conn, err := server.listener.Accept()
@@ -52,9 +48,7 @@ func (server *Server) Serve(handler func(*Session)) error {
 			if server.listener.Handshake(conn) != nil {
 				return
 			}
-			session := server.newSession(conn)
-			handler(session)
-			//session.Close()
+			handler(server.newSession(conn))
 		}()
 	}
 	return nil
@@ -69,15 +63,6 @@ func (server *Server) Stop() bool {
 		return true
 	}
 	return false
-}
-
-func (server *Server) sessionFetcher(callback func(*Session)) {
-	server.sessionMutex.Lock()
-	defer server.sessionMutex.Unlock()
-
-	for _, session := range server.sessions {
-		callback(session)
-	}
 }
 
 func (server *Server) newSession(conn Conn) *Session {

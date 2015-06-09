@@ -10,11 +10,14 @@ type SessionFetcher func(func(*Session))
 
 type ServerProtocol interface {
 	NewListener(listener net.Listener) Listener
-	Broadcast(msg interface{}, fetcher SessionFetcher) error
 }
 
 type ClientProtocol interface {
 	NewClientConn(conn net.Conn) (Conn, error)
+}
+
+type BroadcastProtocol interface {
+	Broadcast(msg interface{}, fetcher SessionFetcher) error
 }
 
 type Listener interface {
@@ -34,7 +37,12 @@ type Conn interface {
 	Close() error
 }
 
-func DefaultBroadcast(msg interface{}, fetcher SessionFetcher) error {
+var DefaultBroadcast = defaultBroadcast{}
+
+type defaultBroadcast struct {
+}
+
+func (_ defaultBroadcast) Broadcast(msg interface{}, fetcher SessionFetcher) error {
 	fetcher(func(session *Session) {
 		session.AsyncSend(msg)
 	})

@@ -24,10 +24,6 @@ func (protocol *Protocol) NewListener(listener net.Listener) link.Listener {
 	return NewListener(listener, protocol)
 }
 
-func (protocol *Protocol) Broadcast(msg interface{}, fetcher link.SessionFetcher) error {
-	return link.DefaultBroadcast(msg, fetcher)
-}
-
 func (protocol *Protocol) NewClientConn(conn net.Conn) (link.Conn, error) {
 	lconn := NewConn(conn, protocol)
 	if protocol.ClientHandshaker != nil {
