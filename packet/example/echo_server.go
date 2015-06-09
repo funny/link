@@ -35,7 +35,9 @@ func main() {
 				break
 			}
 			log(addr, "say:", string(msg))
-			session.Send(msg)
+			if err = session.Send(msg); err != nil {
+				break
+			}
 		}
 		log(addr, "closed")
 	})
