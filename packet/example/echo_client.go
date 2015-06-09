@@ -37,7 +37,9 @@ func main() {
 		if _, err := fmt.Scanf("%s\n", &msg); err != nil {
 			break
 		}
-		session.Send(packet.RAW(msg))
+		if err = session.Send(packet.RAW(msg)); err != nil {
+			break
+		}
 	}
 
 	session.Close()
