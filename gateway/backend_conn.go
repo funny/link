@@ -1,11 +1,11 @@
 package gateway
 
 import (
+	"bytes"
 	"io"
 	"net"
 	"sync/atomic"
 
-	"github.com/funny/binary"
 	"github.com/funny/link"
 	"github.com/funny/link/packet"
 )
@@ -61,7 +61,7 @@ func (c *BackendConn) Receive(msg interface{}) error {
 	}
 	if fast, ok := msg.(packet.FastInMessage); ok {
 		return fast.Unmarshal(
-			&io.LimitedReader{binary.NewBuffer(data), int64(len(data))},
+			&io.LimitedReader{bytes.NewReader(data), int64(len(data))},
 		)
 	}
 	return msg.(packet.InMessage).Unmarshal(data)
