@@ -170,7 +170,7 @@ func Test_Broadcast(t *testing.T) {
 
 	clientWait.Add(clientNum)
 	backend := StartTestBackend(t, func(session *link.Session) {
-		channel.Join(session, nil)
+		channel.Join(session)
 		clientWait.Done()
 		for {
 			var msg packet.RAW
