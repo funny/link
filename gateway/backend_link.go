@@ -2,10 +2,9 @@ package gateway
 
 import (
 	"bytes"
+	"github.com/funny/link"
 	"sync"
 	"sync/atomic"
-
-	"github.com/funny/link"
 )
 
 var gloablClientId uint64
@@ -16,17 +15,16 @@ type backendLink struct {
 	session   *link.Session
 	connMutex sync.RWMutex
 	conns     map[uint64]*BackendConn
-	connWaits map[uint64]*BackendConn
 	closeFlag int32
 }
 
 func newBackendLink(id uint64, listener *BackendListener, session *link.Session) *backendLink {
+	session.EnableAsyncSend(10000)
 	this := &backendLink{
-		id:        id,
-		listener:  listener,
-		session:   session,
-		conns:     make(map[uint64]*BackendConn),
-		connWaits: make(map[uint64]*BackendConn),
+		id:       id,
+		listener: listener,
+		session:  session,
+		conns:    make(map[uint64]*BackendConn),
 	}
 	session.AddCloseCallback(this, func() {
 		this.Close(false)
@@ -62,14 +60,10 @@ func (this *backendLink) loop() {
 		switch msg.Command {
 		case CMD_MSG:
 			this.dispathMsg(msg.ClientId, msg.Data)
-		case CMD_BRD:
-			this.listener.broadcast(msg.ClientIds, msg.Data)
 		case CMD_DEL:
 			this.delConn(msg.ClientId)
 		case CMD_NEW_1:
 			this.newConn(msg.ClientId, msg.Data)
-		case CMD_NEW_3:
-			this.acceptConn(msg.ClientId)
 		}
 	}
 }
@@ -82,12 +76,12 @@ func (this *backendLink) dispathMsg(id uint64, data []byte) {
 		select {
 		case conn.recvChan <- data:
 		default:
-			go conn.close(true)
+			conn.close(true)
 		}
 	}
 }
 
-func (this *backendLink) newConn(waitId uint64, addr []byte) link.Conn {
+func (this *backendLink) newConn(waitId uint64, addr []byte) {
 	clientId := atomic.AddUint64(&gloablClientId, 1)
 
 	this.connMutex.RLock()
@@ -98,36 +92,11 @@ func (this *backendLink) newConn(waitId uint64, addr []byte) link.Conn {
 	}
 
 	i := bytes.IndexByte(addr, ',')
-	conn = newBackendConn(clientId, clientAddr{addr[:i], addr[i+1:]}, this)
-	this.session.Send(&gatewayMsg{
-		Command: CMD_NEW_2, ClientId: waitId, ClientIds: []uint64{clientId},
-	})
+	conn = newBackendConn(clientId, waitId, clientAddr{addr[:i], addr[i+1:]}, this)
 
 	this.connMutex.Lock()
-	defer this.connMutex.Unlock()
-	this.connWaits[clientId] = conn
-
-	return conn
-}
-
-func (this *backendLink) acceptConn(clientId uint64) {
-	conn := func() *BackendConn {
-		this.connMutex.Lock()
-		defer this.connMutex.Unlock()
-
-		conn, exists := this.connWaits[clientId]
-		if !exists {
-			return nil
-		}
-
-		delete(this.connWaits, clientId)
-		this.conns[clientId] = conn
-		return conn
-	}()
-
-	if conn == nil {
-		return
-	}
+	this.conns[clientId] = conn
+	this.connMutex.Unlock()
 
 	this.listener.acceptChan <- conn
 }

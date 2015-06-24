@@ -1,100 +1,94 @@
 package link
 
 import (
+	"bufio"
 	"net"
-	"sync/atomic"
-	"time"
 )
 
-type SessionFetcher func(func(*Session))
-
 type ServerProtocol interface {
-	NewListener(listener net.Listener) Listener
+	NewListener(net.Listener) (Listener, error)
 }
 
 type ClientProtocol interface {
-	NewClientConn(conn net.Conn) (Conn, error)
-}
-
-type BroadcastProtocol interface {
-	Broadcast(msg interface{}, fetcher SessionFetcher) error
+	NewClientConn(net.Conn) (Conn, error)
 }
 
 type Listener interface {
+	Addr() net.Addr
 	Accept() (Conn, error)
 	Handshake(Conn) error
-	Addr() net.Addr
-	Protocol() ServerProtocol
 	Close() error
 }
 
 type Conn interface {
-	Config() SessionConfig
 	LocalAddr() net.Addr
 	RemoteAddr() net.Addr
-	Receive(msg interface{}) error
-	Send(msg interface{}) (err error)
 	Close() error
 }
 
-var DefaultBroadcast = defaultBroadcast{}
-
-type defaultBroadcast struct {
+type PacketServerProtocol interface {
+	ServerProtocol
+	NewPacketListener(net.Listener) (IPacketListener, error)
 }
 
-func (_ defaultBroadcast) Broadcast(msg interface{}, fetcher SessionFetcher) error {
-	fetcher(func(session *Session) {
-		session.AsyncSend(msg)
-	})
-	return nil
+type PacketClientProtocol interface {
+	ClientProtocol
+	NewPacketClientConn(net.Conn) (IPacketConn, error)
 }
 
-var autoSessionId uint64
-
-func Listen(network, address string, protocol ServerProtocol) (Listener, error) {
-	listener, err := net.Listen(network, address)
-	if err != nil {
-		return nil, err
-	}
-	return protocol.NewListener(listener), nil
+type IPacketListener interface {
+	Listener
+	AcceptPacket() (IPacketConn, error)
 }
 
-func Dial(network, address string, protocol ClientProtocol) (Conn, error) {
-	conn, err := net.Dial(network, address)
-	if err != nil {
-		return nil, err
-	}
-	return protocol.NewClientConn(conn)
+type IPacketConn interface {
+	Conn
+	ReadPacket() ([]byte, error)
+	WritePacket([]byte) error
 }
 
-func DialTimeout(network, address string, timeout time.Duration, protocol ClientProtocol) (Conn, error) {
-	conn, err := net.DialTimeout(network, address, timeout)
-	if err != nil {
-		return nil, err
-	}
-	return protocol.NewClientConn(conn)
+type StreamServerProtocol interface {
+	ServerProtocol
+	NewStreamListener(net.Listener) (IStreamListener, error)
 }
 
-func Serve(network, address string, protocol ServerProtocol) (*Server, error) {
-	listener, err := Listen(network, address, protocol)
-	if err != nil {
-		return nil, err
-	}
-	return NewServer(listener), nil
+type StreamClientProtocol interface {
+	ClientProtocol
+	NewStreamClientConn(net.Conn) (IStreamConn, error)
 }
 
-func Connect(network, address string, protocol ClientProtocol) (*Session, error) {
-	conn, err := Dial(network, address, protocol)
-	if err != nil {
-		return nil, err
-	}
-	return NewSession(atomic.AddUint64(&autoSessionId, 1), conn), nil
+type IStreamListener interface {
+	Listener
+	AcceptStream() (IStreamConn, error)
 }
 
-func ConnectTimeout(network, address string, timeout time.Duration, protocol ClientProtocol) (*Session, error) {
-	conn, err := DialTimeout(network, address, timeout, protocol)
-	if err != nil {
-		return nil, err
-	}
-	return NewSession(atomic.AddUint64(&autoSessionId, 1), conn), nil
+type IStreamConn interface {
+	Conn
+	UpStream() *bufio.Reader
+	DownStream() *bufio.Writer
+}
+
+type CodecType interface{}
+
+type PSCodecType interface {
+	PacketCodecType
+	StreamCodecType
+}
+
+type PacketCodecType interface {
+	NewPacketCodec() PacketCodec
+}
+
+type PacketCodec interface {
+	DecodePacket(interface{}, []byte) error
+	EncodePacket(interface{}) ([]byte, error)
+}
+
+type StreamCodecType interface {
+	NewStreamCodec(*bufio.Reader, *bufio.Writer) StreamCodec
+}
+
+type StreamCodec interface {
+	DecodeStream(interface{}) error
+	EncodeStream(interface{}) error
 }

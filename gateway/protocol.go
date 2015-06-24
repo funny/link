@@ -4,7 +4,6 @@ import (
 	"net"
 
 	"github.com/funny/link"
-	"github.com/funny/link/stream"
 )
 
 /*
@@ -18,21 +17,33 @@ Example:
 	server, _ := link.Listen("tcp", "0.0.0.0:0", gateway.NewBackend(1024,1024,1024))
 */
 type Backend struct {
-	protocol *stream.Protocol
+	*link.StreamProtocol
 }
 
-func NewBackend(readBufferSize, writeBufferSize, sendChanSize int) *Backend {
-	return &Backend{stream.New(readBufferSize, writeBufferSize, sendChanSize)}
+func NewBackend() *Backend {
+	return &Backend{link.Stream()}
 }
 
-func (backend *Backend) NewListener(listener net.Listener) link.Listener {
-	return NewBackendListener(link.NewServer(backend.protocol.NewListener(listener)))
+func (backend *Backend) NewListener(listener net.Listener) (link.Listener, error) {
+	lsn, _ := backend.StreamProtocol.NewListener(listener)
+	srv := link.NewServer(lsn, link.SelfCodec())
+	return NewBackendListener(srv), nil
 }
 
-type Broadcast struct {
+type broadcast struct {
+	Codec link.PacketCodec
 }
 
-func (_ Broadcast) Broadcast(msg interface{}, fetcher link.SessionFetcher) error {
+func NewChannel(codecType link.PacketCodecType) *link.Channel {
+	return link.NewCustomChannel(broadcast{codecType.NewPacketCodec()})
+}
+
+func (b broadcast) Broadcast(msg interface{}, fetcher link.SessionFetcher) error {
+	data, err := b.Codec.EncodePacket(msg)
+	if err != nil {
+		return err
+	}
+
 	var server *BackendListener
 	ids := make([]uint64, 0, 10)
 	fetcher(func(session *link.Session) {
@@ -42,6 +53,7 @@ func (_ Broadcast) Broadcast(msg interface{}, fetcher link.SessionFetcher) error
 			server = conn.link.listener
 		}
 	})
-	server.broadcast(ids, msg)
+
+	server.broadcast(ids, data)
 	return nil
 }

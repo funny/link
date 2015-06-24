@@ -7,6 +7,7 @@ import (
 
 type Server struct {
 	listener Listener
+	codec    CodecType
 
 	// About sessions
 	maxSessionId uint64
@@ -18,13 +19,14 @@ type Server struct {
 	stopChan chan int
 	stopWait sync.WaitGroup
 
-	// server state.
+	// Server state
 	State interface{}
 }
 
-func NewServer(listener Listener) *Server {
+func NewServer(listener Listener, codec CodecType) *Server {
 	server := &Server{
 		listener: listener,
+		codec:    codec,
 		sessions: make(map[uint64]*Session),
 		stopChan: make(chan int),
 	}
@@ -35,7 +37,7 @@ func (server *Server) Listener() Listener {
 	return server.listener
 }
 
-func (server *Server) Serve(handler func(*Session)) error {
+func (server *Server) Loop(handler func(*Session)) error {
 	for {
 		conn, err := server.listener.Accept()
 		if err != nil {
@@ -66,8 +68,7 @@ func (server *Server) Stop() bool {
 }
 
 func (server *Server) newSession(conn Conn) *Session {
-	id := atomic.AddUint64(&server.maxSessionId, 1)
-	session := NewSession(id, conn)
+	session := NewSession(conn, server.codec)
 	server.putSession(session)
 	return session
 }

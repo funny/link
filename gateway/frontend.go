@@ -5,8 +5,6 @@ import (
 	"time"
 
 	"github.com/funny/link"
-	"github.com/funny/link/packet"
-	"github.com/funny/link/stream"
 )
 
 type ClientHandshaker func(client *link.Session) (linkId uint64, err error)
@@ -19,18 +17,19 @@ type Frontend struct {
 	handshaker ClientHandshaker
 }
 
-func NewFrontend(listener *packet.Listener, handshaker ClientHandshaker) *Frontend {
+func NewFrontend(listener link.IPacketListener, handshaker ClientHandshaker) *Frontend {
 	front := &Frontend{
-		server:     link.NewServer(listener),
+		server:     link.NewServer(listener, link.Raw()),
 		links:      make(map[uint64]*frontendLink),
 		handshaker: handshaker,
 	}
-	go front.serveClient()
+	go front.loop()
 	return front
 }
 
-func (front *Frontend) serveClient() {
-	front.server.Serve(func(session *link.Session) {
+func (front *Frontend) loop() {
+	front.server.Loop(func(session *link.Session) {
+		session.EnableAsyncSend(2048)
 		linkId, err := front.handshaker(session)
 		if err != nil {
 			return
@@ -56,8 +55,8 @@ func (front *Frontend) Stop() {
 	front.server.Stop()
 }
 
-func (front *Frontend) AddBackend(network, address string, protocol *stream.Protocol) (uint64, error) {
-	session, err := link.ConnectTimeout(network, address, time.Second*3, protocol)
+func (front *Frontend) AddBackend(address string, protocol *link.StreamProtocol) (uint64, error) {
+	session, err := link.ConnectTimeout(address, time.Second*3, protocol, link.SelfCodec())
 	if err != nil {
 		return 0, err
 	}

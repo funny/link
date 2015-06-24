@@ -13,9 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/funny/binary"
 	"github.com/funny/link"
-	"github.com/funny/link/packet"
 	_ "github.com/funny/unitest"
 )
 
@@ -70,7 +68,7 @@ func main() {
 	}
 
 	var (
-		msg       = packet.RAW(make([]byte, *messageSize))
+		msg       = make([]byte, *messageSize)
 		timeout   = time.Now().Add(time.Second * time.Duration(*runTime))
 		initWait  = new(sync.WaitGroup)
 		startChan = make(chan int)
@@ -105,10 +103,9 @@ func main() {
 	fmt.Printf(OutputFormat, sum.SendCount, sum.RecvCount, sum.ReadCount, sum.WriteCount)
 }
 
-func client(initWait *sync.WaitGroup, conn *CountConn, startChan chan int, timeout time.Time, msg packet.RAW) {
-	client := link.NewSession(0, packet.NewConn(conn, packet.New(
-		binary.SplitByUint16BE, 1024, 1024, 1024,
-	)))
+func client(initWait *sync.WaitGroup, conn *CountConn, startChan chan int, timeout time.Time, msg []byte) {
+	pConn, _ := link.Packet(link.Uint16BE).NewClientConn(conn)
+	client := link.NewSession(pConn, link.Raw())
 
 	var wg sync.WaitGroup
 
@@ -121,7 +118,7 @@ func client(initWait *sync.WaitGroup, conn *CountConn, startChan chan int, timeo
 		for {
 			outMsg := msg
 			if *randsize {
-				outMsg = packet.RAW(make([]byte, rand.Intn(*messageSize)))
+				outMsg = make([]byte, rand.Intn(*messageSize))
 			}
 			if err := client.Send(outMsg); err != nil {
 				if timeout.After(time.Now()) {
@@ -139,7 +136,7 @@ func client(initWait *sync.WaitGroup, conn *CountConn, startChan chan int, timeo
 		initWait.Done()
 		<-startChan
 
-		var inMsg packet.RAW
+		var inMsg []byte
 		for {
 			if err := client.Receive(&inMsg); err != nil {
 				if timeout.After(time.Now()) {

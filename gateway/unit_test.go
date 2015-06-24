@@ -8,20 +8,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/funny/binary"
 	"github.com/funny/link"
-	"github.com/funny/link/packet"
-	"github.com/funny/link/stream"
 	"github.com/funny/unitest"
 )
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
 }
-
-var protocol = packet.New(
-	binary.SplitByUint32BE, 1024, 1024, 1024,
-)
 
 func RandBytes(n int) []byte {
 	n = rand.Intn(n)
@@ -32,42 +25,13 @@ func RandBytes(n int) []byte {
 	return b
 }
 
-func StartTestBackend(t *testing.T, handler func(*link.Session)) *link.Server {
-	backend, err := link.Serve("tcp", "0.0.0.0:0", NewBackend(
-		1024, 1024, 1024,
-	))
-	unitest.NotError(t, err)
-	go backend.Serve(handler)
-	return backend
-}
-
-func StartTestGateway(t *testing.T, backendAddr string) *Frontend {
-	listener, err := link.Listen("tcp", "0.0.0.0:0", protocol)
-	unitest.NotError(t, err)
-
-	var linkIds []uint64
-
-	gateway := NewFrontend(listener.(*packet.Listener),
-		func(_ *link.Session) (uint64, error) {
-			return linkIds[rand.Intn(len(linkIds))], nil
-		},
-	)
-
-	for i := 0; i < 10; i++ {
-		id, err := gateway.AddBackend("tcp",
-			backendAddr,
-			stream.New(1024, 1024, 1024),
-		)
-		unitest.NotError(t, err)
-		linkIds = append(linkIds, id)
+func StartEchoBackend() (*link.Server, error) {
+	backend, err := link.Serve("tcp://0.0.0.0:0", NewBackend(), link.Raw())
+	if err != nil {
+		return nil, err
 	}
-
-	return gateway
-}
-
-func Test_Gateway_Simple(t *testing.T) {
-	backend := StartTestBackend(t, func(session *link.Session) {
-		var msg packet.RAW
+	go backend.Loop(func(session *link.Session) {
+		var msg []byte
 		for {
 			if err := session.Receive(&msg); err != nil {
 				break
@@ -77,18 +41,44 @@ func Test_Gateway_Simple(t *testing.T) {
 			}
 		}
 	})
+	return backend, nil
+}
+
+func StartTestGateway(t *testing.T, backendAddr string) *Frontend {
+	listener, err := link.ListenPacket("tcp://0.0.0.0:0", link.Packet(link.Uint16BE))
+	unitest.NotError(t, err)
+
+	var linkIds []uint64
+
+	gateway := NewFrontend(listener, func(_ *link.Session) (uint64, error) {
+		return linkIds[rand.Intn(len(linkIds))], nil
+	})
+
+	for i := 0; i < 1; i++ {
+		id, err := gateway.AddBackend("tcp://"+backendAddr, link.Stream())
+		unitest.NotError(t, err)
+		linkIds = append(linkIds, id)
+	}
+
+	return gateway
+}
+
+func Test_Simple(t *testing.T) {
+	backend, err := StartEchoBackend()
+	unitest.NotError(t, err)
 
 	gateway := StartTestGateway(t, backend.Listener().Addr().String())
 	gatewayAddr := gateway.server.Listener().Addr().String()
 
-	client, err := link.Connect("tcp", gatewayAddr, protocol)
+	client, err := link.Connect("tcp://"+gatewayAddr, link.Packet(link.Uint16BE), link.Raw())
 	unitest.NotError(t, err)
+
 	for i := 0; i < 10000; i++ {
 		msg1 := RandBytes(1024)
-		err1 := client.Send(packet.RAW(msg1))
+		err1 := client.Send(msg1)
 		unitest.NotError(t, err1)
 
-		var msg2 packet.RAW
+		var msg2 []byte
 		err2 := client.Receive(&msg2)
 		unitest.NotError(t, err2)
 
@@ -107,18 +97,9 @@ func Test_Gateway_Simple(t *testing.T) {
 	MakeSureSessionGoroutineExit(t)
 }
 
-func Test_Gateway_Complex(t *testing.T) {
-	backend := StartTestBackend(t, func(session *link.Session) {
-		var msg packet.RAW
-		for {
-			if err := session.Receive(&msg); err != nil {
-				break
-			}
-			if err := session.Send(msg); err != nil {
-				break
-			}
-		}
-	})
+func Test_Complex(t *testing.T) {
+	backend, err := StartEchoBackend()
+	unitest.NotError(t, err)
 
 	gateway := StartTestGateway(t, backend.Listener().Addr().String())
 	gatewayAddr := gateway.server.Listener().Addr().String()
@@ -129,15 +110,15 @@ func Test_Gateway_Complex(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			client, err := link.Connect("tcp", gatewayAddr, protocol)
+			client, err := link.Connect("tcp://"+gatewayAddr, link.Packet(link.Uint16BE), link.Raw())
 			unitest.NotError(t, err)
 
 			for j := 0; j < 500; j++ {
 				msg1 := RandBytes(1024)
-				err1 := client.Send(packet.RAW(msg1))
+				err1 := client.Send(msg1)
 				unitest.NotError(t, err1)
 
-				var msg2 packet.RAW
+				var msg2 []byte
 				err2 := client.Receive(&msg2)
 				unitest.NotError(t, err2)
 
@@ -163,29 +144,35 @@ func Test_Gateway_Complex(t *testing.T) {
 func Test_Broadcast(t *testing.T) {
 	var (
 		clientNum     = 20
-		channel       = link.NewChannel(Broadcast{})
+		packetNum     = 2000
+		channel       = NewChannel(link.Raw())
+		broadcastMsg  []byte
 		broadcastWait sync.WaitGroup
 		clientWait    sync.WaitGroup
 	)
 
-	clientWait.Add(clientNum)
-	backend := StartTestBackend(t, func(session *link.Session) {
+	backend, err := link.Serve("tcp://0.0.0.0:0", NewBackend(), link.Raw())
+	unitest.NotError(t, err)
+
+	go backend.Loop(func(session *link.Session) {
 		channel.Join(session)
 		clientWait.Done()
 		for {
-			var msg packet.RAW
+			var msg []byte
 			if err := session.Receive(&msg); err != nil {
 				break
 			}
+			unitest.Pass(t, bytes.Equal(msg, broadcastMsg))
 			broadcastWait.Done()
 		}
 	})
 
+	clientWait.Add(clientNum)
 	go func() {
 		clientWait.Wait()
-		for i := 0; i < 10000; i++ {
-			msg := RandBytes(10)
-			channel.Broadcast(packet.RAW(msg))
+		for i := 0; i < packetNum; i++ {
+			broadcastMsg = RandBytes(1024)
+			channel.Broadcast(broadcastMsg)
 			broadcastWait.Add(clientNum)
 			broadcastWait.Wait()
 		}
@@ -200,11 +187,11 @@ func Test_Broadcast(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			client, err := link.Connect("tcp", gatewayAddr, protocol)
+			client, err := link.Connect("tcp://"+gatewayAddr, link.Packet(link.Uint16BE), link.Raw())
 			unitest.NotError(t, err)
 
-			for j := 0; j < 10000; j++ {
-				var msg packet.RAW
+			for j := 0; j < packetNum; j++ {
+				var msg []byte
 				err := client.Receive(&msg)
 				unitest.NotError(t, err)
 

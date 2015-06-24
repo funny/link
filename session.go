@@ -12,17 +12,19 @@ var (
 	ErrBlocking = errors.New("Operation blocking")
 )
 
-var DefaultConfig = SessionConfig{
-	SendChanSize: 1000,
-}
-
-type SessionConfig struct {
-	SendChanSize int
-}
+const (
+	streamMode = 1
+	packetMode = 2
+)
 
 type Session struct {
-	id   uint64
-	conn Conn
+	id          uint64
+	mode        int
+	conn        Conn
+	streamConn  IStreamConn
+	streamCodec StreamCodec
+	packetConn  IPacketConn
+	packetCodec PacketCodec
 
 	// About send and receive
 	recvMutex    sync.Mutex
@@ -40,14 +42,32 @@ type Session struct {
 	State interface{}
 }
 
-func NewSession(id uint64, conn Conn) *Session {
-	return &Session{
-		id:             id,
+var globalSessionId uint64
+
+func NewSession(conn Conn, codec CodecType) *Session {
+	session := &Session{
+		id:             atomic.AddUint64(&globalSessionId, 1),
 		conn:           conn,
-		sendChan:       make(chan interface{}, conn.Config().SendChanSize),
 		closeChan:      make(chan int),
 		closeCallbacks: list.New(),
 	}
+
+	if codec != nil {
+		switch c := conn.(type) {
+		case IPacketConn:
+			session.mode = packetMode
+			session.packetConn = conn.(IPacketConn)
+			session.packetCodec = codec.(PacketCodecType).NewPacketCodec()
+		case IStreamConn:
+			session.mode = streamMode
+			session.streamConn = conn.(IStreamConn)
+			session.streamCodec = codec.(StreamCodecType).NewStreamCodec(
+				c.UpStream(), c.DownStream(),
+			)
+		}
+	}
+
+	return session
 }
 
 func (session *Session) Id() uint64     { return session.id }
@@ -62,34 +82,53 @@ func (session *Session) Close() {
 	}
 }
 
-func (session *Session) Receive(msg interface{}) error {
+func (session *Session) Receive(msg interface{}) (err error) {
 	session.recvMutex.Lock()
 	defer session.recvMutex.Unlock()
 
-	if err := session.conn.Receive(msg); err != nil {
-		session.Close()
-		return err
+	switch session.mode {
+	case streamMode:
+		err = session.streamCodec.DecodeStream(msg)
+	case packetMode:
+		var b []byte
+		b, err = session.packetConn.ReadPacket()
+		if err != nil {
+			break
+		}
+		err = session.packetCodec.DecodePacket(msg, b)
 	}
-	return nil
+
+	if err != nil {
+		session.Close()
+	}
+	return
 }
 
-func (session *Session) Send(msg interface{}) error {
+func (session *Session) Send(msg interface{}) (err error) {
 	session.sendMutex.Lock()
 	defer session.sendMutex.Unlock()
 
-	if err := session.conn.Send(msg); err != nil {
-		session.Close()
-		return err
+	switch session.mode {
+	case streamMode:
+		err = session.streamCodec.EncodeStream(msg)
+	case packetMode:
+		b, err := session.packetCodec.EncodePacket(msg)
+		if err != nil {
+			break
+		}
+		err = session.packetConn.WritePacket(b)
 	}
-	return nil
+
+	if err != nil {
+		session.Close()
+		return
+	}
+	return
 }
 
-func (session *Session) AsyncSend(msg interface{}) error {
-	if session.IsClosed() {
-		return ErrClosed
-	}
-
+func (session *Session) EnableAsyncSend(sendChanSize int) {
 	if atomic.CompareAndSwapInt32(&session.sendLoopFlag, 0, 1) {
+		session.sendChan = make(chan interface{}, sendChanSize)
 		go func() {
 			for {
 				select {
@@ -103,6 +142,16 @@ func (session *Session) AsyncSend(msg interface{}) error {
 			}
 		}()
 	}
+}
+
+func (session *Session) AsyncSend(msg interface{}) error {
+	if session.IsClosed() {
+		return ErrClosed
+	}
+
+	if session.sendLoopFlag != 1 {
+		panic("AsyncSend not enable")
+	}
 
 	select {
 	case session.sendChan <- msg:
@@ -110,7 +159,6 @@ func (session *Session) AsyncSend(msg interface{}) error {
 		session.Close()
 		return ErrBlocking
 	}
-
 	return nil
 }
 

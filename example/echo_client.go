@@ -3,27 +3,22 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/funny/binary"
 	"github.com/funny/link"
-	"github.com/funny/link/packet"
-)
-
-var (
-	addr = flag.String("addr", "127.0.0.1:10010", "echo server address")
 )
 
 func main() {
+	var addr string
+
+	flag.StringVar(&addr, "addr", "127.0.0.1:10010", "echo server address")
 	flag.Parse()
 
-	session, err := link.Connect("tcp", *addr, packet.New(
-		binary.SplitByUint16BE, 1024, 1024, 1024,
-	))
+	session, err := link.Connect("tcp://"+addr, link.Packet(link.Uint16BE), link.Raw())
 	if err != nil {
 		panic(err)
 	}
 
 	go func() {
-		var msg packet.RAW
+		var msg []byte
 		for {
 			if err := session.Receive(&msg); err != nil {
 				break
@@ -33,11 +28,11 @@ func main() {
 	}()
 
 	for {
-		var msg string
+		var msg []byte
 		if _, err := fmt.Scanf("%s\n", &msg); err != nil {
 			break
 		}
-		if err = session.Send(packet.RAW(msg)); err != nil {
+		if err = session.Send(msg); err != nil {
 			break
 		}
 	}

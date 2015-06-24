@@ -1,14 +1,14 @@
 package gateway
 
 import (
-	"bytes"
 	"io"
 	"net"
 	"sync/atomic"
 
 	"github.com/funny/link"
-	"github.com/funny/link/packet"
 )
+
+var _ link.IPacketConn = &BackendConn{}
 
 type clientAddr struct {
 	network []byte
@@ -25,24 +25,23 @@ func (addr clientAddr) String() string {
 
 type BackendConn struct {
 	id        uint64
+	waitId    uint64
 	addr      clientAddr
 	link      *backendLink
 	recvChan  chan []byte
 	closeFlag int32
+
+	readCount  uint32
+	writeCount uint32
 }
 
-func newBackendConn(id uint64, addr clientAddr, link *backendLink) *BackendConn {
+func newBackendConn(id, waitId uint64, addr clientAddr, link *backendLink) *BackendConn {
 	return &BackendConn{
 		id:       id,
+		waitId:   waitId,
 		addr:     addr,
 		link:     link,
 		recvChan: make(chan []byte, 1024),
-	}
-}
-
-func (c *BackendConn) Config() link.SessionConfig {
-	return link.SessionConfig{
-		1024,
 	}
 }
 
@@ -54,38 +53,39 @@ func (c *BackendConn) RemoteAddr() net.Addr {
 	return c.addr
 }
 
-func (c *BackendConn) Receive(msg interface{}) error {
+func (c *BackendConn) ReadPacket() ([]byte, error) {
 	data, ok := <-c.recvChan
 	if !ok {
-		return io.EOF
+		return nil, io.EOF
 	}
-	if fast, ok := msg.(packet.FastInMessage); ok {
-		return fast.Unmarshal(
-			&io.LimitedReader{bytes.NewReader(data), int64(len(data))},
-		)
-	}
-	return msg.(packet.InMessage).Unmarshal(data)
+	atomic.AddUint32(&c.readCount, 1)
+	return data, nil
 }
 
-func (c *BackendConn) Send(msg interface{}) error {
+func (c *BackendConn) WritePacket(msg []byte) error {
+	atomic.AddUint32(&c.writeCount, 1)
 	return c.link.session.Send(&gatewayMsg{
-		Command: CMD_MSG, ClientId: c.id, Message: msg,
+		Command: CMD_MSG, ClientId: c.id, Data: msg,
 	})
 }
 
 func (c *BackendConn) Close() error {
-	return c.close(true)
+	c.close(true)
+	return nil
 }
 
-func (c *BackendConn) close(feedback bool) error {
+func (c *BackendConn) close(feedback bool) bool {
 	if atomic.CompareAndSwapInt32(&c.closeFlag, 0, 1) {
-		if feedback {
-			c.link.delConn(c.id)
-			c.link.session.Send(&gatewayMsg{
-				Command: CMD_DEL, ClientId: c.id,
-			})
-		}
-		close(c.recvChan)
+		go func() {
+			if feedback {
+				c.link.delConn(c.id)
+				c.link.session.Send(&gatewayMsg{
+					Command: CMD_DEL, ClientId: c.id,
+				})
+			}
+			close(c.recvChan)
+		}()
+		return true
 	}
-	return nil
+	return false
 }

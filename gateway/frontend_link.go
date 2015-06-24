@@ -5,7 +5,6 @@ import (
 	"sync/atomic"
 
 	"github.com/funny/link"
-	"github.com/funny/link/packet"
 )
 
 type frontendLink struct {
@@ -18,6 +17,8 @@ type frontendLink struct {
 }
 
 func newFrontLink(session *link.Session) *frontendLink {
+	session.EnableAsyncSend(10000)
+
 	flink := &frontendLink{
 		session:     session,
 		clients:     make(map[uint64]*link.Session),
@@ -29,7 +30,7 @@ func newFrontLink(session *link.Session) *frontendLink {
 	})
 
 	go func() {
-		var msg = gatewayMsg{}
+		var msg gatewayMsg
 		for {
 			if err := session.Receive(&msg); err != nil {
 				break
@@ -92,21 +93,9 @@ func (flink *frontendLink) newClient(waitId, clientId uint64) {
 	flink.clients[clientId] = session
 
 	go func() {
-		var (
-			inMsg  packet.RAW
-			outMsg = gatewayMsg{Command: CMD_NEW_3, ClientId: clientId, Message: &inMsg}
-		)
-
-		if err := flink.session.Send(&outMsg); err != nil {
-			flink.Close()
-			return
-		}
-
-		outMsg.Command = CMD_MSG
-
+		outMsg := gatewayMsg{Command: CMD_MSG, ClientId: clientId}
 		for {
-			if err := session.Receive(&inMsg); err != nil {
-				flink.delClient(clientId, true)
+			if err := session.Receive(&outMsg.Data); err != nil {
 				break
 			}
 			if err := flink.session.Send(&outMsg); err != nil {
@@ -114,6 +103,7 @@ func (flink *frontendLink) newClient(waitId, clientId uint64) {
 				break
 			}
 		}
+		flink.delClient(clientId, true)
 	}()
 }
 
@@ -136,7 +126,7 @@ func (flink *frontendLink) dispathMsg(clientId uint64, data []byte) {
 	defer flink.clientMutex.RUnlock()
 
 	if client, exists := flink.clients[clientId]; exists {
-		client.AsyncSend(packet.RAW(data))
+		client.AsyncSend(data)
 	}
 }
 
@@ -146,7 +136,7 @@ func (flink *frontendLink) broadcast(clientIds []uint64, data []byte) {
 
 	for i := 0; i < len(clientIds); i++ {
 		if client, exists := flink.clients[clientIds[i]]; exists {
-			client.AsyncSend(packet.RAW(data))
+			client.AsyncSend(data)
 		}
 	}
 }

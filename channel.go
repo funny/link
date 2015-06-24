@@ -4,6 +4,19 @@ import (
 	"sync"
 )
 
+type SessionFetcher func(func(*Session))
+
+type BroadcastProtocol interface {
+	Broadcast(msg interface{}, fetcher SessionFetcher) error
+}
+
+type defaultBroadcast struct{}
+
+func (_ defaultBroadcast) Broadcast(msg interface{}, fetcher SessionFetcher) error {
+	fetcher(func(session *Session) { session.AsyncSend(msg) })
+	return nil
+}
+
 type Channel struct {
 	protocol BroadcastProtocol
 	mutex    sync.RWMutex
@@ -13,7 +26,11 @@ type Channel struct {
 	State interface{}
 }
 
-func NewChannel(protocol BroadcastProtocol) *Channel {
+func NewChannel() *Channel {
+	return NewCustomChannel(defaultBroadcast{})
+}
+
+func NewCustomChannel(protocol BroadcastProtocol) *Channel {
 	channel := &Channel{
 		protocol: protocol,
 		sessions: make(map[uint64]*Session),
