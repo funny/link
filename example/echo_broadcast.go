@@ -16,7 +16,7 @@ func main() {
 	flag.StringVar(&addr, "addr", ":10010", "echo server address")
 	flag.Parse()
 
-	server, err := link.Serve("tcp://"+addr, link.Packet(link.Uint16BE), link.Raw())
+	server, err := link.Serve("tcp://"+addr, link.Packet(link.Uint16BE), link.String())
 	if err != nil {
 		panic(err)
 	}
@@ -26,7 +26,7 @@ func main() {
 	go func() {
 		for range time.Tick(time.Second * 2) {
 			now := time.Now().Format("2006-01-02 15:04:05")
-			channel.Broadcast([]byte("from channel: " + now))
+			channel.Broadcast("from channel: " + now)
 		}
 	}()
 
@@ -38,12 +38,12 @@ func main() {
 		channel.Join(session)
 
 		for {
-			var msg []byte
+			var msg string
 			if err := session.Receive(&msg); err != nil {
 				break
 			}
-			println(addr, "say:", string(msg))
-			channel.Broadcast([]byte("from " + addr + ": " + string(msg)))
+			println(addr, "say:", msg)
+			channel.Broadcast("from " + addr + ": " + string(msg))
 		}
 
 		println("client", addr, "closed")

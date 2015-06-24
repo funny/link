@@ -12,13 +12,13 @@ func main() {
 	flag.StringVar(&addr, "addr", "127.0.0.1:10010", "echo server address")
 	flag.Parse()
 
-	session, err := link.Connect("tcp://"+addr, link.Packet(link.Uint16BE), link.Raw())
+	session, err := link.Connect("tcp://"+addr, link.Packet(link.Uint16BE), link.String())
 	if err != nil {
 		panic(err)
 	}
 
 	go func() {
-		var msg []byte
+		var msg string
 		for {
 			if err := session.Receive(&msg); err != nil {
 				break
@@ -28,7 +28,7 @@ func main() {
 	}()
 
 	for {
-		var msg []byte
+		var msg string
 		if _, err := fmt.Scanf("%s\n", &msg); err != nil {
 			break
 		}
