@@ -26,7 +26,7 @@ func RandBytes(n int) []byte {
 }
 
 func StartEchoBackend() (*link.Server, error) {
-	backend, err := link.Serve("tcp://0.0.0.0:0", NewBackend(), link.Raw())
+	backend, err := link.Serve("tcp://0.0.0.0:0", NewBackend(), link.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func Test_Simple(t *testing.T) {
 	gateway := StartTestGateway(t, backend.Listener().Addr().String())
 	gatewayAddr := gateway.server.Listener().Addr().String()
 
-	client, err := link.Connect("tcp://"+gatewayAddr, link.Packet(link.Uint16BE), link.Raw())
+	client, err := link.Connect("tcp://"+gatewayAddr, link.Packet(link.Uint16BE), link.Bytes())
 	unitest.NotError(t, err)
 
 	for i := 0; i < 10000; i++ {
@@ -110,7 +110,7 @@ func Test_Complex(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			client, err := link.Connect("tcp://"+gatewayAddr, link.Packet(link.Uint16BE), link.Raw())
+			client, err := link.Connect("tcp://"+gatewayAddr, link.Packet(link.Uint16BE), link.Bytes())
 			unitest.NotError(t, err)
 
 			for j := 0; j < 500; j++ {
@@ -145,13 +145,13 @@ func Test_Broadcast(t *testing.T) {
 	var (
 		clientNum     = 20
 		packetNum     = 2000
-		channel       = NewChannel(link.Raw())
+		channel       = NewChannel(link.Bytes())
 		broadcastMsg  []byte
 		broadcastWait sync.WaitGroup
 		clientWait    sync.WaitGroup
 	)
 
-	backend, err := link.Serve("tcp://0.0.0.0:0", NewBackend(), link.Raw())
+	backend, err := link.Serve("tcp://0.0.0.0:0", NewBackend(), link.Bytes())
 	unitest.NotError(t, err)
 
 	go backend.Loop(func(session *link.Session) {
@@ -187,7 +187,7 @@ func Test_Broadcast(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			client, err := link.Connect("tcp://"+gatewayAddr, link.Packet(link.Uint16BE), link.Raw())
+			client, err := link.Connect("tcp://"+gatewayAddr, link.Packet(link.Uint16BE), link.Bytes())
 			unitest.NotError(t, err)
 
 			for j := 0; j < packetNum; j++ {

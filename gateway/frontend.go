@@ -19,7 +19,7 @@ type Frontend struct {
 
 func NewFrontend(listener link.IPacketListener, handshaker ClientHandshaker) *Frontend {
 	front := &Frontend{
-		server:     link.NewServer(listener, link.Raw()),
+		server:     link.NewServer(listener, link.Bytes()),
 		links:      make(map[uint64]*frontendLink),
 		handshaker: handshaker,
 	}

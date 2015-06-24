@@ -80,8 +80,8 @@ func SessionTest(t *testing.T, protocol ClientProtocol, codec CodecType, test fu
 	MakeSureSessionGoroutineExit(t)
 }
 
-func Test_RawStream(t *testing.T) {
-	SessionTest(t, Stream(), Raw(), func(t *testing.T, session *Session) {
+func Test_BytesStream(t *testing.T) {
+	SessionTest(t, Stream(), Bytes(), func(t *testing.T, session *Session) {
 		for i := 0; i < 2000; i++ {
 			msg1 := RandBytes(1024)
 			err := session.Send(msg1)
@@ -95,8 +95,8 @@ func Test_RawStream(t *testing.T) {
 	})
 }
 
-func Test_RawPacket(t *testing.T) {
-	SessionTest(t, Packet(Uint16BE), Raw(), func(t *testing.T, session *Session) {
+func Test_BytesPacket(t *testing.T) {
+	SessionTest(t, Packet(Uint16BE), Bytes(), func(t *testing.T, session *Session) {
 		for i := 0; i < 2000; i++ {
 			msg1 := RandBytes(1024)
 			err := session.Send(msg1)

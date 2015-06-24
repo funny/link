@@ -5,44 +5,65 @@ import (
 	"io"
 )
 
-func Raw() PSCodecType {
-	return rawCodecType{}
+func Bytes() PSCodecType {
+	return bytesCodecType{}
 }
 
-type rawCodecType struct{}
-
-func (_ rawCodecType) NewPacketCodec() PacketCodec {
-	return rawPacketCodec{}
+func String() PacketCodecType {
+	return stringCodecType{}
 }
 
-func (_ rawCodecType) NewStreamCodec(r *bufio.Reader, w *bufio.Writer) StreamCodec {
-	return rawStreamCodec{r, w}
+type bytesCodecType struct{}
+
+func (_ bytesCodecType) NewPacketCodec() PacketCodec {
+	return bytesPacketCodec{}
 }
 
-type rawPacketCodec struct{}
+func (_ bytesCodecType) NewStreamCodec(r *bufio.Reader, w *bufio.Writer) StreamCodec {
+	return bytesStreamCodec{r, w}
+}
 
-func (codec rawPacketCodec) DecodePacket(msg interface{}, b []byte) error {
+type bytesPacketCodec struct{}
+
+func (codec bytesPacketCodec) DecodePacket(msg interface{}, b []byte) error {
 	*(msg.(*[]byte)) = b
 	return nil
 }
 
-func (codec rawPacketCodec) EncodePacket(msg interface{}) ([]byte, error) {
+func (codec bytesPacketCodec) EncodePacket(msg interface{}) ([]byte, error) {
 	return msg.([]byte), nil
 }
 
-type rawStreamCodec struct {
+type bytesStreamCodec struct {
 	r *bufio.Reader
 	w *bufio.Writer
 }
 
-func (codec rawStreamCodec) DecodeStream(msg interface{}) error {
+func (codec bytesStreamCodec) DecodeStream(msg interface{}) error {
 	_, err := io.ReadFull(codec.r, msg.([]byte))
 	return err
 }
 
-func (codec rawStreamCodec) EncodeStream(msg interface{}) error {
+func (codec bytesStreamCodec) EncodeStream(msg interface{}) error {
 	if _, err := codec.w.Write(msg.([]byte)); err != nil {
 		return err
 	}
 	return codec.w.Flush()
+}
+
+type stringCodecType struct{}
+
+func (_ stringCodecType) NewPacketCodec() PacketCodec {
+	return stringPacketCodec{}
+}
+
+type stringPacketCodec struct{}
+
+func (codec stringPacketCodec) DecodePacket(msg interface{}, b []byte) error {
+	*(msg.(*string)) = string(b)
+	return nil
+}
+
+func (codec stringPacketCodec) EncodePacket(msg interface{}) ([]byte, error) {
+	return []byte(msg.(string)), nil
 }
