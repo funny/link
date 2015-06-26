@@ -5,13 +5,39 @@ import (
 	"net"
 )
 
+// Server side protocol
+
 type ServerProtocol interface {
 	NewListener(net.Listener) (Listener, error)
 }
 
+type PacketServerProtocol interface {
+	ServerProtocol
+	NewPacketListener(net.Listener) (IPacketListener, error)
+}
+
+type StreamServerProtocol interface {
+	ServerProtocol
+	NewStreamListener(net.Listener) (IStreamListener, error)
+}
+
+// Client side protocol
+
 type ClientProtocol interface {
 	NewClientConn(net.Conn) (Conn, error)
 }
+
+type PacketClientProtocol interface {
+	ClientProtocol
+	NewPacketClientConn(net.Conn) (IPacketConn, error)
+}
+
+type StreamClientProtocol interface {
+	ClientProtocol
+	NewStreamClientConn(net.Conn) (IStreamConn, error)
+}
+
+// Listener
 
 type Listener interface {
 	Addr() net.Addr
@@ -20,25 +46,22 @@ type Listener interface {
 	Close() error
 }
 
+type IPacketListener interface {
+	Listener
+	AcceptPacket() (IPacketConn, error)
+}
+
+type IStreamListener interface {
+	Listener
+	AcceptStream() (IStreamConn, error)
+}
+
+// Connection
+
 type Conn interface {
 	LocalAddr() net.Addr
 	RemoteAddr() net.Addr
 	Close() error
-}
-
-type PacketServerProtocol interface {
-	ServerProtocol
-	NewPacketListener(net.Listener) (IPacketListener, error)
-}
-
-type PacketClientProtocol interface {
-	ClientProtocol
-	NewPacketClientConn(net.Conn) (IPacketConn, error)
-}
-
-type IPacketListener interface {
-	Listener
-	AcceptPacket() (IPacketConn, error)
 }
 
 type IPacketConn interface {
@@ -47,26 +70,13 @@ type IPacketConn interface {
 	WritePacket([]byte) error
 }
 
-type StreamServerProtocol interface {
-	ServerProtocol
-	NewStreamListener(net.Listener) (IStreamListener, error)
-}
-
-type StreamClientProtocol interface {
-	ClientProtocol
-	NewStreamClientConn(net.Conn) (IStreamConn, error)
-}
-
-type IStreamListener interface {
-	Listener
-	AcceptStream() (IStreamConn, error)
-}
-
 type IStreamConn interface {
 	Conn
 	UpStream() *bufio.Reader
 	DownStream() *bufio.Writer
 }
+
+// Codec
 
 type CodecType interface{}
 
@@ -79,13 +89,13 @@ type PacketCodecType interface {
 	NewPacketCodec() PacketCodec
 }
 
+type StreamCodecType interface {
+	NewStreamCodec(*bufio.Reader, *bufio.Writer) StreamCodec
+}
+
 type PacketCodec interface {
 	DecodePacket(interface{}, []byte) error
 	EncodePacket(interface{}) ([]byte, error)
-}
-
-type StreamCodecType interface {
-	NewStreamCodec(*bufio.Reader, *bufio.Writer) StreamCodec
 }
 
 type StreamCodec interface {

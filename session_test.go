@@ -110,6 +110,21 @@ func Test_BytesPacket(t *testing.T) {
 	})
 }
 
+func Test_StringPacket(t *testing.T) {
+	SessionTest(t, Packet(Uint16BE), String(), func(t *testing.T, session *Session) {
+		for i := 0; i < 2000; i++ {
+			msg1 := string(RandBytes(1024))
+			err := session.Send(msg1)
+			unitest.NotError(t, err)
+
+			var msg2 string
+			err = session.Receive(&msg2)
+			unitest.NotError(t, err)
+			unitest.Pass(t, msg1 == msg2)
+		}
+	})
+}
+
 func ObjectTest(t *testing.T, session *Session) {
 	for i := 0; i < 2000; i++ {
 		msg1 := RandObject()
