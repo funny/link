@@ -92,7 +92,7 @@ func (this *backendLink) newConn(waitId uint64, addr []byte) {
 	}
 
 	i := bytes.IndexByte(addr, ',')
-	conn = newBackendConn(clientId, waitId, clientAddr{addr[:i], addr[i+1:]}, this)
+	conn = newBackendConn(clientId, waitId, clientAddr{addr[:i], addr[i+1:]}, this.listener.codecType, this)
 
 	this.connMutex.Lock()
 	this.conns[clientId] = conn

@@ -6,28 +6,38 @@ import (
 )
 
 var (
-	_ StreamServerProtocol = &StreamProtocol{}
-	_ StreamClientProtocol = &StreamProtocol{}
-	_ IStreamListener      = &StreamListener{}
-	_ IStreamConn          = &StreamConn{}
+	_ ServerProtocol = &StreamProtocol{}
+	_ ClientProtocol = &StreamProtocol{}
+	_ Listener       = &StreamListener{}
+	_ Conn           = &StreamConn{}
 )
 
+type StreamCodecType interface {
+	NewStreamCodec(r *bufio.Reader, w *bufio.Writer) StreamCodec
+}
+
+type StreamCodec interface {
+	DecodeStream(msg interface{}) error
+	EncodeStream(msg interface{}) error
+}
+
 type StreamProtocol struct {
+	CodecType        StreamCodecType
 	ReadBufferSize   int
 	WriteBufferSize  int
 	ClientHandshaker func(*StreamConn) error
 	ServerHandshaker func(*StreamConn) error
 }
 
-func Stream() *StreamProtocol {
-	return &StreamProtocol{8192, 8192, nil, nil}
+func Stream(codecType StreamCodecType) *StreamProtocol {
+	return &StreamProtocol{codecType, 8192, 8192, nil, nil}
 }
 
-func (protocol *StreamProtocol) NewStreamListener(listener net.Listener) (IStreamListener, error) {
+func (protocol *StreamProtocol) NewListener(listener net.Listener) (Listener, error) {
 	return NewStreamListener(listener, protocol), nil
 }
 
-func (protocol *StreamProtocol) NewStreamClientConn(conn net.Conn) (IStreamConn, error) {
+func (protocol *StreamProtocol) NewClientConn(conn net.Conn) (Conn, error) {
 	lconn := NewStreamConn(conn, protocol)
 	if protocol.ClientHandshaker != nil {
 		if err := protocol.ClientHandshaker(lconn); err != nil {
@@ -36,14 +46,6 @@ func (protocol *StreamProtocol) NewStreamClientConn(conn net.Conn) (IStreamConn,
 		}
 	}
 	return lconn, nil
-}
-
-func (protocol *StreamProtocol) NewListener(listener net.Listener) (Listener, error) {
-	return protocol.NewStreamListener(listener)
-}
-
-func (protocol *StreamProtocol) NewClientConn(conn net.Conn) (Conn, error) {
-	return protocol.NewStreamClientConn(conn)
 }
 
 type StreamListener struct {
@@ -55,7 +57,7 @@ func NewStreamListener(listener net.Listener, protocol *StreamProtocol) *StreamL
 	return &StreamListener{listener, protocol}
 }
 
-func (l *StreamListener) AcceptStream() (IStreamConn, error) {
+func (l *StreamListener) Accept() (Conn, error) {
 	conn, err := l.listener.Accept()
 	if err != nil {
 		return nil, err
@@ -70,26 +72,35 @@ func (l *StreamListener) Handshake(conn Conn) error {
 	return nil
 }
 
-func (l *StreamListener) Accept() (Conn, error) { return l.AcceptStream() }
-func (l *StreamListener) Addr() net.Addr        { return l.listener.Addr() }
-func (l *StreamListener) Close() error          { return l.listener.Close() }
+func (l *StreamListener) Addr() net.Addr { return l.listener.Addr() }
+func (l *StreamListener) Close() error   { return l.listener.Close() }
 
 type StreamConn struct {
 	Conn   net.Conn
+	Codec  StreamCodec
 	Reader *bufio.Reader
 	Writer *bufio.Writer
 }
 
 func NewStreamConn(conn net.Conn, protocol *StreamProtocol) *StreamConn {
+	r := bufio.NewReaderSize(conn, protocol.ReadBufferSize)
+	w := bufio.NewWriterSize(conn, protocol.WriteBufferSize)
 	return &StreamConn{
 		Conn:   conn,
-		Reader: bufio.NewReaderSize(conn, protocol.ReadBufferSize),
-		Writer: bufio.NewWriterSize(conn, protocol.WriteBufferSize),
+		Codec:  protocol.CodecType.NewStreamCodec(r, w),
+		Reader: r,
+		Writer: w,
 	}
 }
 
-func (conn *StreamConn) UpStream() *bufio.Reader   { return conn.Reader }
-func (conn *StreamConn) DownStream() *bufio.Writer { return conn.Writer }
-func (conn *StreamConn) Close() error              { return conn.Conn.Close() }
-func (conn *StreamConn) LocalAddr() net.Addr       { return conn.Conn.LocalAddr() }
-func (conn *StreamConn) RemoteAddr() net.Addr      { return conn.Conn.RemoteAddr() }
+func (conn *StreamConn) Send(msg interface{}) error {
+	return conn.Codec.EncodeStream(msg)
+}
+
+func (conn *StreamConn) Receive(msg interface{}) error {
+	return conn.Codec.DecodeStream(msg)
+}
+
+func (conn *StreamConn) Close() error         { return conn.Conn.Close() }
+func (conn *StreamConn) LocalAddr() net.Addr  { return conn.Conn.LocalAddr() }
+func (conn *StreamConn) RemoteAddr() net.Addr { return conn.Conn.RemoteAddr() }

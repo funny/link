@@ -7,7 +7,6 @@ import (
 
 type Server struct {
 	listener Listener
-	codec    CodecType
 
 	// About sessions
 	maxSessionId uint64
@@ -23,10 +22,9 @@ type Server struct {
 	State interface{}
 }
 
-func NewServer(listener Listener, codec CodecType) *Server {
+func NewServer(listener Listener) *Server {
 	server := &Server{
 		listener: listener,
-		codec:    codec,
 		sessions: make(map[uint64]*Session),
 		stopChan: make(chan int),
 	}
@@ -68,7 +66,7 @@ func (server *Server) Stop() bool {
 }
 
 func (server *Server) newSession(conn Conn) *Session {
-	session := NewSession(conn, server.codec)
+	session := NewSession(conn)
 	server.putSession(session)
 	return session
 }

@@ -17,9 +17,9 @@ type Frontend struct {
 	handshaker ClientHandshaker
 }
 
-func NewFrontend(listener link.IPacketListener, handshaker ClientHandshaker) *Frontend {
+func NewFrontend(listener link.Listener, handshaker ClientHandshaker) *Frontend {
 	front := &Frontend{
-		server:     link.NewServer(listener, link.Bytes()),
+		server:     link.NewServer(listener),
 		links:      make(map[uint64]*frontendLink),
 		handshaker: handshaker,
 	}
@@ -55,8 +55,8 @@ func (front *Frontend) Stop() {
 	front.server.Stop()
 }
 
-func (front *Frontend) AddBackend(address string, protocol *link.StreamProtocol) (uint64, error) {
-	session, err := link.ConnectTimeout(address, time.Second*3, protocol, link.SelfCodec())
+func (front *Frontend) AddBackend(address string) (uint64, error) {
+	session, err := link.ConnectTimeout(address, time.Second*3, link.Stream(link.SelfCodec()))
 	if err != nil {
 		return 0, err
 	}

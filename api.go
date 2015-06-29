@@ -1,43 +1,19 @@
 package link
 
 import (
-	"bufio"
+	"io"
 	"net"
+	"strings"
+	"time"
 )
-
-// Server side protocol
 
 type ServerProtocol interface {
 	NewListener(net.Listener) (Listener, error)
 }
 
-type PacketServerProtocol interface {
-	ServerProtocol
-	NewPacketListener(net.Listener) (IPacketListener, error)
-}
-
-type StreamServerProtocol interface {
-	ServerProtocol
-	NewStreamListener(net.Listener) (IStreamListener, error)
-}
-
-// Client side protocol
-
 type ClientProtocol interface {
 	NewClientConn(net.Conn) (Conn, error)
 }
-
-type PacketClientProtocol interface {
-	ClientProtocol
-	NewPacketClientConn(net.Conn) (IPacketConn, error)
-}
-
-type StreamClientProtocol interface {
-	ClientProtocol
-	NewStreamClientConn(net.Conn) (IStreamConn, error)
-}
-
-// Listener
 
 type Listener interface {
 	Addr() net.Addr
@@ -46,59 +22,75 @@ type Listener interface {
 	Close() error
 }
 
-type IPacketListener interface {
-	Listener
-	AcceptPacket() (IPacketConn, error)
-}
-
-type IStreamListener interface {
-	Listener
-	AcceptStream() (IStreamConn, error)
-}
-
-// Connection
-
 type Conn interface {
 	LocalAddr() net.Addr
 	RemoteAddr() net.Addr
+	Send(interface{}) error
+	Receive(interface{}) error
 	Close() error
 }
 
-type IPacketConn interface {
-	Conn
-	ReadPacket() ([]byte, error)
-	WritePacket([]byte) error
+func ParseAddr(address string) (net, addr string) {
+	n := strings.Index(address, "://")
+	return address[:n], address[n+3:]
 }
 
-type IStreamConn interface {
-	Conn
-	UpStream() *bufio.Reader
-	DownStream() *bufio.Writer
+func Echo(session *Session) {
+	switch c := session.conn.(type) {
+	case *StreamConn:
+		io.Copy(c.Conn, c.Conn)
+	case *PacketConn:
+		io.Copy(c.Conn, c.Conn)
+	}
 }
 
-// Codec
-
-type CodecType interface{}
-
-type PSCodecType interface {
-	PacketCodecType
-	StreamCodecType
+func Serve(address string, protocol ServerProtocol) (*Server, error) {
+	listener, err := Listen(address, protocol)
+	if err != nil {
+		return nil, err
+	}
+	return NewServer(listener), nil
 }
 
-type PacketCodecType interface {
-	NewPacketCodec() PacketCodec
+func Connect(address string, protocol ClientProtocol) (*Session, error) {
+	conn, err := Dial(address, protocol)
+	if err != nil {
+		return nil, err
+	}
+	return NewSession(conn), nil
 }
 
-type StreamCodecType interface {
-	NewStreamCodec(*bufio.Reader, *bufio.Writer) StreamCodec
+func ConnectTimeout(address string, timeout time.Duration, protocol ClientProtocol) (*Session, error) {
+	conn, err := DialTimeout(address, timeout, protocol)
+	if err != nil {
+		return nil, err
+	}
+	return NewSession(conn), nil
 }
 
-type PacketCodec interface {
-	DecodePacket(interface{}, []byte) error
-	EncodePacket(interface{}) ([]byte, error)
+func Listen(address string, protocol ServerProtocol) (Listener, error) {
+	lnet, laddr := ParseAddr(address)
+	listener, err := net.Listen(lnet, laddr)
+	if err != nil {
+		return nil, err
+	}
+	return protocol.NewListener(listener)
 }
 
-type StreamCodec interface {
-	DecodeStream(interface{}) error
-	EncodeStream(interface{}) error
+func Dial(address string, protocol ClientProtocol) (Conn, error) {
+	lnet, laddr := ParseAddr(address)
+	conn, err := net.Dial(lnet, laddr)
+	if err != nil {
+		return nil, err
+	}
+	return protocol.NewClientConn(conn)
+}
+
+func DialTimeout(address string, timeout time.Duration, protocol ClientProtocol) (Conn, error) {
+	lnet, laddr := ParseAddr(address)
+	conn, err := net.DialTimeout(lnet, laddr, timeout)
+	if err != nil {
+		return nil, err
+	}
+	return protocol.NewClientConn(conn)
 }

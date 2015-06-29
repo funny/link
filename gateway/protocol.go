@@ -18,16 +18,17 @@ Example:
 */
 type Backend struct {
 	*link.StreamProtocol
+	CodecType link.PacketCodecType
 }
 
-func NewBackend() *Backend {
-	return &Backend{link.Stream()}
+func NewBackend(codecType link.PacketCodecType) *Backend {
+	return &Backend{link.Stream(link.SelfCodec()), codecType}
 }
 
 func (backend *Backend) NewListener(listener net.Listener) (link.Listener, error) {
 	lsn, _ := backend.StreamProtocol.NewListener(listener)
-	srv := link.NewServer(lsn, link.SelfCodec())
-	return NewBackendListener(srv), nil
+	srv := link.NewServer(lsn)
+	return NewBackendListener(srv, backend.CodecType), nil
 }
 
 type broadcast struct {

@@ -8,7 +8,7 @@ import (
 	"github.com/funny/link"
 )
 
-var _ link.IPacketConn = &BackendConn{}
+var _ link.Conn = &BackendConn{}
 
 type clientAddr struct {
 	network []byte
@@ -27,19 +27,18 @@ type BackendConn struct {
 	id        uint64
 	waitId    uint64
 	addr      clientAddr
+	codec     link.PacketCodec
 	link      *backendLink
 	recvChan  chan []byte
 	closeFlag int32
-
-	readCount  uint32
-	writeCount uint32
 }
 
-func newBackendConn(id, waitId uint64, addr clientAddr, link *backendLink) *BackendConn {
+func newBackendConn(id, waitId uint64, addr clientAddr, codecType link.PacketCodecType, link *backendLink) *BackendConn {
 	return &BackendConn{
 		id:       id,
 		waitId:   waitId,
 		addr:     addr,
+		codec:    codecType.NewPacketCodec(),
 		link:     link,
 		recvChan: make(chan []byte, 1024),
 	}
@@ -53,19 +52,21 @@ func (c *BackendConn) RemoteAddr() net.Addr {
 	return c.addr
 }
 
-func (c *BackendConn) ReadPacket() ([]byte, error) {
-	data, ok := <-c.recvChan
+func (c *BackendConn) Receive(msg interface{}) error {
+	b, ok := <-c.recvChan
 	if !ok {
-		return nil, io.EOF
+		return io.EOF
 	}
-	atomic.AddUint32(&c.readCount, 1)
-	return data, nil
+	return c.codec.DecodePacket(msg, b)
 }
 
-func (c *BackendConn) WritePacket(msg []byte) error {
-	atomic.AddUint32(&c.writeCount, 1)
+func (c *BackendConn) Send(msg interface{}) error {
+	b, err := c.codec.EncodePacket(msg)
+	if err != nil {
+		return err
+	}
 	return c.link.session.Send(&gatewayMsg{
-		Command: CMD_MSG, ClientId: c.id, Data: msg,
+		Command: CMD_MSG, ClientId: c.id, Data: b,
 	})
 }
 

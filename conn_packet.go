@@ -6,10 +6,10 @@ import (
 )
 
 var (
-	_ PacketServerProtocol = &PacketProtocol{}
-	_ PacketClientProtocol = &PacketProtocol{}
-	_ IPacketListener      = &PacketListener{}
-	_ IPacketConn          = &PacketConn{}
+	_ ServerProtocol = &PacketProtocol{}
+	_ ClientProtocol = &PacketProtocol{}
+	_ Listener       = &PacketListener{}
+	_ Conn           = &PacketConn{}
 )
 
 var (
@@ -33,23 +33,33 @@ var (
 	Uint64LE = binary.SplitByUint64LE
 )
 
+type PacketCodecType interface {
+	NewPacketCodec() PacketCodec
+}
+
+type PacketCodec interface {
+	DecodePacket(msg interface{}, b []byte) error
+	EncodePacket(msg interface{}) ([]byte, error)
+}
+
 type PacketProtocol struct {
 	Spliter          binary.Spliter
+	CodecType        PacketCodecType
 	ReadBufferSize   int
 	WriteBufferSize  int
 	ClientHandshaker func(*PacketConn) error
 	ServerHandshaker func(*PacketConn) error
 }
 
-func Packet(spliter binary.Spliter) *PacketProtocol {
-	return &PacketProtocol{spliter, 8192, 8192, nil, nil}
+func Packet(spliter binary.Spliter, codecType PacketCodecType) *PacketProtocol {
+	return &PacketProtocol{spliter, codecType, 8192, 8192, nil, nil}
 }
 
-func (protocol *PacketProtocol) NewPacketListener(listener net.Listener) (IPacketListener, error) {
+func (protocol *PacketProtocol) NewListener(listener net.Listener) (Listener, error) {
 	return NewPacketListener(listener, protocol), nil
 }
 
-func (protocol *PacketProtocol) NewPacketClientConn(conn net.Conn) (IPacketConn, error) {
+func (protocol *PacketProtocol) NewClientConn(conn net.Conn) (Conn, error) {
 	lconn := NewPacketConn(conn, protocol)
 	if protocol.ClientHandshaker != nil {
 		if err := protocol.ClientHandshaker(lconn); err != nil {
@@ -58,14 +68,6 @@ func (protocol *PacketProtocol) NewPacketClientConn(conn net.Conn) (IPacketConn,
 		}
 	}
 	return lconn, nil
-}
-
-func (protocol *PacketProtocol) NewListener(listener net.Listener) (Listener, error) {
-	return protocol.NewPacketListener(listener)
-}
-
-func (protocol *PacketProtocol) NewClientConn(conn net.Conn) (Conn, error) {
-	return protocol.NewPacketClientConn(conn)
 }
 
 type PacketListener struct {
@@ -77,7 +79,7 @@ func NewPacketListener(listener net.Listener, protocol *PacketProtocol) *PacketL
 	return &PacketListener{listener, protocol}
 }
 
-func (l *PacketListener) AcceptPacket() (IPacketConn, error) {
+func (l *PacketListener) Accept() (Conn, error) {
 	conn, err := l.listener.Accept()
 	if err != nil {
 		return nil, err
@@ -92,12 +94,12 @@ func (l *PacketListener) Handshake(conn Conn) error {
 	return nil
 }
 
-func (l *PacketListener) Accept() (Conn, error) { return l.AcceptPacket() }
-func (l *PacketListener) Addr() net.Addr        { return l.listener.Addr() }
-func (l *PacketListener) Close() error          { return l.listener.Close() }
+func (l *PacketListener) Addr() net.Addr { return l.listener.Addr() }
+func (l *PacketListener) Close() error   { return l.listener.Close() }
 
 type PacketConn struct {
 	Conn    net.Conn
+	Codec   PacketCodec
 	Spliter binary.Spliter
 	Reader  *binary.Reader
 	Writer  *binary.Writer
@@ -106,20 +108,28 @@ type PacketConn struct {
 func NewPacketConn(conn net.Conn, protocol *PacketProtocol) *PacketConn {
 	return &PacketConn{
 		Conn:    conn,
+		Codec:   protocol.CodecType.NewPacketCodec(),
 		Spliter: protocol.Spliter,
 		Reader:  binary.NewBufioReader(conn, protocol.ReadBufferSize),
 		Writer:  binary.NewBufioWriter(conn, protocol.WriteBufferSize),
 	}
 }
 
-func (conn *PacketConn) ReadPacket() ([]byte, error) {
-	b := conn.Reader.ReadPacket(conn.Spliter)
-	return b, conn.Reader.Error()
+func (conn *PacketConn) Send(msg interface{}) error {
+	b, err := conn.Codec.EncodePacket(msg)
+	if err != nil {
+		return err
+	}
+	conn.Writer.WritePacket(b, conn.Spliter)
+	return conn.Writer.Flush()
 }
 
-func (conn *PacketConn) WritePacket(msg []byte) error {
-	conn.Writer.WritePacket(msg, conn.Spliter)
-	return conn.Writer.Flush()
+func (conn *PacketConn) Receive(msg interface{}) error {
+	b := conn.Reader.ReadPacket(conn.Spliter)
+	if conn.Reader.Error() != nil {
+		return conn.Reader.Error()
+	}
+	return conn.Codec.DecodePacket(msg, b)
 }
 
 func (conn *PacketConn) Close() error         { return conn.Conn.Close() }

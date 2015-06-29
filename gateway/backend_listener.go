@@ -11,15 +11,17 @@ import (
 type BackendListener struct {
 	server     *link.Server
 	protocol   *Backend
+	codecType  link.PacketCodecType
 	acceptChan chan *BackendConn
 	linkMutex  sync.RWMutex
 	maxLinkId  uint64
 	links      map[uint64]*backendLink
 }
 
-func NewBackendListener(server *link.Server) *BackendListener {
+func NewBackendListener(server *link.Server, codecType link.PacketCodecType) *BackendListener {
 	backend := &BackendListener{
 		server:     server,
+		codecType:  codecType,
 		links:      make(map[uint64]*backendLink),
 		acceptChan: make(chan *BackendConn, 2000),
 	}

@@ -12,19 +12,9 @@ var (
 	ErrBlocking = errors.New("Operation blocking")
 )
 
-const (
-	streamMode = 1
-	packetMode = 2
-)
-
 type Session struct {
-	id          uint64
-	mode        int
-	conn        Conn
-	streamConn  IStreamConn
-	streamCodec StreamCodec
-	packetConn  IPacketConn
-	packetCodec PacketCodec
+	id   uint64
+	conn Conn
 
 	// About send and receive
 	recvMutex    sync.Mutex
@@ -44,29 +34,13 @@ type Session struct {
 
 var globalSessionId uint64
 
-func NewSession(conn Conn, codec CodecType) *Session {
+func NewSession(conn Conn) *Session {
 	session := &Session{
 		id:             atomic.AddUint64(&globalSessionId, 1),
 		conn:           conn,
 		closeChan:      make(chan int),
 		closeCallbacks: list.New(),
 	}
-
-	if codec != nil {
-		switch c := conn.(type) {
-		case IPacketConn:
-			session.mode = packetMode
-			session.packetConn = conn.(IPacketConn)
-			session.packetCodec = codec.(PacketCodecType).NewPacketCodec()
-		case IStreamConn:
-			session.mode = streamMode
-			session.streamConn = conn.(IStreamConn)
-			session.streamCodec = codec.(StreamCodecType).NewStreamCodec(
-				c.UpStream(), c.DownStream(),
-			)
-		}
-	}
-
 	return session
 }
 
@@ -86,18 +60,7 @@ func (session *Session) Receive(msg interface{}) (err error) {
 	session.recvMutex.Lock()
 	defer session.recvMutex.Unlock()
 
-	switch session.mode {
-	case streamMode:
-		err = session.streamCodec.DecodeStream(msg)
-	case packetMode:
-		var b []byte
-		b, err = session.packetConn.ReadPacket()
-		if err != nil {
-			break
-		}
-		err = session.packetCodec.DecodePacket(msg, b)
-	}
-
+	err = session.conn.Receive(msg)
 	if err != nil {
 		session.Close()
 	}
@@ -108,20 +71,9 @@ func (session *Session) Send(msg interface{}) (err error) {
 	session.sendMutex.Lock()
 	defer session.sendMutex.Unlock()
 
-	switch session.mode {
-	case streamMode:
-		err = session.streamCodec.EncodeStream(msg)
-	case packetMode:
-		b, err := session.packetCodec.EncodePacket(msg)
-		if err != nil {
-			break
-		}
-		err = session.packetConn.WritePacket(b)
-	}
-
+	err = session.conn.Send(msg)
 	if err != nil {
 		session.Close()
-		return
 	}
 	return
 }

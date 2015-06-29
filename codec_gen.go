@@ -9,6 +9,11 @@ import (
 	"io"
 )
 
+type PSCodecType interface {
+	PacketCodecType
+	StreamCodecType
+}
+
 func Gob() PSCodecType {
 	return &genCodecType{
 		func(r io.Reader) decoder { return gob.NewDecoder(r) },

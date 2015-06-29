@@ -49,8 +49,8 @@ func RandObject() TestObject {
 	}
 }
 
-func SessionTest(t *testing.T, protocol ClientProtocol, codec CodecType, test func(*testing.T, *Session)) {
-	server, err := Serve("tcp://0.0.0.0:0", Stream(), nil)
+func SessionTest(t *testing.T, protocol ClientProtocol, test func(*testing.T, *Session)) {
+	server, err := Serve("tcp://0.0.0.0:0", Stream(Bytes()))
 	unitest.NotError(t, err)
 	addr := server.listener.Addr().String()
 
@@ -65,7 +65,7 @@ func SessionTest(t *testing.T, protocol ClientProtocol, codec CodecType, test fu
 	for i := 0; i < 60; i++ {
 		clientWait.Add(1)
 		go func() {
-			session, err := Connect("tcp://"+addr, protocol, codec)
+			session, err := Connect("tcp://"+addr, protocol)
 			unitest.NotError(t, err)
 			test(t, session)
 			session.Close()
@@ -81,7 +81,7 @@ func SessionTest(t *testing.T, protocol ClientProtocol, codec CodecType, test fu
 }
 
 func Test_BytesStream(t *testing.T) {
-	SessionTest(t, Stream(), Bytes(), func(t *testing.T, session *Session) {
+	SessionTest(t, Stream(Bytes()), func(t *testing.T, session *Session) {
 		for i := 0; i < 2000; i++ {
 			msg1 := RandBytes(1024)
 			err := session.Send(msg1)
@@ -96,7 +96,7 @@ func Test_BytesStream(t *testing.T) {
 }
 
 func Test_BytesPacket(t *testing.T) {
-	SessionTest(t, Packet(Uint16BE), Bytes(), func(t *testing.T, session *Session) {
+	SessionTest(t, Packet(Uint16BE, Bytes()), func(t *testing.T, session *Session) {
 		for i := 0; i < 2000; i++ {
 			msg1 := RandBytes(1024)
 			err := session.Send(msg1)
@@ -111,7 +111,7 @@ func Test_BytesPacket(t *testing.T) {
 }
 
 func Test_StringPacket(t *testing.T) {
-	SessionTest(t, Packet(Uint16BE), String(), func(t *testing.T, session *Session) {
+	SessionTest(t, Packet(Uint16BE, String()), func(t *testing.T, session *Session) {
 		for i := 0; i < 2000; i++ {
 			msg1 := string(RandBytes(1024))
 			err := session.Send(msg1)
@@ -139,39 +139,39 @@ func ObjectTest(t *testing.T, session *Session) {
 }
 
 func Test_GobStream(t *testing.T) {
-	SessionTest(t, Stream(), Gob(), ObjectTest)
+	SessionTest(t, Stream(Gob()), ObjectTest)
 }
 
 func Test_GobPacket(t *testing.T) {
-	SessionTest(t, Packet(Uint16BE), Gob(), ObjectTest)
+	SessionTest(t, Packet(Uint16BE, Gob()), ObjectTest)
 }
 
 func Test_JsonStream(t *testing.T) {
-	SessionTest(t, Stream(), Json(), ObjectTest)
+	SessionTest(t, Stream(Json()), ObjectTest)
 }
 
 func Test_JsonPacket(t *testing.T) {
-	SessionTest(t, Packet(Uint16BE), Json(), ObjectTest)
+	SessionTest(t, Packet(Uint16BE, Json()), ObjectTest)
 }
 
 func Test_XmlStream(t *testing.T) {
-	SessionTest(t, Stream(), Xml(), ObjectTest)
+	SessionTest(t, Stream(Xml()), ObjectTest)
 }
 
 func Test_XmlPacket(t *testing.T) {
-	SessionTest(t, Packet(Uint16BE), Xml(), ObjectTest)
+	SessionTest(t, Packet(Uint16BE, Xml()), ObjectTest)
 }
 
 func Test_XmlSocket(t *testing.T) {
-	SessionTest(t, Packet(Zero), Xml(), ObjectTest)
+	SessionTest(t, Packet(Zero, Xml()), ObjectTest)
 }
 
 func Test_SelfCodecStream(t *testing.T) {
-	SessionTest(t, Stream(), SelfCodec(), ObjectTest)
+	SessionTest(t, Stream(SelfCodec()), ObjectTest)
 }
 
 func Test_SelfCodecPacket(t *testing.T) {
-	SessionTest(t, Packet(Uint16BE), SelfCodec(), ObjectTest)
+	SessionTest(t, Packet(Uint16BE, SelfCodec()), ObjectTest)
 }
 
 func MakeSureSessionGoroutineExit(t *testing.T) {

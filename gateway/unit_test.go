@@ -26,7 +26,7 @@ func RandBytes(n int) []byte {
 }
 
 func StartEchoBackend() (*link.Server, error) {
-	backend, err := link.Serve("tcp://0.0.0.0:0", NewBackend(), link.Bytes())
+	backend, err := link.Serve("tcp://0.0.0.0:0", NewBackend(link.Bytes()))
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +45,7 @@ func StartEchoBackend() (*link.Server, error) {
 }
 
 func StartTestGateway(t *testing.T, backendAddr string) *Frontend {
-	listener, err := link.ListenPacket("tcp://0.0.0.0:0", link.Packet(link.Uint16BE))
+	listener, err := link.Listen("tcp://0.0.0.0:0", link.Packet(link.Uint16BE, link.Bytes()))
 	unitest.NotError(t, err)
 
 	var linkIds []uint64
@@ -55,7 +55,7 @@ func StartTestGateway(t *testing.T, backendAddr string) *Frontend {
 	})
 
 	for i := 0; i < 1; i++ {
-		id, err := gateway.AddBackend("tcp://"+backendAddr, link.Stream())
+		id, err := gateway.AddBackend("tcp://" + backendAddr)
 		unitest.NotError(t, err)
 		linkIds = append(linkIds, id)
 	}
@@ -70,7 +70,7 @@ func Test_Simple(t *testing.T) {
 	gateway := StartTestGateway(t, backend.Listener().Addr().String())
 	gatewayAddr := gateway.server.Listener().Addr().String()
 
-	client, err := link.Connect("tcp://"+gatewayAddr, link.Packet(link.Uint16BE), link.Bytes())
+	client, err := link.Connect("tcp://"+gatewayAddr, link.Packet(link.Uint16BE, link.Bytes()))
 	unitest.NotError(t, err)
 
 	for i := 0; i < 10000; i++ {
@@ -110,7 +110,7 @@ func Test_Complex(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			client, err := link.Connect("tcp://"+gatewayAddr, link.Packet(link.Uint16BE), link.Bytes())
+			client, err := link.Connect("tcp://"+gatewayAddr, link.Packet(link.Uint16BE, link.Bytes()))
 			unitest.NotError(t, err)
 
 			for j := 0; j < 500; j++ {
@@ -151,7 +151,7 @@ func Test_Broadcast(t *testing.T) {
 		clientWait    sync.WaitGroup
 	)
 
-	backend, err := link.Serve("tcp://0.0.0.0:0", NewBackend(), link.Bytes())
+	backend, err := link.Serve("tcp://0.0.0.0:0", NewBackend(link.Bytes()))
 	unitest.NotError(t, err)
 
 	go backend.Loop(func(session *link.Session) {
@@ -187,7 +187,7 @@ func Test_Broadcast(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			client, err := link.Connect("tcp://"+gatewayAddr, link.Packet(link.Uint16BE), link.Bytes())
+			client, err := link.Connect("tcp://"+gatewayAddr, link.Packet(link.Uint16BE, link.Bytes()))
 			unitest.NotError(t, err)
 
 			for j := 0; j < packetNum; j++ {
