@@ -104,8 +104,8 @@ func main() {
 }
 
 func client(initWait *sync.WaitGroup, conn *CountConn, startChan chan int, timeout time.Time, msg []byte) {
-	pConn, _ := link.Packet(link.Uint16BE).NewClientConn(conn)
-	client := link.NewSession(pConn, link.Bytes())
+	pConn, _ := link.Packet(link.Uint16BE, link.Bytes()).NewClientConn(conn)
+	client := link.NewSession(pConn)
 
 	var wg sync.WaitGroup
 

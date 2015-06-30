@@ -12,7 +12,7 @@ func main() {
 	flag.StringVar(&addr, "addr", "127.0.0.1:10010", "echo server address")
 	flag.Parse()
 
-	session, err := link.Connect("tcp://"+addr, link.Packet(link.Uint16BE), link.String())
+	session, err := link.Connect("tcp://"+addr, link.Packet(link.Uint16BE, link.String()))
 	if err != nil {
 		panic(err)
 	}
