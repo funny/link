@@ -14,7 +14,7 @@ var (
 
 var (
 	Line     = binary.SplitByLine
-	Zero     = binary.SplitByZero
+	Null     = binary.SplitByNull
 	Uvarint  = binary.SplitByUvarint
 	Uint8    = binary.SplitByUint8
 	Uint16BE = binary.SplitByUint16BE

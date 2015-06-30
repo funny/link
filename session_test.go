@@ -163,7 +163,7 @@ func Test_XmlPacket(t *testing.T) {
 }
 
 func Test_XmlSocket(t *testing.T) {
-	SessionTest(t, Packet(Zero, Xml()), ObjectTest)
+	SessionTest(t, Packet(Null, Xml()), ObjectTest)
 }
 
 func Test_SelfCodecStream(t *testing.T) {
