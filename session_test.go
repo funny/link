@@ -29,14 +29,14 @@ type TestObject struct {
 	X, Y, Z int
 }
 
-func (obj *TestObject) BinaryDecode(r *binary.Reader) error {
+func (obj *TestObject) SelfDecode(r *binary.Reader) error {
 	obj.X = int(r.ReadVarint())
 	obj.Y = int(r.ReadVarint())
 	obj.Z = int(r.ReadVarint())
 	return nil
 }
 
-func (obj *TestObject) BinaryEncode(w *binary.Writer) error {
+func (obj *TestObject) SelfEncode(w *binary.Writer) error {
 	w.WriteVarint(int64(obj.X))
 	w.WriteVarint(int64(obj.Y))
 	w.WriteVarint(int64(obj.Z))

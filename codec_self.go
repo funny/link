@@ -26,12 +26,12 @@ func (_ selfCodecType) NewStreamCodec(r *bufio.Reader, w *bufio.Writer) StreamCo
 	}
 }
 
-type SelfDecode interface {
-	BinaryDecode(*binary.Reader) error
+type SelfDecoder interface {
+	SelfDecode(*binary.Reader) error
 }
 
-type SelfEncode interface {
-	BinaryEncode(*binary.Writer) error
+type SelfEncoder interface {
+	SelfEncode(*binary.Writer) error
 }
 
 type selfPacketCodec struct {
@@ -43,12 +43,12 @@ type selfPacketCodec struct {
 
 func (codec *selfPacketCodec) DecodePacket(msg interface{}, b []byte) error {
 	codec.rbuf.Reset(b)
-	return msg.(SelfDecode).BinaryDecode(codec.r)
+	return msg.(SelfDecoder).SelfDecode(codec.r)
 }
 
 func (codec *selfPacketCodec) EncodePacket(msg interface{}) ([]byte, error) {
 	codec.wbuf.Reset(codec.wbuf.Data[0:0])
-	if err := msg.(SelfEncode).BinaryEncode(codec.w); err != nil {
+	if err := msg.(SelfEncoder).SelfEncode(codec.w); err != nil {
 		return nil, err
 	}
 	return codec.wbuf.Bytes(), nil
@@ -60,14 +60,14 @@ type selfStreamCodec struct {
 }
 
 func (codec selfStreamCodec) DecodeStream(msg interface{}) error {
-	if err := msg.(SelfDecode).BinaryDecode(codec.r); err != nil {
+	if err := msg.(SelfDecoder).SelfDecode(codec.r); err != nil {
 		return err
 	}
 	return codec.r.Error()
 }
 
 func (codec selfStreamCodec) EncodeStream(msg interface{}) error {
-	if err := msg.(SelfEncode).BinaryEncode(codec.w); err != nil {
+	if err := msg.(SelfEncoder).SelfEncode(codec.w); err != nil {
 		return err
 	}
 	return codec.w.Flush()

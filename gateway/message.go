@@ -15,8 +15,8 @@ const (
 	CMD_PONG  = 7
 )
 
-var _ link.SelfEncode = &gatewayMsg{}
-var _ link.SelfDecode = &gatewayMsg{}
+var _ link.SelfEncoder = &gatewayMsg{}
+var _ link.SelfDecoder = &gatewayMsg{}
 
 type gatewayMsg struct {
 	Command   uint8
@@ -25,7 +25,7 @@ type gatewayMsg struct {
 	Data      []byte
 }
 
-func (msg *gatewayMsg) BinaryDecode(r *binary.Reader) error {
+func (msg *gatewayMsg) SelfDecode(r *binary.Reader) error {
 	msg.Command = r.ReadUint8()
 	switch msg.Command {
 	case CMD_NEW_1:
@@ -50,7 +50,7 @@ func (msg *gatewayMsg) BinaryDecode(r *binary.Reader) error {
 	return nil
 }
 
-func (msg *gatewayMsg) BinaryEncode(w *binary.Writer) error {
+func (msg *gatewayMsg) SelfEncode(w *binary.Writer) error {
 	w.WriteUint8(msg.Command)
 	switch msg.Command {
 	case CMD_NEW_1:
