@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"github.com/funny/link"
+	"io"
 )
 
 func main() {
@@ -16,5 +17,8 @@ func main() {
 		panic(err)
 	}
 	println("server start:", server.Listener().Addr().String())
-	server.Loop(link.Echo)
+	server.Loop(func(session *link.Session) {
+		c := session.Conn().(*link.StreamConn)
+		io.Copy(c.Conn, c.Conn)
+	})
 }
