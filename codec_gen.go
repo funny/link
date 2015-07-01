@@ -1,34 +1,27 @@
 package link
 
 import (
-	"bufio"
 	"encoding/gob"
 	"encoding/json"
 	"encoding/xml"
-	"github.com/funny/binary"
 	"io"
 )
 
-type PSCodecType interface {
-	PacketCodecType
-	StreamCodecType
-}
-
-func Gob() PSCodecType {
+func Gob() CodecType {
 	return &genCodecType{
 		func(r io.Reader) decoder { return gob.NewDecoder(r) },
 		func(w io.Writer) encoder { return gob.NewEncoder(w) },
 	}
 }
 
-func Json() PSCodecType {
+func Json() CodecType {
 	return &genCodecType{
 		func(r io.Reader) decoder { return json.NewDecoder(r) },
 		func(w io.Writer) encoder { return json.NewEncoder(w) },
 	}
 }
 
-func Xml() PSCodecType {
+func Xml() CodecType {
 	return &genCodecType{
 		func(r io.Reader) decoder { return xml.NewDecoder(r) },
 		func(w io.Writer) encoder { return xml.NewEncoder(w) },
@@ -48,54 +41,22 @@ type genCodecType struct {
 	newEncoder func(io.Writer) encoder
 }
 
-func (codecType *genCodecType) NewPacketCodec() PacketCodec {
-	codec := &genPacketCodec{}
-	codec.Decoder = codecType.newDecoder(&codec.rbuf)
-	codec.Encoder = codecType.newEncoder(&codec.wbuf)
-	return codec
-}
-
-func (codecType *genCodecType) NewStreamCodec(up *bufio.Reader, down *bufio.Writer) StreamCodec {
-	return &genStreamCodec{
-		Writer:  down,
-		Decoder: codecType.newDecoder(up),
-		Encoder: codecType.newEncoder(down),
+func (codecType *genCodecType) NewCodec(r io.Reader, w io.Writer) Codec {
+	return &genCodec{
+		Decoder: codecType.newDecoder(r),
+		Encoder: codecType.newEncoder(w),
 	}
 }
 
-type genPacketCodec struct {
-	rbuf    binary.Buffer
-	wbuf    binary.Buffer
+type genCodec struct {
 	Decoder decoder
 	Encoder encoder
 }
 
-func (codec *genPacketCodec) DecodePacket(msg interface{}, b []byte) error {
-	codec.rbuf.Reset(b)
+func (codec *genCodec) Decode(msg interface{}) error {
 	return codec.Decoder.Decode(msg)
 }
 
-func (codec *genPacketCodec) EncodePacket(msg interface{}) ([]byte, error) {
-	codec.wbuf.Reset(codec.wbuf.Data[0:0])
-	if err := codec.Encoder.Encode(msg); err != nil {
-		return nil, err
-	}
-	return codec.wbuf.Bytes(), nil
-}
-
-type genStreamCodec struct {
-	Writer  *bufio.Writer
-	Decoder decoder
-	Encoder encoder
-}
-
-func (codec *genStreamCodec) DecodeStream(msg interface{}) error {
-	return codec.Decoder.Decode(msg)
-}
-
-func (codec *genStreamCodec) EncodeStream(msg interface{}) error {
-	if err := codec.Encoder.Encode(msg); err != nil {
-		return err
-	}
-	return codec.Writer.Flush()
+func (codec *genCodec) Encode(msg interface{}) error {
+	return codec.Encoder.Encode(msg)
 }

@@ -1,17 +1,44 @@
 package link
 
 import (
-	"bufio"
-	"net"
+	"io"
 
 	"github.com/funny/binary"
 )
 
-var (
-	_ ServerProtocol  = &PacketProtocol{}
-	_ ClientProtocol  = &PacketProtocol{}
-	_ StreamCodecType = &PacketProtocol{}
-)
+func Packet(spliter binary.Spliter, codecType CodecType) CodecType {
+	return packetCodecType{spliter, codecType}
+}
+
+type packetCodecType struct {
+	Spliter   binary.Spliter
+	CodecType CodecType
+}
+
+func (codecType packetCodecType) NewCodec(r io.Reader, w io.Writer) Codec {
+	pr := binary.NewPacketReader(codecType.Spliter, r)
+	pw := binary.NewPacketWriter(codecType.Spliter, w)
+	return &packetCodec{
+		Codec:  codecType.CodecType.NewCodec(pr, pw),
+		Writer: pw,
+	}
+}
+
+type packetCodec struct {
+	Codec  Codec
+	Writer *binary.PacketWriter
+}
+
+func (codec *packetCodec) Encode(msg interface{}) error {
+	if err := codec.Codec.Encode(msg); err != nil {
+		return err
+	}
+	return codec.Writer.Flush()
+}
+
+func (codec *packetCodec) Decode(msg interface{}) error {
+	return codec.Codec.Decode(msg)
+}
 
 var (
 	Line     = binary.SplitByLine
@@ -33,110 +60,3 @@ var (
 	Uint64BE = binary.SplitByUint64BE
 	Uint64LE = binary.SplitByUint64LE
 )
-
-type PacketCodecType interface {
-	NewPacketCodec() PacketCodec
-}
-
-type PacketCodec interface {
-	DecodePacket(msg interface{}, b []byte) error
-	EncodePacket(msg interface{}) ([]byte, error)
-}
-
-type PacketProtocol struct {
-	packetCodecType
-	StreamProtocol
-}
-
-func Packet(spliter binary.Spliter, codecType PacketCodecType) *PacketProtocol {
-	protocol := &PacketProtocol{
-		packetCodecType{spliter, codecType},
-		StreamProtocol{nil, 8192, 8192, nil, nil},
-	}
-	protocol.StreamProtocol.CodecType = &protocol.packetCodecType
-	return protocol
-}
-
-func (protocol *PacketProtocol) NewListener(listener net.Listener) (Listener, error) {
-	return protocol.StreamProtocol.NewListener(listener)
-}
-
-func (protocol *PacketProtocol) NewClientConn(conn net.Conn) (Conn, error) {
-	return protocol.StreamProtocol.NewClientConn(conn)
-}
-
-type packetCodecType struct {
-	Spliter   binary.Spliter
-	CodecType PacketCodecType
-}
-
-func (codecType *packetCodecType) NewStreamCodec(r *bufio.Reader, w *bufio.Writer) StreamCodec {
-	return &packetStreamCodec{
-		Codec:   codecType.CodecType.NewPacketCodec(),
-		Spliter: codecType.Spliter,
-		Reader:  binary.NewReader(r),
-		Writer:  binary.NewWriter(w),
-	}
-}
-
-func (codecType *packetCodecType) NewPacketCodec() PacketCodec {
-	codec := &packetPacketCodec{
-		Codec:   codecType.CodecType.NewPacketCodec(),
-		Spliter: codecType.Spliter,
-	}
-	codec.Reader = binary.NewReader(&codec.ReadBuffer)
-	codec.Writer = binary.NewWriter(&codec.WriteBuffer)
-	return codec
-}
-
-type packetStreamCodec struct {
-	Codec   PacketCodec
-	Spliter binary.Spliter
-	Reader  *binary.Reader
-	Writer  *binary.Writer
-}
-
-func (codec *packetStreamCodec) EncodeStream(msg interface{}) error {
-	b, err := codec.Codec.EncodePacket(msg)
-	if err != nil {
-		return err
-	}
-	codec.Writer.WritePacket(b, codec.Spliter)
-	return codec.Writer.Flush()
-}
-
-func (codec *packetStreamCodec) DecodeStream(msg interface{}) error {
-	b := codec.Reader.ReadPacket(codec.Spliter)
-	if codec.Reader.Error() != nil {
-		return codec.Reader.Error()
-	}
-	return codec.Codec.DecodePacket(msg, b)
-}
-
-type packetPacketCodec struct {
-	Codec       PacketCodec
-	Spliter     binary.Spliter
-	ReadBuffer  binary.Buffer
-	WriteBuffer binary.Buffer
-	Reader      *binary.Reader
-	Writer      *binary.Writer
-}
-
-func (codec *packetPacketCodec) EncodePacket(msg interface{}) ([]byte, error) {
-	b, err := codec.Codec.EncodePacket(msg)
-	if err != nil {
-		return nil, err
-	}
-	codec.WriteBuffer.Reset(codec.WriteBuffer.Data[0:0])
-	codec.Writer.WritePacket(b, codec.Spliter)
-	return codec.WriteBuffer.Data, nil
-}
-
-func (codec *packetPacketCodec) DecodePacket(msg interface{}, b []byte) error {
-	codec.ReadBuffer.Reset(b)
-	b = codec.Reader.ReadPacket(codec.Spliter)
-	if codec.Reader.Error() != nil {
-		return codec.Reader.Error()
-	}
-	return codec.Codec.DecodePacket(msg, b)
-}

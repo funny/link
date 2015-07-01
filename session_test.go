@@ -50,31 +50,48 @@ func RandObject() TestObject {
 	}
 }
 
-func SessionTest(t *testing.T, protocol ClientProtocol, test func(*testing.T, *Session)) {
-	server, err := Serve("tcp://0.0.0.0:0", Stream(Bytes()))
+func SessionTest(t *testing.T, codecType CodecType, test func(*testing.T, *Session)) {
+	server, err := Serve("tcp://0.0.0.0:0", Bytes(Uint16BE))
 	unitest.NotError(t, err)
 	addr := server.listener.Addr().String()
 
 	serverWait := new(sync.WaitGroup)
-	go server.Loop(func(session *Session) {
-		serverWait.Add(1)
-		c := session.conn.(*StreamConn)
-		io.Copy(c.Conn, c.Conn)
-		serverWait.Done()
-	})
+	go func() {
+		for {
+			session, err := server.Accept()
+			if err != nil {
+				break
+			}
+			serverWait.Add(1)
+			go func() {
+				io.Copy(session.conn, session.conn)
+				serverWait.Done()
+			}()
+		}
+	}()
 
 	clientWait := new(sync.WaitGroup)
-	for i := 0; i < 60; i++ {
-		clientWait.Add(1)
-		go func() {
-			session, err := Connect("tcp://"+addr, protocol)
-			unitest.NotError(t, err)
-			test(t, session)
-			session.Close()
-			clientWait.Done()
-		}()
+
+	testFunc := func(codecType CodecType) {
+		for i := 0; i < 60; i++ {
+			clientWait.Add(1)
+			go func() {
+				session, err := Connect("tcp://"+addr, codecType)
+				unitest.NotError(t, err)
+				test(t, session)
+				session.Close()
+				clientWait.Done()
+			}()
+		}
+		clientWait.Wait()
 	}
-	clientWait.Wait()
+
+	println("test1")
+	testFunc(codecType)
+	println("test2")
+	testFunc(Bufio(codecType))
+	println("test3")
+	testFunc(Packet(Uint16BE, codecType))
 
 	server.Stop()
 	serverWait.Wait()
@@ -82,25 +99,10 @@ func SessionTest(t *testing.T, protocol ClientProtocol, test func(*testing.T, *S
 	MakeSureSessionGoroutineExit(t)
 }
 
-func Test_BytesStream(t *testing.T) {
-	SessionTest(t, Stream(Bytes()), func(t *testing.T, session *Session) {
+func Test_Bytes(t *testing.T) {
+	SessionTest(t, Bytes(Uint16BE), func(t *testing.T, session *Session) {
 		for i := 0; i < 2000; i++ {
-			msg1 := RandBytes(1024)
-			err := session.Send(msg1)
-			unitest.NotError(t, err)
-
-			var msg2 = make([]byte, len(msg1))
-			err = session.Receive(msg2)
-			unitest.NotError(t, err)
-			unitest.Pass(t, bytes.Equal(msg1, msg2))
-		}
-	})
-}
-
-func Test_BytesPacket(t *testing.T) {
-	SessionTest(t, Packet(Uint16BE, Bytes()), func(t *testing.T, session *Session) {
-		for i := 0; i < 2000; i++ {
-			msg1 := RandBytes(1024)
+			msg1 := RandBytes(512)
 			err := session.Send(msg1)
 			unitest.NotError(t, err)
 
@@ -112,10 +114,10 @@ func Test_BytesPacket(t *testing.T) {
 	})
 }
 
-func Test_StringPacket(t *testing.T) {
-	SessionTest(t, Packet(Uint16BE, String()), func(t *testing.T, session *Session) {
+func Test_String(t *testing.T) {
+	SessionTest(t, String(Uint16BE), func(t *testing.T, session *Session) {
 		for i := 0; i < 2000; i++ {
-			msg1 := string(RandBytes(1024))
+			msg1 := string(RandBytes(512))
 			err := session.Send(msg1)
 			unitest.NotError(t, err)
 
@@ -140,48 +142,20 @@ func ObjectTest(t *testing.T, session *Session) {
 	}
 }
 
-func Test_GobStream(t *testing.T) {
-	SessionTest(t, Stream(Gob()), ObjectTest)
+func Test_Gob(t *testing.T) {
+	SessionTest(t, Gob(), ObjectTest)
 }
 
-func Test_GobPacket(t *testing.T) {
-	SessionTest(t, Packet(Uint16BE, Gob()), ObjectTest)
+func Test_Json(t *testing.T) {
+	SessionTest(t, Json(), ObjectTest)
 }
 
-func Test_JsonStream(t *testing.T) {
-	SessionTest(t, Stream(Json()), ObjectTest)
+func Test_Xml(t *testing.T) {
+	SessionTest(t, Xml(), ObjectTest)
 }
 
-func Test_JsonPacket(t *testing.T) {
-	SessionTest(t, Packet(Uint16BE, Json()), ObjectTest)
-}
-
-func Test_XmlStream(t *testing.T) {
-	SessionTest(t, Stream(Xml()), ObjectTest)
-}
-
-func Test_XmlPacket(t *testing.T) {
-	SessionTest(t, Packet(Uint16BE, Xml()), ObjectTest)
-}
-
-func Test_XmlSocket(t *testing.T) {
-	SessionTest(t, Packet(Null, Xml()), ObjectTest)
-}
-
-func Test_SelfCodecStream(t *testing.T) {
-	SessionTest(t, Stream(SelfCodec()), ObjectTest)
-}
-
-func Test_SelfCodecPacket(t *testing.T) {
-	SessionTest(t, Packet(Uint16BE, SelfCodec()), ObjectTest)
-}
-
-func Test_SelfCodecPacketStream(t *testing.T) {
-	SessionTest(t, Stream(Packet(Uint16BE, SelfCodec())), ObjectTest)
-}
-
-func Test_WTF(t *testing.T) {
-	SessionTest(t, Stream(Packet(Uint16BE, Packet(Uint16BE, SelfCodec()))), ObjectTest)
+func Test_SelfCodec(t *testing.T) {
+	SessionTest(t, SelfCodec(), ObjectTest)
 }
 
 func MakeSureSessionGoroutineExit(t *testing.T) {

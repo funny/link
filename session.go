@@ -3,6 +3,7 @@ package link
 import (
 	"container/list"
 	"errors"
+	"net"
 	"sync"
 	"sync/atomic"
 )
@@ -13,8 +14,9 @@ var (
 )
 
 type Session struct {
-	id   uint64
-	conn Conn
+	id    uint64
+	conn  net.Conn
+	codec Codec
 
 	// About send and receive
 	recvMutex    sync.Mutex
@@ -34,10 +36,11 @@ type Session struct {
 
 var globalSessionId uint64
 
-func NewSession(conn Conn) *Session {
+func NewSession(conn net.Conn, codecType CodecType) *Session {
 	session := &Session{
 		id:             atomic.AddUint64(&globalSessionId, 1),
 		conn:           conn,
+		codec:          codecType.NewCodec(conn, conn),
 		closeChan:      make(chan int),
 		closeCallbacks: list.New(),
 	}
@@ -45,7 +48,7 @@ func NewSession(conn Conn) *Session {
 }
 
 func (session *Session) Id() uint64     { return session.id }
-func (session *Session) Conn() Conn     { return session.conn }
+func (session *Session) Conn() net.Conn { return session.conn }
 func (session *Session) IsClosed() bool { return atomic.LoadInt32(&session.closeFlag) != 0 }
 
 func (session *Session) Close() {
@@ -60,7 +63,7 @@ func (session *Session) Receive(msg interface{}) (err error) {
 	session.recvMutex.Lock()
 	defer session.recvMutex.Unlock()
 
-	err = session.conn.Receive(msg)
+	err = session.codec.Decode(msg)
 	if err != nil {
 		session.Close()
 	}
@@ -71,7 +74,7 @@ func (session *Session) Send(msg interface{}) (err error) {
 	session.sendMutex.Lock()
 	defer session.sendMutex.Unlock()
 
-	err = session.conn.Send(msg)
+	err = session.codec.Encode(msg)
 	if err != nil {
 		session.Close()
 	}

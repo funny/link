@@ -1,12 +1,14 @@
 package link
 
 import (
+	"net"
 	"sync"
 	"sync/atomic"
 )
 
 type Server struct {
-	listener Listener
+	listener  net.Listener
+	codecType CodecType
 
 	// About sessions
 	maxSessionId uint64
@@ -22,36 +24,26 @@ type Server struct {
 	State interface{}
 }
 
-func NewServer(listener Listener) *Server {
+func NewServer(listener net.Listener, codecType CodecType) *Server {
 	server := &Server{
-		listener: listener,
-		sessions: make(map[uint64]*Session),
-		stopChan: make(chan int),
+		listener:  listener,
+		codecType: codecType,
+		sessions:  make(map[uint64]*Session),
+		stopChan:  make(chan int),
 	}
 	return server
 }
 
-func (server *Server) Listener() Listener {
+func (server *Server) Listener() net.Listener {
 	return server.listener
 }
 
-func (server *Server) Loop(handler func(*Session)) error {
-	for {
-		conn, err := server.listener.Accept()
-		if err != nil {
-			if server.Stop() {
-				return err
-			}
-			return nil
-		}
-		go func() {
-			if server.listener.Handshake(conn) != nil {
-				return
-			}
-			handler(server.newSession(conn))
-		}()
+func (server *Server) Accept() (*Session, error) {
+	conn, err := server.listener.Accept()
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return server.newSession(conn), nil
 }
 
 func (server *Server) Stop() bool {
@@ -65,8 +57,8 @@ func (server *Server) Stop() bool {
 	return false
 }
 
-func (server *Server) newSession(conn Conn) *Session {
-	session := NewSession(conn)
+func (server *Server) newSession(conn net.Conn) *Session {
+	session := NewSession(conn, server.codecType)
 	server.putSession(session)
 	return session
 }
