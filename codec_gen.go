@@ -48,18 +48,18 @@ type genCodecType struct {
 	newEncoder func(io.Writer) encoder
 }
 
-func (streamType *genCodecType) NewPacketCodec() PacketCodec {
+func (codecType *genCodecType) NewPacketCodec() PacketCodec {
 	codec := &genPacketCodec{}
-	codec.Decoder = streamType.newDecoder(&codec.rbuf)
-	codec.Encoder = streamType.newEncoder(&codec.wbuf)
+	codec.Decoder = codecType.newDecoder(&codec.rbuf)
+	codec.Encoder = codecType.newEncoder(&codec.wbuf)
 	return codec
 }
 
-func (streamType *genCodecType) NewStreamCodec(up *bufio.Reader, down *bufio.Writer) StreamCodec {
+func (codecType *genCodecType) NewStreamCodec(up *bufio.Reader, down *bufio.Writer) StreamCodec {
 	return &genStreamCodec{
 		Writer:  down,
-		Decoder: streamType.newDecoder(up),
-		Encoder: streamType.newEncoder(down),
+		Decoder: codecType.newDecoder(up),
+		Encoder: codecType.newEncoder(down),
 	}
 }
 

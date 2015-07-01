@@ -52,8 +52,8 @@ func (channel *Channel) Len() int {
 func (channel *Channel) Fetch(callback func(*Session)) {
 	channel.mutex.RLock()
 	defer channel.mutex.RUnlock()
-	for _, sesssion := range channel.sessions {
-		callback(sesssion)
+	for _, session := range channel.sessions {
+		callback(session)
 	}
 }
 

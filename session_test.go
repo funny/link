@@ -2,6 +2,7 @@ package link
 
 import (
 	"bytes"
+	"io"
 	"math/rand"
 	"runtime/pprof"
 	"sync"
@@ -57,7 +58,8 @@ func SessionTest(t *testing.T, protocol ClientProtocol, test func(*testing.T, *S
 	serverWait := new(sync.WaitGroup)
 	go server.Loop(func(session *Session) {
 		serverWait.Add(1)
-		Echo(session)
+		c := session.conn.(*StreamConn)
+		io.Copy(c.Conn, c.Conn)
 		serverWait.Done()
 	})
 
@@ -172,6 +174,14 @@ func Test_SelfCodecStream(t *testing.T) {
 
 func Test_SelfCodecPacket(t *testing.T) {
 	SessionTest(t, Packet(Uint16BE, SelfCodec()), ObjectTest)
+}
+
+func Test_SelfCodecPacketStream(t *testing.T) {
+	SessionTest(t, Stream(Packet(Uint16BE, SelfCodec())), ObjectTest)
+}
+
+func Test_WTF(t *testing.T) {
+	SessionTest(t, Stream(Packet(Uint16BE, Packet(Uint16BE, SelfCodec()))), ObjectTest)
 }
 
 func MakeSureSessionGoroutineExit(t *testing.T) {

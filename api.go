@@ -1,7 +1,6 @@
 package link
 
 import (
-	"io"
 	"net"
 	"strings"
 	"time"
@@ -33,15 +32,6 @@ type Conn interface {
 func ParseAddr(address string) (net, addr string) {
 	n := strings.Index(address, "://")
 	return address[:n], address[n+3:]
-}
-
-func Echo(session *Session) {
-	switch c := session.conn.(type) {
-	case *StreamConn:
-		io.Copy(c.Conn, c.Conn)
-	case *PacketConn:
-		io.Copy(c.Conn, c.Conn)
-	}
 }
 
 func Serve(address string, protocol ServerProtocol) (*Server, error) {
