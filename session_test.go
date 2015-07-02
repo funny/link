@@ -51,7 +51,7 @@ func RandObject() TestObject {
 }
 
 func SessionTest(t *testing.T, codecType CodecType, test func(*testing.T, *Session)) {
-	server, err := Serve("tcp://0.0.0.0:0", Bytes(Uint16BE))
+	server, err := Serve("tcp", "0.0.0.0:0", Bytes(Uint16BE))
 	unitest.NotError(t, err)
 	addr := server.listener.Addr().String()
 
@@ -74,7 +74,7 @@ func SessionTest(t *testing.T, codecType CodecType, test func(*testing.T, *Sessi
 	for i := 0; i < 60; i++ {
 		clientWait.Add(1)
 		go func() {
-			session, err := Connect("tcp://"+addr, codecType)
+			session, err := Connect("tcp", addr, codecType)
 			unitest.NotError(t, err)
 			test(t, session)
 			session.Close()

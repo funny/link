@@ -3,7 +3,6 @@ package link
 import (
 	"io"
 	"net"
-	"strings"
 	"time"
 )
 
@@ -16,32 +15,24 @@ type Codec interface {
 	Encode(msg interface{}) error
 }
 
-func ParseAddr(address string) (net, addr string) {
-	n := strings.Index(address, "://")
-	return address[:n], address[n+3:]
-}
-
-func Serve(address string, codecType CodecType) (*Server, error) {
-	lnet, laddr := ParseAddr(address)
-	listener, err := net.Listen(lnet, laddr)
+func Serve(network, address string, codecType CodecType) (*Server, error) {
+	listener, err := net.Listen(network, address)
 	if err != nil {
 		return nil, err
 	}
 	return NewServer(listener, codecType), nil
 }
 
-func Connect(address string, codecType CodecType) (*Session, error) {
-	lnet, laddr := ParseAddr(address)
-	conn, err := net.Dial(lnet, laddr)
+func Connect(network, address string, codecType CodecType) (*Session, error) {
+	conn, err := net.Dial(network, address)
 	if err != nil {
 		return nil, err
 	}
 	return NewSession(conn, codecType), nil
 }
 
-func ConnectTimeout(address string, timeout time.Duration, codecType CodecType) (*Session, error) {
-	lnet, laddr := ParseAddr(address)
-	conn, err := net.DialTimeout(lnet, laddr, timeout)
+func ConnectTimeout(network, address string, timeout time.Duration, codecType CodecType) (*Session, error) {
+	conn, err := net.DialTimeout(network, address, timeout)
 	if err != nil {
 		return nil, err
 	}
