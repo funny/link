@@ -71,27 +71,17 @@ func SessionTest(t *testing.T, codecType CodecType, test func(*testing.T, *Sessi
 	}()
 
 	clientWait := new(sync.WaitGroup)
-
-	testFunc := func(codecType CodecType) {
-		for i := 0; i < 60; i++ {
-			clientWait.Add(1)
-			go func() {
-				session, err := Connect("tcp://"+addr, codecType)
-				unitest.NotError(t, err)
-				test(t, session)
-				session.Close()
-				clientWait.Done()
-			}()
-		}
-		clientWait.Wait()
+	for i := 0; i < 60; i++ {
+		clientWait.Add(1)
+		go func() {
+			session, err := Connect("tcp://"+addr, codecType)
+			unitest.NotError(t, err)
+			test(t, session)
+			session.Close()
+			clientWait.Done()
+		}()
 	}
-
-	println("test1")
-	testFunc(codecType)
-	println("test2")
-	testFunc(Bufio(codecType))
-	println("test3")
-	testFunc(Packet(Uint16BE, codecType))
+	clientWait.Wait()
 
 	server.Stop()
 	serverWait.Wait()
@@ -99,34 +89,62 @@ func SessionTest(t *testing.T, codecType CodecType, test func(*testing.T, *Sessi
 	MakeSureSessionGoroutineExit(t)
 }
 
-func Test_Bytes(t *testing.T) {
-	SessionTest(t, Bytes(Uint16BE), func(t *testing.T, session *Session) {
-		for i := 0; i < 2000; i++ {
-			msg1 := RandBytes(512)
-			err := session.Send(msg1)
-			unitest.NotError(t, err)
+func BytesTest(t *testing.T, session *Session) {
+	for i := 0; i < 2000; i++ {
+		msg1 := RandBytes(512)
+		err := session.Send(msg1)
+		unitest.NotError(t, err)
 
-			var msg2 []byte
-			err = session.Receive(&msg2)
-			unitest.NotError(t, err)
-			unitest.Pass(t, bytes.Equal(msg1, msg2))
-		}
-	})
+		var msg2 []byte
+		err = session.Receive(&msg2)
+		unitest.NotError(t, err)
+		unitest.Pass(t, bytes.Equal(msg1, msg2))
+	}
+}
+
+func Test_Bytes(t *testing.T) {
+	SessionTest(t, Bytes(Uint16BE), BytesTest)
+}
+
+func Test_Bufio_Bytes(t *testing.T) {
+	SessionTest(t, Bufio(Bytes(Uint16BE)), BytesTest)
+}
+
+func Test_Packet_Bytes(t *testing.T) {
+	SessionTest(t, Packet(Uint16BE, Bytes(Uint16BE)), BytesTest)
+}
+
+func Test_Bufio_Packet_Bytes(t *testing.T) {
+	SessionTest(t, Bufio(Packet(Uint16BE, Bytes(Uint16BE))), BytesTest)
+}
+
+func StringTest(t *testing.T, session *Session) {
+	for i := 0; i < 2000; i++ {
+		msg1 := string(RandBytes(512))
+		err := session.Send(msg1)
+		unitest.NotError(t, err)
+
+		var msg2 string
+		err = session.Receive(&msg2)
+		unitest.NotError(t, err)
+		unitest.Pass(t, msg1 == msg2)
+	}
 }
 
 func Test_String(t *testing.T) {
-	SessionTest(t, String(Uint16BE), func(t *testing.T, session *Session) {
-		for i := 0; i < 2000; i++ {
-			msg1 := string(RandBytes(512))
-			err := session.Send(msg1)
-			unitest.NotError(t, err)
+	SessionTest(t, String(Uint16BE), StringTest)
+}
 
-			var msg2 string
-			err = session.Receive(&msg2)
-			unitest.NotError(t, err)
-			unitest.Pass(t, msg1 == msg2)
-		}
-	})
+func Test_Bufio_String(t *testing.T) {
+	SessionTest(t, Bufio(String(Uint16BE)), StringTest)
+}
+
+func Test_Packet_String(t *testing.T) {
+	SessionTest(t, Packet(Uint16BE, String(Uint16BE)), StringTest)
+}
+
+func Test_Bufio_Packet_String(t *testing.T) {
+	SessionTest(t, Bufio(Packet(Uint16BE, String(Uint16BE))), StringTest)
 }
 
 func ObjectTest(t *testing.T, session *Session) {
@@ -146,16 +164,64 @@ func Test_Gob(t *testing.T) {
 	SessionTest(t, Gob(), ObjectTest)
 }
 
+func Test_Bufio_Gob(t *testing.T) {
+	SessionTest(t, Bufio(Gob()), ObjectTest)
+}
+
+func Test_Packet_Gob(t *testing.T) {
+	SessionTest(t, Packet(Uint16BE, Gob()), ObjectTest)
+}
+
+func Test_Bufio_Packet_Gob(t *testing.T) {
+	SessionTest(t, Bufio(Packet(Uint16BE, Gob())), ObjectTest)
+}
+
 func Test_Json(t *testing.T) {
 	SessionTest(t, Json(), ObjectTest)
+}
+
+func Test_Bufio_Json(t *testing.T) {
+	SessionTest(t, Bufio(Json()), ObjectTest)
+}
+
+func Test_Packet_Json(t *testing.T) {
+	SessionTest(t, Packet(Uint16BE, Json()), ObjectTest)
+}
+
+func Test_Bufio_Packet_Json(t *testing.T) {
+	SessionTest(t, Bufio(Packet(Uint16BE, Json())), ObjectTest)
 }
 
 func Test_Xml(t *testing.T) {
 	SessionTest(t, Xml(), ObjectTest)
 }
 
+func Test_Bufio_Xml(t *testing.T) {
+	SessionTest(t, Bufio(Xml()), ObjectTest)
+}
+
+func Test_Packet_Xml(t *testing.T) {
+	SessionTest(t, Packet(Uint16BE, Xml()), ObjectTest)
+}
+
+func Test_Bufio_Packet_Xml(t *testing.T) {
+	SessionTest(t, Bufio(Packet(Uint16BE, Xml())), ObjectTest)
+}
+
 func Test_SelfCodec(t *testing.T) {
 	SessionTest(t, SelfCodec(), ObjectTest)
+}
+
+func Test_Bufio_SelfCodec(t *testing.T) {
+	SessionTest(t, Bufio(SelfCodec()), ObjectTest)
+}
+
+func Test_Packet_SelfCodec(t *testing.T) {
+	SessionTest(t, Packet(Uint16BE, SelfCodec()), ObjectTest)
+}
+
+func Test_Bufio_Packet_SelfCodec(t *testing.T) {
+	SessionTest(t, Bufio(Packet(Uint16BE, SelfCodec())), ObjectTest)
 }
 
 func MakeSureSessionGoroutineExit(t *testing.T) {
