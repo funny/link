@@ -11,33 +11,44 @@ func Packet(spliter binary.Spliter, codecType CodecType) CodecType {
 }
 
 type packetCodecType struct {
-	Spliter   binary.Spliter
-	CodecType CodecType
+	Spliter binary.Spliter
+	Base    CodecType
 }
 
-func (codecType packetCodecType) NewCodec(r io.Reader, w io.Writer) Codec {
-	pr := binary.NewPacketReader(codecType.Spliter, r)
+func (codecType packetCodecType) NewEncoder(w io.Writer) Encoder {
 	pw := binary.NewPacketWriter(codecType.Spliter, w)
-	return &packetCodec{
-		Codec:  codecType.CodecType.NewCodec(pr, pw),
+	return &packetEncoder{
 		Writer: pw,
+		Base:   codecType.Base.NewEncoder(pw),
 	}
 }
 
-type packetCodec struct {
-	Codec  Codec
+func (codecType packetCodecType) NewDecoder(r io.Reader) Decoder {
+	return &packetDecoder{
+		Base: codecType.Base.NewDecoder(
+			binary.NewPacketReader(codecType.Spliter, r),
+		),
+	}
+}
+
+type packetEncoder struct {
+	Base   Encoder
 	Writer *binary.PacketWriter
 }
 
-func (codec *packetCodec) Encode(msg interface{}) error {
-	if err := codec.Codec.Encode(msg); err != nil {
+func (encoder *packetEncoder) Encode(msg interface{}) error {
+	if err := encoder.Base.Encode(msg); err != nil {
 		return err
 	}
-	return codec.Writer.Flush()
+	return encoder.Writer.Flush()
 }
 
-func (codec *packetCodec) Decode(msg interface{}) error {
-	return codec.Codec.Decode(msg)
+type packetDecoder struct {
+	Base Decoder
+}
+
+func (deocder *packetDecoder) Decode(msg interface{}) error {
+	return deocder.Base.Decode(msg)
 }
 
 var (

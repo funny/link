@@ -14,26 +14,36 @@ type stringCodecType struct {
 	Spliter binary.Spliter
 }
 
-func (codecType stringCodecType) NewCodec(r io.Reader, w io.Writer) Codec {
-	return stringCodec{
+func (codecType stringCodecType) NewEncoder(w io.Writer) Encoder {
+	return stringEncoder{
 		codecType.Spliter,
-		binary.NewReader(r),
 		binary.NewWriter(w),
 	}
 }
 
-type stringCodec struct {
+func (codecType stringCodecType) NewDecoder(r io.Reader) Decoder {
+	return stringDecoder{
+		codecType.Spliter,
+		binary.NewReader(r),
+	}
+}
+
+type stringEncoder struct {
 	Spliter binary.Spliter
-	Reader  *binary.Reader
 	Writer  *binary.Writer
 }
 
-func (codec stringCodec) Decode(msg interface{}) error {
-	*(msg.(*string)) = string(codec.Reader.ReadPacket(codec.Spliter))
-	return codec.Reader.Error()
+func (encoder stringEncoder) Encode(msg interface{}) error {
+	encoder.Writer.WritePacket([]byte(msg.(string)), encoder.Spliter)
+	return encoder.Writer.Flush()
 }
 
-func (codec stringCodec) Encode(msg interface{}) error {
-	codec.Writer.WritePacket([]byte(msg.(string)), codec.Spliter)
-	return codec.Writer.Flush()
+type stringDecoder struct {
+	Spliter binary.Spliter
+	Reader  *binary.Reader
+}
+
+func (decoder stringDecoder) Decode(msg interface{}) error {
+	*(msg.(*string)) = string(decoder.Reader.ReadPacket(decoder.Spliter))
+	return decoder.Reader.Error()
 }

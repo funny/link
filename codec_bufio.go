@@ -8,41 +8,52 @@ import (
 const DEFAULT_BUFFER_SIZE = 4096
 
 type BufioCodecType struct {
-	CodecType       CodecType
+	Base            CodecType
 	ReadBufferSize  int
 	WriteBufferSize int
 }
 
-func Bufio(codecType CodecType) *BufioCodecType {
+func Bufio(base CodecType) *BufioCodecType {
 	return &BufioCodecType{
-		codecType,
+		base,
 		DEFAULT_BUFFER_SIZE,
 		DEFAULT_BUFFER_SIZE,
 	}
 }
 
-func (codecType *BufioCodecType) NewCodec(r io.Reader, w io.Writer) Codec {
-	br := bufio.NewReaderSize(r, codecType.ReadBufferSize)
+func (codecType *BufioCodecType) NewEncoder(w io.Writer) Encoder {
 	bw := bufio.NewWriterSize(w, codecType.WriteBufferSize)
-	codec := &bufioCodec{
-		Codec:  codecType.CodecType.NewCodec(br, bw),
+	codec := &bufioEncoder{
 		Writer: bw,
+		Base:   codecType.Base.NewEncoder(bw),
 	}
 	return codec
 }
 
-type bufioCodec struct {
-	Codec  Codec
+func (codecType *BufioCodecType) NewDecoder(r io.Reader) Decoder {
+	return &bufioDecoder{
+		Base: codecType.Base.NewDecoder(
+			bufio.NewReaderSize(r, codecType.ReadBufferSize),
+		),
+	}
+}
+
+type bufioEncoder struct {
+	Base   Encoder
 	Writer *bufio.Writer
 }
 
-func (codec *bufioCodec) Encode(msg interface{}) error {
-	if err := codec.Codec.Encode(msg); err != nil {
+func (encoder *bufioEncoder) Encode(msg interface{}) error {
+	if err := encoder.Base.Encode(msg); err != nil {
 		return err
 	}
-	return codec.Writer.Flush()
+	return encoder.Writer.Flush()
 }
 
-func (codec *bufioCodec) Decode(msg interface{}) error {
-	return codec.Codec.Decode(msg)
+type bufioDecoder struct {
+	Base Decoder
+}
+
+func (decoder *bufioDecoder) Decode(msg interface{}) error {
+	return decoder.Base.Decode(msg)
 }

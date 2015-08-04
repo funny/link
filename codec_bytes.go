@@ -14,26 +14,36 @@ type bytesCodecType struct {
 	Spliter binary.Spliter
 }
 
-func (codecType bytesCodecType) NewCodec(r io.Reader, w io.Writer) Codec {
-	return bytesCodec{
+func (codecType bytesCodecType) NewEncoder(w io.Writer) Encoder {
+	return bytesEncoder{
 		codecType.Spliter,
-		binary.NewReader(r),
 		binary.NewWriter(w),
 	}
 }
 
-type bytesCodec struct {
+func (codecType bytesCodecType) NewDecoder(r io.Reader) Decoder {
+	return bytesDecoder{
+		codecType.Spliter,
+		binary.NewReader(r),
+	}
+}
+
+type bytesEncoder struct {
 	Spliter binary.Spliter
-	Reader  *binary.Reader
 	Writer  *binary.Writer
 }
 
-func (codec bytesCodec) Decode(msg interface{}) error {
-	*(msg.(*[]byte)) = codec.Reader.ReadPacket(codec.Spliter)
-	return codec.Reader.Error()
+func (encoder bytesEncoder) Encode(msg interface{}) error {
+	encoder.Writer.WritePacket(msg.([]byte), encoder.Spliter)
+	return encoder.Writer.Flush()
 }
 
-func (codec bytesCodec) Encode(msg interface{}) error {
-	codec.Writer.WritePacket(msg.([]byte), codec.Spliter)
-	return codec.Writer.Flush()
+type bytesDecoder struct {
+	Spliter binary.Spliter
+	Reader  *binary.Reader
+}
+
+func (decoder bytesDecoder) Decode(msg interface{}) error {
+	*(msg.(*[]byte)) = decoder.Reader.ReadPacket(decoder.Spliter)
+	return decoder.Reader.Error()
 }

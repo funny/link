@@ -7,12 +7,24 @@ import (
 )
 
 type CodecType interface {
-	NewCodec(r io.Reader, w io.Writer) Codec
+	EncodeType
+	DecodeType
 }
 
-type Codec interface {
-	Decode(msg interface{}) error
+type EncodeType interface {
+	NewEncoder(w io.Writer) Encoder
+}
+
+type DecodeType interface {
+	NewDecoder(r io.Reader) Decoder
+}
+
+type Encoder interface {
 	Encode(msg interface{}) error
+}
+
+type Decoder interface {
+	Decode(msg interface{}) error
 }
 
 func Serve(network, address string, codecType CodecType) (*Server, error) {

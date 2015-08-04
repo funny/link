@@ -9,54 +9,41 @@ import (
 
 func Gob() CodecType {
 	return &genCodecType{
-		func(r io.Reader) decoder { return gob.NewDecoder(r) },
-		func(w io.Writer) encoder { return gob.NewEncoder(w) },
+		func(w io.Writer) Encoder { return gob.NewEncoder(w) },
+		func(r io.Reader) Decoder { return gob.NewDecoder(r) },
 	}
 }
 
 func Json() CodecType {
 	return &genCodecType{
-		func(r io.Reader) decoder { return json.NewDecoder(r) },
-		func(w io.Writer) encoder { return json.NewEncoder(w) },
+		func(w io.Writer) Encoder { return json.NewEncoder(w) },
+		func(r io.Reader) Decoder { return json.NewDecoder(r) },
 	}
 }
 
 func Xml() CodecType {
 	return &genCodecType{
-		func(r io.Reader) decoder { return xml.NewDecoder(r) },
-		func(w io.Writer) encoder { return xml.NewEncoder(w) },
+		func(w io.Writer) Encoder { return xml.NewEncoder(w) },
+		func(r io.Reader) Decoder { return xml.NewDecoder(r) },
 	}
 }
 
-type encoder interface {
-	Encode(interface{}) error
-}
-
-type decoder interface {
-	Decode(interface{}) error
+func Mix(encodeType EncodeType, decodeType DecodeType) CodecType {
+	return &genCodecType{
+		encodeType.NewEncoder,
+		decodeType.NewDecoder,
+	}
 }
 
 type genCodecType struct {
-	newDecoder func(io.Reader) decoder
-	newEncoder func(io.Writer) encoder
+	newEncoder func(io.Writer) Encoder
+	newDecoder func(io.Reader) Decoder
 }
 
-func (codecType *genCodecType) NewCodec(r io.Reader, w io.Writer) Codec {
-	return &genCodec{
-		Decoder: codecType.newDecoder(r),
-		Encoder: codecType.newEncoder(w),
-	}
+func (codecType *genCodecType) NewEncoder(w io.Writer) Encoder {
+	return codecType.newEncoder(w)
 }
 
-type genCodec struct {
-	Decoder decoder
-	Encoder encoder
-}
-
-func (codec *genCodec) Decode(msg interface{}) error {
-	return codec.Decoder.Decode(msg)
-}
-
-func (codec *genCodec) Encode(msg interface{}) error {
-	return codec.Encoder.Encode(msg)
+func (codecType *genCodecType) NewDecoder(r io.Reader) Decoder {
+	return codecType.newDecoder(r)
 }

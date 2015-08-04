@@ -14,9 +14,10 @@ var (
 )
 
 type Session struct {
-	id    uint64
-	conn  net.Conn
-	codec Codec
+	id      uint64
+	conn    net.Conn
+	encoder Encoder
+	decoder Decoder
 
 	// About send and receive
 	recvMutex    sync.Mutex
@@ -40,7 +41,8 @@ func NewSession(conn net.Conn, codecType CodecType) *Session {
 	session := &Session{
 		id:             atomic.AddUint64(&globalSessionId, 1),
 		conn:           conn,
-		codec:          codecType.NewCodec(conn, conn),
+		encoder:        codecType.NewEncoder(conn),
+		decoder:        codecType.NewDecoder(conn),
 		closeChan:      make(chan int),
 		closeCallbacks: list.New(),
 	}
@@ -63,7 +65,7 @@ func (session *Session) Receive(msg interface{}) (err error) {
 	session.recvMutex.Lock()
 	defer session.recvMutex.Unlock()
 
-	err = session.codec.Decode(msg)
+	err = session.decoder.Decode(msg)
 	if err != nil {
 		session.Close()
 	}
@@ -74,7 +76,7 @@ func (session *Session) Send(msg interface{}) (err error) {
 	session.sendMutex.Lock()
 	defer session.sendMutex.Unlock()
 
-	err = session.codec.Encode(msg)
+	err = session.encoder.Encode(msg)
 	if err != nil {
 		session.Close()
 	}
