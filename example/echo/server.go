@@ -2,8 +2,10 @@ package main
 
 import (
 	"flag"
-	"github.com/funny/link"
 	"io"
+
+	"github.com/funny/link"
+	"github.com/funny/link/example/codec"
 )
 
 func main() {
@@ -12,7 +14,7 @@ func main() {
 	flag.StringVar(&addr, "addr", ":10010", "echo server address")
 	flag.Parse()
 
-	server, err := link.Serve("tcp", addr, link.Bytes(link.Uint16BE))
+	server, err := link.Serve("tcp", addr, codec.Bytes(codec.Uint16BE))
 	if err != nil {
 		panic(err)
 	}

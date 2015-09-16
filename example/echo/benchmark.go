@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/funny/link"
+	"github.com/funny/link/example/codec"
 	_ "github.com/funny/unitest"
 )
 
@@ -104,7 +105,7 @@ func main() {
 }
 
 func client(initWait *sync.WaitGroup, conn *CountConn, startChan chan int, timeout time.Time, msg []byte) {
-	client := link.NewSession(conn, link.Bufio(link.Bytes(link.Uint16BE)))
+	client := link.NewSession(conn, codec.Bufio(codec.Bytes(codec.Uint16BE)))
 
 	var wg sync.WaitGroup
 

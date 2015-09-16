@@ -1,24 +1,25 @@
-package link
+package codec
 
 import (
 	"io"
 
 	"github.com/funny/binary"
+	"github.com/funny/link"
 )
 
-func SelfCodec() CodecType {
+func SelfCodec() link.CodecType {
 	return selfCodecType{}
 }
 
 type selfCodecType struct{}
 
-func (_ selfCodecType) NewEncoder(w io.Writer) Encoder {
+func (_ selfCodecType) NewEncoder(w io.Writer) link.Encoder {
 	return selfEncoder{
 		binary.NewWriter(w),
 	}
 }
 
-func (_ selfCodecType) NewDecoder(r io.Reader) Decoder {
+func (_ selfCodecType) NewDecoder(r io.Reader) link.Decoder {
 	return selfDecoder{
 		binary.NewReader(r),
 	}

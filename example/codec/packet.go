@@ -1,21 +1,22 @@
-package link
+package codec
 
 import (
 	"io"
 
 	"github.com/funny/binary"
+	"github.com/funny/link"
 )
 
-func Packet(spliter binary.Spliter, codecType CodecType) CodecType {
+func Packet(spliter binary.Spliter, codecType link.CodecType) link.CodecType {
 	return packetCodecType{spliter, codecType}
 }
 
 type packetCodecType struct {
 	Spliter binary.Spliter
-	Base    CodecType
+	Base    link.CodecType
 }
 
-func (codecType packetCodecType) NewEncoder(w io.Writer) Encoder {
+func (codecType packetCodecType) NewEncoder(w io.Writer) link.Encoder {
 	pw := binary.NewPacketWriter(codecType.Spliter, w)
 	return &packetEncoder{
 		Writer: pw,
@@ -23,7 +24,7 @@ func (codecType packetCodecType) NewEncoder(w io.Writer) Encoder {
 	}
 }
 
-func (codecType packetCodecType) NewDecoder(r io.Reader) Decoder {
+func (codecType packetCodecType) NewDecoder(r io.Reader) link.Decoder {
 	return &packetDecoder{
 		Base: codecType.Base.NewDecoder(
 			binary.NewPacketReader(codecType.Spliter, r),
@@ -32,7 +33,7 @@ func (codecType packetCodecType) NewDecoder(r io.Reader) Decoder {
 }
 
 type packetEncoder struct {
-	Base   Encoder
+	Base   link.Encoder
 	Writer *binary.PacketWriter
 }
 
@@ -44,7 +45,7 @@ func (encoder *packetEncoder) Encode(msg interface{}) error {
 }
 
 type packetDecoder struct {
-	Base Decoder
+	Base link.Decoder
 }
 
 func (deocder *packetDecoder) Decode(msg interface{}) error {

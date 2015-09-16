@@ -1,12 +1,13 @@
-package link
+package codec
 
 import (
 	"io"
 
 	"github.com/funny/binary"
+	"github.com/funny/link"
 )
 
-func String(spliter binary.Spliter) CodecType {
+func String(spliter binary.Spliter) link.CodecType {
 	return stringCodecType{spliter}
 }
 
@@ -14,14 +15,14 @@ type stringCodecType struct {
 	Spliter binary.Spliter
 }
 
-func (codecType stringCodecType) NewEncoder(w io.Writer) Encoder {
+func (codecType stringCodecType) NewEncoder(w io.Writer) link.Encoder {
 	return stringEncoder{
 		codecType.Spliter,
 		binary.NewWriter(w),
 	}
 }
 
-func (codecType stringCodecType) NewDecoder(r io.Reader) Decoder {
+func (codecType stringCodecType) NewDecoder(r io.Reader) link.Decoder {
 	return stringDecoder{
 		codecType.Spliter,
 		binary.NewReader(r),
