@@ -51,7 +51,7 @@ func NewSession(conn net.Conn, codecType CodecType) *Session {
 
 func (session *Session) Id() uint64     { return session.id }
 func (session *Session) Conn() net.Conn { return session.conn }
-func (session *Session) IsClosed() bool { return atomic.LoadInt32(&session.closeFlag) != 0 }
+func (session *Session) IsClosed() bool { return atomic.LoadInt32(&session.closeFlag) == 1 }
 
 func (session *Session) Close() {
 	if atomic.CompareAndSwapInt32(&session.closeFlag, 0, 1) {
@@ -84,6 +84,9 @@ func (session *Session) Send(msg interface{}) (err error) {
 }
 
 func (session *Session) EnableAsyncSend(sendChanSize int) {
+	if session.IsClosed() {
+		return
+	}
 	if atomic.CompareAndSwapInt32(&session.sendLoopFlag, 0, 1) {
 		session.sendChan = make(chan interface{}, sendChanSize)
 		go func() {
