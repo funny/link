@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"io"
 	"math/rand"
-	"runtime/pprof"
 	"sync"
 	"testing"
 	"time"
@@ -88,8 +87,6 @@ func SessionTest(t *testing.T, codecType CodecType, test func(*testing.T, *Sessi
 
 	server.Stop()
 	serverWait.Wait()
-
-	MakeSureSessionGoroutineExit(t)
 }
 
 func BytesTest(t *testing.T, session *Session) {
@@ -107,18 +104,4 @@ func BytesTest(t *testing.T, session *Session) {
 
 func Test_Bytes(t *testing.T) {
 	SessionTest(t, TestCodec{}, BytesTest)
-}
-
-func MakeSureSessionGoroutineExit(t *testing.T) {
-	buff := new(bytes.Buffer)
-	goroutines := pprof.Lookup("goroutine")
-
-	if err := goroutines.WriteTo(buff, 2); err != nil {
-		t.Fatalf("Dump goroutine failed: %v", err)
-	}
-
-	if n := bytes.Index(buff.Bytes(), []byte("link.HandlerFunc.Handle")); n >= 0 {
-		t.Log(buff.String())
-		t.Fatalf("Some handler goroutine running")
-	}
 }

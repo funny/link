@@ -3,7 +3,6 @@ package link
 import (
 	"net"
 	"sync"
-	"sync/atomic"
 )
 
 type Server struct {
@@ -16,8 +15,7 @@ type Server struct {
 	sessionMutex sync.Mutex
 
 	// About server start and stop
-	stopFlag int32
-	stopChan chan int
+	stopOnce sync.Once
 	stopWait sync.WaitGroup
 
 	// Server state
@@ -25,13 +23,11 @@ type Server struct {
 }
 
 func NewServer(listener net.Listener, codecType CodecType) *Server {
-	server := &Server{
+	return &Server{
 		listener:  listener,
 		codecType: codecType,
 		sessions:  make(map[uint64]*Session),
-		stopChan:  make(chan int),
 	}
-	return server
 }
 
 func (server *Server) Listener() net.Listener {
@@ -46,15 +42,12 @@ func (server *Server) Accept() (*Session, error) {
 	return server.newSession(conn), nil
 }
 
-func (server *Server) Stop() bool {
-	if atomic.CompareAndSwapInt32(&server.stopFlag, 0, 1) {
+func (server *Server) Stop() {
+	server.stopOnce.Do(func() {
 		server.listener.Close()
-		close(server.stopChan)
 		server.closeSessions()
 		server.stopWait.Wait()
-		return true
-	}
-	return false
+	})
 }
 
 func (server *Server) newSession(conn net.Conn) *Session {

@@ -20,8 +20,6 @@ type Session struct {
 	decoder Decoder
 
 	// About send and receive
-	recvMutex    sync.Mutex
-	sendMutex    sync.Mutex
 	sendLoopFlag int32
 	sendChan     chan interface{}
 
@@ -62,9 +60,6 @@ func (session *Session) Close() {
 }
 
 func (session *Session) Receive(msg interface{}) (err error) {
-	session.recvMutex.Lock()
-	defer session.recvMutex.Unlock()
-
 	err = session.decoder.Decode(msg)
 	if err != nil {
 		session.Close()
@@ -73,9 +68,6 @@ func (session *Session) Receive(msg interface{}) (err error) {
 }
 
 func (session *Session) Send(msg interface{}) (err error) {
-	session.sendMutex.Lock()
-	defer session.sendMutex.Unlock()
-
 	err = session.encoder.Encode(msg)
 	if err != nil {
 		session.Close()
