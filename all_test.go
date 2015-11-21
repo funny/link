@@ -17,6 +17,14 @@ func init() {
 
 type TestCodec struct{}
 
+type TestEncoder struct {
+	w io.Writer
+}
+
+type TestDecoder struct {
+	r io.Reader
+}
+
 func (_ TestCodec) NewEncoder(w io.Writer) Encoder {
 	return TestEncoder{w}
 }
@@ -25,17 +33,9 @@ func (_ TestCodec) NewDecoder(r io.Reader) Decoder {
 	return TestDecoder{r}
 }
 
-type TestEncoder struct {
-	w io.Writer
-}
-
 func (encoder TestEncoder) Encode(msg interface{}) error {
 	_, err := encoder.w.Write(msg.([]byte))
 	return err
-}
-
-type TestDecoder struct {
-	r io.Reader
 }
 
 func (decoder TestDecoder) Decode(msg interface{}) error {
@@ -104,4 +104,63 @@ func BytesTest(t *testing.T, session *Session) {
 
 func Test_Bytes(t *testing.T) {
 	SessionTest(t, TestCodec{}, BytesTest)
+}
+
+func Test_Bufio_Bytes(t *testing.T) {
+	SessionTest(t, Bufio(TestCodec{}), BytesTest)
+}
+
+func Test_ThreadSafe_Bytes(t *testing.T) {
+	SessionTest(t, ThreadSafe(TestCodec{}), BytesTest)
+}
+
+func Test_ThreadSafe_Bufio_Bytes(t *testing.T) {
+	SessionTest(t, ThreadSafe(Bufio(TestCodec{})), BytesTest)
+}
+
+type TestObject struct {
+	X, Y, Z int
+}
+
+func RandObject() TestObject {
+	return TestObject{
+		X: rand.Int(), Y: rand.Int(), Z: rand.Int(),
+	}
+}
+
+func ObjectTest(t *testing.T, session *Session) {
+	for i := 0; i < 2000; i++ {
+		msg1 := RandObject()
+		err := session.Send(&msg1)
+		unitest.NotError(t, err)
+
+		var msg2 TestObject
+		err = session.Receive(&msg2)
+		unitest.NotError(t, err)
+		unitest.Pass(t, msg1 == msg2)
+	}
+}
+
+func Test_Gob(t *testing.T) {
+	SessionTest(t, Gob(), ObjectTest)
+}
+
+func Test_Bufio_Gob(t *testing.T) {
+	SessionTest(t, Bufio(Gob()), ObjectTest)
+}
+
+func Test_Json(t *testing.T) {
+	SessionTest(t, Json(), ObjectTest)
+}
+
+func Test_Bufio_Json(t *testing.T) {
+	SessionTest(t, Bufio(Json()), ObjectTest)
+}
+
+func Test_Xml(t *testing.T) {
+	SessionTest(t, Xml(), ObjectTest)
+}
+
+func Test_Bufio_Xml(t *testing.T) {
+	SessionTest(t, Bufio(Xml()), ObjectTest)
 }

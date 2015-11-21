@@ -57,6 +57,12 @@ func (session *Session) Close() {
 			close(session.closeChan)
 		}
 		session.conn.Close()
+		if d, ok := session.encoder.(Disposeable); ok {
+			d.Dispose()
+		}
+		if d, ok := session.decoder.(Disposeable); ok {
+			d.Dispose()
+		}
 	}
 }
 
