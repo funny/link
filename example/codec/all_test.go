@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"io"
 	"math/rand"
-	"runtime/pprof"
 	"sync"
 	"testing"
 	"time"
@@ -86,8 +85,6 @@ func SessionTest(t *testing.T, codecType link.CodecType, test func(*testing.T, *
 
 	server.Stop()
 	serverWait.Wait()
-
-	MakeSureSessionGoroutineExit(t)
 }
 
 func BytesTest(t *testing.T, session *link.Session) {
@@ -108,7 +105,7 @@ func Test_Bytes(t *testing.T) {
 }
 
 func Test_Bufio_Bytes(t *testing.T) {
-	SessionTest(t, Bufio(Bytes(Uint16BE)), BytesTest)
+	SessionTest(t, link.Bufio(Bytes(Uint16BE)), BytesTest)
 }
 
 func Test_Packet_Bytes(t *testing.T) {
@@ -116,7 +113,7 @@ func Test_Packet_Bytes(t *testing.T) {
 }
 
 func Test_Bufio_Packet_Bytes(t *testing.T) {
-	SessionTest(t, Bufio(Packet(Uint16BE, Bytes(Uint16BE))), BytesTest)
+	SessionTest(t, link.Bufio(Packet(Uint16BE, Bytes(Uint16BE))), BytesTest)
 }
 
 func StringTest(t *testing.T, session *link.Session) {
@@ -137,7 +134,7 @@ func Test_String(t *testing.T) {
 }
 
 func Test_Bufio_String(t *testing.T) {
-	SessionTest(t, Bufio(String(Uint16BE)), StringTest)
+	SessionTest(t, link.Bufio(String(Uint16BE)), StringTest)
 }
 
 func Test_Packet_String(t *testing.T) {
@@ -145,7 +142,7 @@ func Test_Packet_String(t *testing.T) {
 }
 
 func Test_Bufio_Packet_String(t *testing.T) {
-	SessionTest(t, Bufio(Packet(Uint16BE, String(Uint16BE))), StringTest)
+	SessionTest(t, link.Bufio(Packet(Uint16BE, String(Uint16BE))), StringTest)
 }
 
 func ObjectTest(t *testing.T, session *link.Session) {
@@ -161,52 +158,28 @@ func ObjectTest(t *testing.T, session *link.Session) {
 	}
 }
 
-func Test_Gob(t *testing.T) {
-	SessionTest(t, Gob(), ObjectTest)
-}
-
-func Test_Bufio_Gob(t *testing.T) {
-	SessionTest(t, Bufio(Gob()), ObjectTest)
-}
-
 func Test_Packet_Gob(t *testing.T) {
-	SessionTest(t, Packet(Uint16BE, Gob()), ObjectTest)
+	SessionTest(t, Packet(Uint16BE, link.Gob()), ObjectTest)
 }
 
 func Test_Bufio_Packet_Gob(t *testing.T) {
-	SessionTest(t, Bufio(Packet(Uint16BE, Gob())), ObjectTest)
-}
-
-func Test_Json(t *testing.T) {
-	SessionTest(t, Json(), ObjectTest)
-}
-
-func Test_Bufio_Json(t *testing.T) {
-	SessionTest(t, Bufio(Json()), ObjectTest)
+	SessionTest(t, link.Bufio(Packet(Uint16BE, link.Gob())), ObjectTest)
 }
 
 func Test_Packet_Json(t *testing.T) {
-	SessionTest(t, Packet(Uint16BE, Json()), ObjectTest)
+	SessionTest(t, Packet(Uint16BE, link.Json()), ObjectTest)
 }
 
 func Test_Bufio_Packet_Json(t *testing.T) {
-	SessionTest(t, Bufio(Packet(Uint16BE, Json())), ObjectTest)
-}
-
-func Test_Xml(t *testing.T) {
-	SessionTest(t, Xml(), ObjectTest)
-}
-
-func Test_Bufio_Xml(t *testing.T) {
-	SessionTest(t, Bufio(Xml()), ObjectTest)
+	SessionTest(t, link.Bufio(Packet(Uint16BE, link.Json())), ObjectTest)
 }
 
 func Test_Packet_Xml(t *testing.T) {
-	SessionTest(t, Packet(Uint16BE, Xml()), ObjectTest)
+	SessionTest(t, Packet(Uint16BE, link.Xml()), ObjectTest)
 }
 
 func Test_Bufio_Packet_Xml(t *testing.T) {
-	SessionTest(t, Bufio(Packet(Uint16BE, Xml())), ObjectTest)
+	SessionTest(t, link.Bufio(Packet(Uint16BE, link.Xml())), ObjectTest)
 }
 
 func Test_SelfCodec(t *testing.T) {
@@ -214,7 +187,7 @@ func Test_SelfCodec(t *testing.T) {
 }
 
 func Test_Bufio_SelfCodec(t *testing.T) {
-	SessionTest(t, Bufio(SelfCodec()), ObjectTest)
+	SessionTest(t, link.Bufio(SelfCodec()), ObjectTest)
 }
 
 func Test_Packet_SelfCodec(t *testing.T) {
@@ -222,19 +195,5 @@ func Test_Packet_SelfCodec(t *testing.T) {
 }
 
 func Test_Bufio_Packet_SelfCodec(t *testing.T) {
-	SessionTest(t, Bufio(Packet(Uint16BE, SelfCodec())), ObjectTest)
-}
-
-func MakeSureSessionGoroutineExit(t *testing.T) {
-	buff := new(bytes.Buffer)
-	goroutines := pprof.Lookup("goroutine")
-
-	if err := goroutines.WriteTo(buff, 2); err != nil {
-		t.Fatalf("Dump goroutine failed: %v", err)
-	}
-
-	if n := bytes.Index(buff.Bytes(), []byte("link.HandlerFunc.Handle")); n >= 0 {
-		t.Log(buff.String())
-		t.Fatalf("Some handler goroutine running")
-	}
+	SessionTest(t, link.Bufio(Packet(Uint16BE, SelfCodec())), ObjectTest)
 }
