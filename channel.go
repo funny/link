@@ -13,7 +13,8 @@ type BroadcastProtocol interface {
 type defaultBroadcast struct{}
 
 func (_ defaultBroadcast) Broadcast(msg interface{}, fetcher SessionFetcher) error {
-	fetcher(func(session *Session) { session.AsyncSend(msg) })
+	// NOTE: use codec_async.go to avoid io blocking
+	fetcher(func(session *Session) { session.Send(msg) })
 	return nil
 }
 

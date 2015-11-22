@@ -8,29 +8,18 @@ import (
 	"sync/atomic"
 )
 
-var (
-	ErrClosed   = errors.New("link.Session closed")
-	ErrBlocking = errors.New("link.Session operation blocking")
-)
+var ErrClosed = errors.New("link.Session closed")
 
 type Session struct {
-	id      uint64
-	conn    net.Conn
-	encoder Encoder
-	decoder Decoder
-
-	// About send and receive
-	enableAsyncOnce sync.Once
-	sendChan        chan interface{}
-
-	// About session close
+	id              uint64
+	conn            net.Conn
+	encoder         Encoder
+	decoder         Decoder
 	closeChan       chan int
 	closeFlag       int32
 	closeEventMutex sync.Mutex
 	closeCallbacks  *list.List
-
-	// Session state
-	State interface{}
+	State           interface{}
 }
 
 var globalSessionId uint64
@@ -86,49 +75,6 @@ func (session *Session) Send(msg interface{}) (err error) {
 		session.Close()
 	}
 	return
-}
-
-func (session *Session) EnableAsyncSend(sendChanSize int) error {
-	if session.IsClosed() {
-		return ErrClosed
-	}
-	session.enableAsyncOnce.Do(func() {
-		session.sendChan = make(chan interface{}, sendChanSize)
-		session.closeChan = make(chan int)
-		var wait sync.WaitGroup
-		wait.Add(1)
-		go func() {
-			wait.Done()
-			for {
-				select {
-				case msg := <-session.sendChan:
-					if err := session.Send(msg); err != nil {
-						return
-					}
-				case <-session.closeChan:
-					return
-				}
-			}
-		}()
-		wait.Wait()
-	})
-	return nil
-}
-
-func (session *Session) AsyncSend(msg interface{}) error {
-	if session.IsClosed() {
-		return ErrClosed
-	}
-	if session.sendChan == nil {
-		panic("Use link/Session.AsyncSend() you need invoke link/Session.EnableAsyncSend() first")
-	}
-	select {
-	case session.sendChan <- msg:
-	default:
-		session.Close()
-		return ErrBlocking
-	}
-	return nil
 }
 
 type closeCallback struct {
