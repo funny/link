@@ -66,6 +66,12 @@ type bufioEncoder struct {
 	base   Encoder
 }
 
+type bufioDecoder struct {
+	reader *bufio.Reader
+	pool   *sync.Pool
+	base   Decoder
+}
+
 func (encoder *bufioEncoder) Encode(msg interface{}) error {
 	if err := encoder.base.Encode(msg); err != nil {
 		return err
@@ -73,21 +79,15 @@ func (encoder *bufioEncoder) Encode(msg interface{}) error {
 	return encoder.writer.Flush()
 }
 
+func (decoder *bufioDecoder) Decode(msg interface{}) error {
+	return decoder.base.Decode(msg)
+}
+
 func (encoder *bufioEncoder) Dispose() {
 	if d, ok := encoder.base.(Disposeable); ok {
 		d.Dispose()
 	}
 	encoder.pool.Put(encoder.writer)
-}
-
-type bufioDecoder struct {
-	reader *bufio.Reader
-	pool   *sync.Pool
-	base   Decoder
-}
-
-func (decoder *bufioDecoder) Decode(msg interface{}) error {
-	return decoder.base.Decode(msg)
 }
 
 func (decoder *bufioDecoder) Dispose() {
