@@ -76,4 +76,7 @@ func (encoder *asyncEncoder) Encode(msg interface{}) error {
 func (encoder *asyncEncoder) Dispose() {
 	close(encoder.stopChan)
 	encoder.stopWait.Wait()
+	if d, ok := encoder.base.(Disposeable); ok {
+		d.Dispose()
+	}
 }
