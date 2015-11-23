@@ -70,7 +70,7 @@ func (encoder *asyncEncoder) Encode(msg interface{}) error {
 		}
 		return nil
 	}
-	return encoder.Encode(msg)
+	return encoder.base.Encode(msg)
 }
 
 func (encoder *asyncEncoder) Dispose() {

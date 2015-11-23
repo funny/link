@@ -27,7 +27,7 @@ func main() {
 	go func() {
 		for range time.Tick(time.Second * 2) {
 			now := time.Now().Format("2006-01-02 15:04:05")
-			channel.Broadcast("from channel: " + now)
+			channel.Broadcast(link.AsyncMsg{"from channel: " + now})
 		}
 	}()
 

@@ -90,9 +90,16 @@ func SessionTest(t *testing.T, codecType CodecType, test func(*testing.T, *Sessi
 }
 
 func BytesTest(t *testing.T, session *Session) {
+	_, isAsync := session.encoder.(*asyncEncoder)
+
 	for i := 0; i < 2000; i++ {
 		msg1 := RandBytes(512)
-		err := session.Send(msg1)
+		var err error
+		if isAsync {
+			err = session.Send(AsyncMsg{msg1})
+		} else {
+			err = session.Send(msg1)
+		}
 		unitest.NotError(t, err)
 
 		var msg2 = make([]byte, len(msg1))
@@ -104,6 +111,10 @@ func BytesTest(t *testing.T, session *Session) {
 
 func Test_Bytes(t *testing.T) {
 	SessionTest(t, TestCodec{}, BytesTest)
+}
+
+func Test_Async_Bytes(t *testing.T) {
+	SessionTest(t, Async(TestCodec{}, 1024), BytesTest)
 }
 
 func Test_Bufio_Bytes(t *testing.T) {
