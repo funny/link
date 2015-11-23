@@ -45,6 +45,8 @@ link的核心部分代码是极少的，link另外提供了一些常用到的工
 
 所以`AsyncSend()`怎么改都不可能满足所有需求，最后我干脆删除它，由CodecType来决定消息是否异步发送，以及怎么进行异步发送。目前内置的`asyncCodecType`的逻辑是一旦阻塞就返回错误。如果这个设计不符合你的需要，你也可以参考它实现出自己所需的异步发送逻辑。
 
+需要注意一点，发送消息的时候需要用`link.AsyncMsg{}`包裹原消息，因为`asyncCodecType`需要一个消息类型来识别是否是要异步发送消息，否则`Session.Send()`接口就被异步发送独占了。
+
 [codec_bufio.go]()
 ------------------
 
@@ -55,7 +57,7 @@ link的核心部分代码是极少的，link另外提供了一些常用到的工
 [codec_general.go]()
 --------------------
 
-里面实现了常见的Json、Gob、Xml格式的消息封包解包，正好这三种消息类型都不涉及到分包协议，所以可以很容易的内置到link包里。
+里面实现了常见的Json、Gob、Xml格式的消息编解码，正好这三种消息类型都不需要分包协议就可以逐条消息解码，所以很容易内置到link包里。
 
 早版本的link包曾经尝试加入分包协议的支持，但是分包协议变化众多，有点像前面提到的`AsyncSend()`一样众口难调，所以就去掉了。
 
@@ -64,9 +66,46 @@ link的核心部分代码是极少的，link另外提供了一些常用到的工
 [codec_safe.go]()
 -----------------
 
-里面实现了线程安全的`CodecType`，旧版本的link里，`Session`内置了收发锁，让`Session.Receive()和`Session.Send()`可以被并发调用。但是实际项目中并接受或者并发发送的场景很少，如果一开始就内置到`Session`里，这部分调用开销就是多余的了。
+里面实现了线程安全的`CodecType`，旧版本的link里`Session`内置了收发锁让`Session.Receive()和`Session.Send()`可以被并发调用。但是实际项目中并发接收或者并发发送的场景很少，如果一开始就内置到`Session`里，这部分调用开销就多余了。
 
-所以后来我删除了`Session`里面加锁的逻辑，引入了`ThreadSafe()`。在需要对收发过程进行加锁保护的适合可以用它。
+所以后来我删除了`Session`里面加锁的逻辑，引入了`ThreadSafe()`。在需要对收发过程进行加锁保护的时候可以用它。
+
+一些示例
+=======
+
+示例，创建一个使用Json作为消息格式的TCP服务端：
+
+```
+srv, err := link.Serve("tcp", "0.0.0.0:0", link.Json())
+```
+
+示例，使用Bufio优化IO：
+
+```
+srv, err := link.Serve("tcp", "0.0.0.0:0", link.Bufio(link.Json()))
+```
+
+示例，加入线程安全：
+
+```
+srv, err := link.Serve("tcp", "0.0.0.0:0", link.ThreadSafe(link.Json()))
+```
+
+示例，加入异步发送：
+
+```
+srv, err := link.Serve("tcp", "0.0.0.0:0", link.Async(link.Json()))
+
+session.Send(link.AsyncMsg{msg})
+```
+
+示例，把所有特性都加到一起：
+
+```
+srv, err := link.Serve("tcp", "0.0.0.0:0", link.Async(link.ThreadSafe(link.Bufio(link.Json())))
+```
+
+俄罗斯套娃 ：）
 
 实际使用
 =======
