@@ -1,3 +1,23 @@
+2015-11-23
+
+* 修复了一些BUG，更新了示例代码
+* BufioCodecType进一步优，把Encoder和Decoder也纳入对象重用。
+* AsyncCodecType去掉了AsyncMsg{}的消息包裹需求，避免用户用错。但是这样的设计会导致一旦加了AsyncCodecType，Session.Send就会变成异步发送消息。如果用户需要实现可选的异步消息发送，可以参考原来的AsyncMsg{}设计，但是需要注意线程安全
+* 加入了基础的分包协议，尽量做到不重复申请内存不做多余的数据拷贝
+
+2015-11-22
+
+* 把BufioCodecType从示例项目中移回link包，并添加sync.Pool优化
+* 添加SafeCodecType用来进行可选的收发过程加锁
+* 删掉了Session.AsyncSend()，改用AsyncCodecType来提供默认的异步发送，用户可以通过CodecType实现自己的异步发送逻辑
+* 为Encoder和Decoder引入可选的Dispose()方法，可以在Session关闭时做资源回收
+* 补充了缺失已久的文档
+
+2015-11-21
+
+* 去掉了Session上的收发加锁代码，如果需要对收发过程做并发保护，可以在Encoder和Decoder中自行加锁
+* 完善Server.Stop()的逻辑，当真正被执行到的Server.Stop()过程还没结束前，其余的Server.Stop()调用都会等待而不是直接返回，否则可能出现Stop过程还没真正结束后续逻辑就被继续执行的问题。
+
 2015-06-23
 
 * 把分包协议和流协议都放进link包

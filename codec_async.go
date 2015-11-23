@@ -8,7 +8,7 @@ import (
 
 var ErrBlocking = errors.New("operation blocking")
 
-func Async(base CodecType, chanSize int) CodecType {
+func Async(chanSize int, base CodecType) CodecType {
 	return &asyncCodecType{base, chanSize}
 }
 

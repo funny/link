@@ -15,10 +15,10 @@ type bufioCodecType struct {
 }
 
 func Bufio(base CodecType) CodecType {
-	return BufioSize(base, 4096, 4096)
+	return BufioSize(4096, 4096, base)
 }
 
-func BufioSize(base CodecType, readBufferSize, writeBufferSize int) CodecType {
+func BufioSize(readBufferSize, writeBufferSize int, base CodecType) CodecType {
 	return &bufioCodecType{
 		base:            base,
 		readBufferSize:  readBufferSize,

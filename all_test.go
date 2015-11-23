@@ -107,7 +107,7 @@ func Test_Bytes(t *testing.T) {
 }
 
 func Test_Async_Bytes(t *testing.T) {
-	SessionTest(t, Async(TestCodec{}, 1024), BytesTest)
+	SessionTest(t, Async(1024, TestCodec{}), BytesTest)
 }
 
 func Test_Bufio_Bytes(t *testing.T) {
@@ -167,4 +167,8 @@ func Test_Xml(t *testing.T) {
 
 func Test_Bufio_Xml(t *testing.T) {
 	SessionTest(t, Bufio(Xml()), ObjectTest)
+}
+
+func Test_Packet(t *testing.T) {
+	SessionTest(t, Packet(2, 1024, 1024, LittleEndian, Json()), ObjectTest)
 }
