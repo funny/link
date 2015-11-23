@@ -6,70 +6,70 @@ import (
 	"sync"
 )
 
-type BufioCodecType struct {
+type bufioCodecType struct {
 	base            CodecType
 	readBufferSize  int
 	writeBufferSize int
-	readerPool      sync.Pool
-	writerPool      sync.Pool
+	encoderPool     sync.Pool
+	decoderPool     sync.Pool
 }
 
-func Bufio(base CodecType) *BufioCodecType {
+func Bufio(base CodecType) CodecType {
 	return BufioSize(base, 4096, 4096)
 }
 
-func BufioSize(base CodecType, readBufferSize, writeBufferSize int) *BufioCodecType {
-	return &BufioCodecType{
+func BufioSize(base CodecType, readBufferSize, writeBufferSize int) CodecType {
+	return &bufioCodecType{
 		base:            base,
 		readBufferSize:  readBufferSize,
 		writeBufferSize: writeBufferSize,
 	}
 }
 
-func (codecType *BufioCodecType) NewEncoder(w io.Writer) Encoder {
+func (codecType *bufioCodecType) NewEncoder(w io.Writer) Encoder {
 	if codecType.writeBufferSize == 0 {
 		return codecType.base.NewEncoder(w)
 	}
-	bw, ok := codecType.writerPool.Get().(*bufio.Writer)
-	if ok {
-		bw.Reset(w)
-	} else {
-		bw = bufio.NewWriterSize(w, codecType.writeBufferSize)
+	if encoder, ok := codecType.encoderPool.Get().(*bufioEncoder); ok {
+		encoder.writer.Reset(w)
+		encoder.base = codecType.base.NewEncoder(encoder.writer)
+		return encoder
 	}
+	bw := bufio.NewWriterSize(w, codecType.writeBufferSize)
 	return &bufioEncoder{
 		writer: bw,
-		pool:   &codecType.writerPool,
+		parent: codecType,
 		base:   codecType.base.NewEncoder(bw),
 	}
 }
 
-func (codecType *BufioCodecType) NewDecoder(r io.Reader) Decoder {
+func (codecType *bufioCodecType) NewDecoder(r io.Reader) Decoder {
 	if codecType.readBufferSize == 0 {
 		return codecType.base.NewDecoder(r)
 	}
-	br, ok := codecType.readerPool.Get().(*bufio.Reader)
-	if ok {
-		br.Reset(r)
-	} else {
-		br = bufio.NewReaderSize(r, codecType.readBufferSize)
+	if decoder, ok := codecType.decoderPool.Get().(*bufioDecoder); ok {
+		decoder.reader.Reset(r)
+		decoder.base = codecType.base.NewDecoder(decoder.reader)
+		return decoder
 	}
+	br := bufio.NewReaderSize(r, codecType.readBufferSize)
 	return &bufioDecoder{
 		reader: br,
-		pool:   &codecType.readerPool,
+		parent: codecType,
 		base:   codecType.base.NewDecoder(br),
 	}
 }
 
 type bufioEncoder struct {
-	writer *bufio.Writer
-	pool   *sync.Pool
 	base   Encoder
+	writer *bufio.Writer
+	parent *bufioCodecType
 }
 
 type bufioDecoder struct {
-	reader *bufio.Reader
-	pool   *sync.Pool
 	base   Decoder
+	reader *bufio.Reader
+	parent *bufioCodecType
 }
 
 func (encoder *bufioEncoder) Encode(msg interface{}) error {
@@ -87,12 +87,14 @@ func (encoder *bufioEncoder) Dispose() {
 	if d, ok := encoder.base.(Disposeable); ok {
 		d.Dispose()
 	}
-	encoder.pool.Put(encoder.writer)
+	encoder.base = nil
+	encoder.parent.encoderPool.Put(encoder)
 }
 
 func (decoder *bufioDecoder) Dispose() {
 	if d, ok := decoder.base.(Disposeable); ok {
 		d.Dispose()
 	}
-	decoder.pool.Put(decoder.reader)
+	decoder.base = nil
+	decoder.parent.decoderPool.Put(decoder)
 }
