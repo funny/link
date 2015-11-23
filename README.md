@@ -124,10 +124,85 @@ srv, err := link.Serve("tcp", "0.0.0.0:0", link.Packet(4, 1024 * 1024, 1024, bin
 
 俄罗斯套娃 ：）
 
-我是不会告诉你除了以上示例，阅读`all_test.go`也是很有帮助的！
+我是不会告诉你除了以上示例，阅读`all_test.go`和`example`目录下的代码也是很有帮助的！
 
-实际使用
+消息分发
 =======
+
+实际项目中通常都会需要识别消息类型然后执行不同消息类型的解包（反序列化）接着调用不同的消息处理过程（业务逻辑），link包的测试代码和示例代码都没有直接体现出如何做消息分发，所以新手经常会卡在这一步。下面我就简单的演示怎样实现一个可以识别消息类型的CodecType，并演示如何进行消息分发。
+
+首先我先假定我们需要实现这样一个协议格式：
+
+```
+4字节的包头 + 2字节的消息类型ID + 消息内容
+```
+
+通过消息类型ID的区分我们就可以支持一种以上的消息类型，消息内容格式这里不举例，我们只需要直到内容格式都不一样。
+
+因为link已经内置了4字节包头的分包协议支持，所以我们不需要自己做分包，只需要实现一个识别消息类型的CodecType。
+
+实现起来大概像这样子：
+
+```
+type MyCodecType struct {}
+
+func (codecType MyCodecType) NewEncoder(w io.Writer) MyEncoder {
+	return &MyEncoder{w}
+}
+
+func (codecType MyCodecType) NewDecoder(r io.Reader) MyDecoder {
+	return &MyDecoder{r}
+}
+
+type MyDecoder struct {
+	reader io.Reader
+}
+
+func (decoder *MyDecoder) Decode(msg interface{}) error {
+	var buf [2]byte
+	if _, err := io.ReadFull(decoder.reader, buf[:]); err != nil {
+		return err
+	}
+	switch binary.LittleEndian.Uint16(buf[:]) {
+	case 1:
+		return decoder.DecodeType1(msg)
+	case 2:
+		return decoder.DecodeType2(msg)
+	}
+	return errors.New("unknow message type")
+}
+```
+
+上面示例只给出Decoder的结构，Encoder只是反过程，这里就不再重复。
+
+现在消息可以按类型解析了，但是link的接口设计是要先传入一个消息对象给`Session.Receive()`，这不就成了先有鸡还是先有蛋的问题了吗？在知道消息类型前我们怎么直到应该传入什么消息类型的对象呢？
+
+这边需要脑筋急转弯一下，利用Go的interface机制可以顺便帮我们把协议解析和消息分发解耦开。
+
+我们知道所有的请求都需要被分发处理，那么我们可以定义这样一个接口：
+
+```
+type MyMessage interface {
+	Dispatch()
+}
+```
+
+所有的上行消息（请求）都实现这个接口，这样我们就可以自然而然的这样调用link：
+
+```
+var msg MyMessage
+
+session.Receive(msg)
+
+msg.Dispatch()
+```
+
+具体的Dispatch内是通过怎样的机制把消息分发给对应的业务接口的，这就八仙过海各显神通了，我在项目里用的是注册回调函数的方式，大家可以根据实际的项目情况设计。
+
+包括上面示例中的DecodeType1和DecodeType2，实际项目中不一定是这样做的，通常会需要把不同业务模块的消息类型分到不同的包里，示例只是提供思路，希望大家要灵活变通不要死记硬背。
+
+总结
+====
 
 从link的核心代码和内置类型可以看出，核心其实很简单，IO调用方式和协议实现都靠`CodecType`解耦了。我建议在实际项目中根据项目需求，参考内置类型的设计实现针对项目的CodecType，这样可以得到最好的执行效率和使用体验。
 
