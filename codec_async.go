@@ -12,10 +12,6 @@ func Async(base CodecType, chanSize int) CodecType {
 	return &asyncCodecType{base, chanSize}
 }
 
-type AsyncMsg struct {
-	Msg interface{}
-}
-
 type asyncCodecType struct {
 	base     CodecType
 	chanSize int
@@ -62,15 +58,12 @@ func (encoder *asyncEncoder) start() {
 }
 
 func (encoder *asyncEncoder) Encode(msg interface{}) error {
-	if async, ok := msg.(AsyncMsg); ok {
-		select {
-		case encoder.sendChan <- async.Msg:
-		default:
-			return ErrBlocking
-		}
-		return nil
+	select {
+	case encoder.sendChan <- msg:
+	default:
+		return ErrBlocking
 	}
-	return encoder.base.Encode(msg)
+	return nil
 }
 
 func (encoder *asyncEncoder) Dispose() {

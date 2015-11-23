@@ -90,16 +90,9 @@ func SessionTest(t *testing.T, codecType CodecType, test func(*testing.T, *Sessi
 }
 
 func BytesTest(t *testing.T, session *Session) {
-	_, isAsync := session.encoder.(*asyncEncoder)
-
 	for i := 0; i < 2000; i++ {
 		msg1 := RandBytes(512)
-		var err error
-		if isAsync {
-			err = session.Send(AsyncMsg{msg1})
-		} else {
-			err = session.Send(msg1)
-		}
+		err := session.Send(msg1)
 		unitest.NotError(t, err)
 
 		var msg2 = make([]byte, len(msg1))

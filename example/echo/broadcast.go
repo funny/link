@@ -27,7 +27,7 @@ func main() {
 	go func() {
 		for range time.Tick(time.Second * 2) {
 			now := time.Now().Format("2006-01-02 15:04:05")
-			channel.Broadcast(link.AsyncMsg{"from channel: " + now})
+			channel.Broadcast("from channel: " + now)
 		}
 	}()
 
@@ -49,7 +49,7 @@ func main() {
 					break
 				}
 				println(addr, "say:", msg)
-				channel.Broadcast(link.AsyncMsg{"from " + addr + ": " + string(msg)})
+				channel.Broadcast("from " + addr + ": " + string(msg))
 			}
 
 			println("client", addr, "closed")
