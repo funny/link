@@ -17,7 +17,7 @@ func main() {
 	flag.StringVar(&addr, "addr", ":10010", "echo server address")
 	flag.Parse()
 
-	server, err := link.Serve("tcp", addr, codec.String(codec.Uint16BE))
+	server, err := link.Serve("tcp", addr, link.Async(codec.String(codec.Uint16BE), 1024))
 	if err != nil {
 		panic(err)
 	}
@@ -41,7 +41,6 @@ func main() {
 			addr := session.Conn().RemoteAddr().String()
 			println("client", addr, "connected")
 
-			session.EnableAsyncSend(1024)
 			channel.Join(session)
 
 			for {
@@ -50,7 +49,7 @@ func main() {
 					break
 				}
 				println(addr, "say:", msg)
-				channel.Broadcast("from " + addr + ": " + string(msg))
+				channel.Broadcast(link.AsyncMsg{"from " + addr + ": " + string(msg)})
 			}
 
 			println("client", addr, "closed")

@@ -23,7 +23,7 @@ type asyncCodecType struct {
 
 func (codecType *asyncCodecType) NewEncoder(w io.Writer) Encoder {
 	encoder := &asyncEncoder{
-		base:     codecType.NewEncoder(w),
+		base:     codecType.base.NewEncoder(w),
 		stopChan: make(chan struct{}),
 		sendChan: make(chan interface{}, codecType.chanSize),
 	}
@@ -75,8 +75,8 @@ func (encoder *asyncEncoder) Encode(msg interface{}) error {
 
 func (encoder *asyncEncoder) Dispose() {
 	close(encoder.stopChan)
-	encoder.stopWait.Wait()
 	if d, ok := encoder.base.(Disposeable); ok {
 		d.Dispose()
 	}
+	encoder.stopWait.Wait()
 }
