@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/binary"
 	"flag"
 	"fmt"
 	"io"
@@ -14,7 +15,6 @@ import (
 	"time"
 
 	"github.com/funny/link"
-	"github.com/funny/link/example/codec"
 	_ "github.com/funny/unitest"
 )
 
@@ -46,6 +46,35 @@ func (conn *CountConn) Write(p []byte) (n int, err error) {
 	n, err = conn.Conn.Write(p)
 	atomic.AddUint32(&conn.WriteCount, 1)
 	return
+}
+
+type TestCodec struct {
+}
+
+func (codec TestCodec) NewEncoder(w io.Writer) link.Encoder {
+	return &TestEncoder{w}
+}
+
+func (codec TestCodec) NewDecoder(r io.Reader) link.Decoder {
+	return &TestDecoder{r}
+}
+
+type TestEncoder struct {
+	w io.Writer
+}
+
+func (encoder *TestEncoder) Encode(msg interface{}) error {
+	_, err := encoder.w.Write(msg.([]byte))
+	return err
+}
+
+type TestDecoder struct {
+	r io.Reader
+}
+
+func (decoder *TestDecoder) Decode(msg interface{}) error {
+	// message data already in buffer, no need copy.
+	return nil
 }
 
 const OutputFormat = "Send Count: %d, Recv Count: %d, Read Count: %d, Write Count: %d\n"
@@ -105,7 +134,7 @@ func main() {
 }
 
 func client(initWait *sync.WaitGroup, conn *CountConn, startChan chan int, timeout time.Time, msg []byte) {
-	client := link.NewSession(conn, link.Bufio(codec.Bytes(codec.Uint16BE)))
+	client := link.NewSession(conn, link.Packet(2, *messageSize, *messageSize*2, binary.LittleEndian, TestCodec{}))
 
 	var wg sync.WaitGroup
 
@@ -118,7 +147,7 @@ func client(initWait *sync.WaitGroup, conn *CountConn, startChan chan int, timeo
 		for {
 			outMsg := msg
 			if *randsize {
-				outMsg = make([]byte, rand.Intn(*messageSize))
+				outMsg = msg[:rand.Intn(*messageSize)]
 			}
 			if err := client.Send(outMsg); err != nil {
 				if timeout.After(time.Now()) {

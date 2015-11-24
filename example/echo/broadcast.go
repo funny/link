@@ -1,11 +1,13 @@
 package main
 
 import (
+	"encoding/binary"
 	"flag"
+	"io"
+	"io/ioutil"
 	"time"
 
 	"github.com/funny/link"
-	"github.com/funny/link/example/codec"
 )
 
 // This is broadcast server demo work with the echo_client.
@@ -17,7 +19,7 @@ func main() {
 	flag.StringVar(&addr, "addr", ":10010", "echo server address")
 	flag.Parse()
 
-	server, err := link.Serve("tcp", addr, link.Async(1024, codec.String(codec.Uint16BE)))
+	server, err := link.Serve("tcp", addr, link.Async(1024, link.Packet(2, 1024*1024, 1024, binary.LittleEndian, TestCodec{})))
 	if err != nil {
 		panic(err)
 	}
@@ -56,4 +58,37 @@ func main() {
 			channel.Exit(session)
 		}()
 	}
+}
+
+type TestCodec struct {
+}
+
+type TestEncoder struct {
+	w io.Writer
+}
+
+type TestDecoder struct {
+	r io.Reader
+}
+
+func (codec TestCodec) NewEncoder(w io.Writer) link.Encoder {
+	return &TestEncoder{w}
+}
+
+func (codec TestCodec) NewDecoder(r io.Reader) link.Decoder {
+	return &TestDecoder{r}
+}
+
+func (encoder *TestEncoder) Encode(msg interface{}) error {
+	_, err := encoder.w.Write([]byte(msg.(string)))
+	return err
+}
+
+func (decoder *TestDecoder) Decode(msg interface{}) error {
+	d, err := ioutil.ReadAll(decoder.r)
+	if err != nil {
+		return err
+	}
+	*(msg.(*string)) = string(d)
+	return nil
 }

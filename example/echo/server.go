@@ -3,9 +3,7 @@ package main
 import (
 	"flag"
 	"io"
-
-	"github.com/funny/link"
-	"github.com/funny/link/example/codec"
+	"net"
 )
 
 func main() {
@@ -14,16 +12,16 @@ func main() {
 	flag.StringVar(&addr, "addr", ":10010", "echo server address")
 	flag.Parse()
 
-	server, err := link.Serve("tcp", addr, codec.Bytes(codec.Uint16BE))
+	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		panic(err)
 	}
-	println("server start:", server.Listener().Addr().String())
+	println("server start:", listener.Addr().String())
 	for {
-		session, err := server.Accept()
+		conn, err := listener.Accept()
 		if err != nil {
 			break
 		}
-		go io.Copy(session.Conn(), session.Conn())
+		go io.Copy(conn, conn)
 	}
 }
