@@ -102,12 +102,10 @@ srv, err := link.Serve("tcp", "0.0.0.0:0", link.Bufio(link.Json()))
 srv, err := link.Serve("tcp", "0.0.0.0:0", link.ThreadSafe(link.Json()))
 ```
 
-示例，加入异步发送：
+示例，把发送方式改为异步：
 
 ```go
 srv, err := link.Serve("tcp", "0.0.0.0:0", link.Async(link.Json()))
-
-session.Send(link.AsyncMsg{msg})
 ```
 
 示例，把所有特性都加到一起：
@@ -119,7 +117,7 @@ srv, err := link.Serve("tcp", "0.0.0.0:0", link.Async(link.ThreadSafe(link.Bufio
 示例，使用`{packet, 4}`做消息分包：
 
 ```go
-srv, err := link.Serve("tcp", "0.0.0.0:0", link.Packet(4, 1024 * 1024, 1024, binary.LittleEndian, link.Json()))
+srv, err := link.Serve("tcp", "0.0.0.0:0", link.Packet(4, 1024 * 1024, 4096, binary.LittleEndian, link.Json()))
 ```
 
 俄罗斯套娃 ：）
