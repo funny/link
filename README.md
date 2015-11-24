@@ -86,25 +86,25 @@ link的核心部分代码是极少的，link另外提供了一些常用到的工
 
 示例，创建一个使用Json作为消息格式的TCP服务端：
 
-```
+```go
 srv, err := link.Serve("tcp", "0.0.0.0:0", link.Json())
 ```
 
 示例，使用Bufio优化IO：
 
-```
+```go
 srv, err := link.Serve("tcp", "0.0.0.0:0", link.Bufio(link.Json()))
 ```
 
 示例，加入线程安全：
 
-```
+```go
 srv, err := link.Serve("tcp", "0.0.0.0:0", link.ThreadSafe(link.Json()))
 ```
 
 示例，加入异步发送：
 
-```
+```go
 srv, err := link.Serve("tcp", "0.0.0.0:0", link.Async(link.Json()))
 
 session.Send(link.AsyncMsg{msg})
@@ -112,13 +112,13 @@ session.Send(link.AsyncMsg{msg})
 
 示例，把所有特性都加到一起：
 
-```
+```go
 srv, err := link.Serve("tcp", "0.0.0.0:0", link.Async(link.ThreadSafe(link.Bufio(link.Json())))
 ```
 
 示例，使用`{packet, 4}`做消息分包：
 
-```
+```go
 srv, err := link.Serve("tcp", "0.0.0.0:0", link.Packet(4, 1024 * 1024, 1024, binary.LittleEndian, link.Json()))
 ```
 
@@ -137,21 +137,21 @@ srv, err := link.Serve("tcp", "0.0.0.0:0", link.Packet(4, 1024 * 1024, 1024, bin
 4字节的包头 + 2字节的消息类型ID + 消息内容
 ```
 
-通过消息类型ID的区分我们就可以支持一种以上的消息类型，消息内容格式这里不举例，我们只需要直到内容格式都不一样。
+通过消息类型ID的区分我们就可以支持一种以上的消息类型，消息内容格式这里不举例，我们只需要假设它们内容格式都不一样。
 
 因为link已经内置了4字节包头的分包协议支持，所以我们不需要自己做分包，只需要实现一个识别消息类型的CodecType。
 
 实现起来大概像这样子：
 
-```
+```go
 type MyCodecType struct {}
-
-func (codecType MyCodecType) NewEncoder(w io.Writer) MyEncoder {
-	return &MyEncoder{w}
-}
 
 func (codecType MyCodecType) NewDecoder(r io.Reader) MyDecoder {
 	return &MyDecoder{r}
+}
+
+func (codecType MyCodecType) NewEncoder(w io.Writer) MyEncoder {
+	return &MyEncoder{w}
 }
 
 type MyDecoder struct {
@@ -175,13 +175,19 @@ func (decoder *MyDecoder) Decode(msg interface{}) error {
 
 上面示例只给出Decoder的结构，Encoder只是反过程，这里就不再重复。
 
-现在消息可以按类型解析了，但是link的接口设计是要先传入一个消息对象给`Session.Receive()`，这不就成了先有鸡还是先有蛋的问题了吗？在知道消息类型前我们怎么直到应该传入什么消息类型的对象呢？
+把这个CodecType和link内置的分包协议结合起来创建一个TCP服务：
 
-这边需要脑筋急转弯一下，利用Go的interface机制可以顺便帮我们把协议解析和消息分发解耦开。
+```
+srv, err := link.Serve("tcp", "0.0.0.0:0", link.Packet(4, 1024 * 1024, 4096, binary.LittleEndian, MyCodecType{}))
+```
+
+现在消息可以按类型解析了，但是接收消息时link要求传入一个消息对象给`Session.Receive()`，这不就成了先有鸡还是先有蛋的问题了吗？在知道消息类型前我们怎么直到应该传入什么消息类型的对象呢？
+
+这边需要脑筋急转弯一下，利用Go的interface机制可以解决这个问题并顺便帮我们把协议解析和消息分发解耦开。
 
 我们知道所有的请求都需要被分发处理，那么我们可以定义这样一个接口：
 
-```
+```go
 type MyMessage interface {
 	Dispatch()
 }
@@ -189,7 +195,7 @@ type MyMessage interface {
 
 所有的上行消息（请求）都实现这个接口，这样我们就可以自然而然的这样调用link：
 
-```
+```go
 var msg MyMessage
 
 session.Receive(msg)
@@ -199,11 +205,13 @@ msg.Dispatch()
 
 具体的Dispatch内是通过怎样的机制把消息分发给对应的业务接口的，这就八仙过海各显神通了，我在项目里用的是注册回调函数的方式，大家可以根据实际的项目情况设计。
 
-包括上面示例中的DecodeType1和DecodeType2，实际项目中不一定是这样做的，通常会需要把不同业务模块的消息类型分到不同的包里，示例只是提供思路，希望大家要灵活变通不要死记硬背。
+包括上面示例中的DecodeType1和DecodeType2，实际项目中不一定是这样做的，接口比较多的项目里通常会需要把不同业务模块的消息类型分到不同的包里，示例只是提供思路，希望大家要灵活变通不要死记硬背。
 
 总结
 ====
 
-从link的核心代码和内置类型可以看出，核心其实很简单，IO调用方式和协议实现都靠`CodecType`解耦了。我建议在实际项目中根据项目需求，参考内置类型的设计实现针对项目的CodecType，这样可以得到最好的执行效率和使用体验。
+从link的核心代码和内置类型可以看出，核心其实很简单，IO调用方式和协议实现都靠`CodecType`解耦了。
 
-欢迎加技术交(xian)流(liao)群一起讨论link的使用和改进：188680931
+建议在实际项目中根据项目需求，参考内置类型的设计实现针对项目的CodecType，这样可以得到最好的执行效率和使用体验。
+
+如果有问题或者改进建议，欢迎加技术交(xian)流(liao)群一起讨论：188680931
