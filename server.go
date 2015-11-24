@@ -54,6 +54,7 @@ func (server *Server) Accept() (*Session, error) {
 			}
 			return nil, err
 		}
+		tempDelay = 0
 		return server.newSession(conn), nil
 	}
 }
