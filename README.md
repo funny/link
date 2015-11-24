@@ -108,7 +108,7 @@ srv, err := link.Serve("tcp", "0.0.0.0:0", link.ThreadSafe(link.Json()))
 srv, err := link.Serve("tcp", "0.0.0.0:0", link.Async(link.Json()))
 ```
 
-示例，把所有特性都加到一起：
+示例，把所有特性都加到一起（Async和ThreadSafe组合没有意义，这里只是纯炫技）：
 
 ```go
 srv, err := link.Serve("tcp", "0.0.0.0:0", link.Async(link.ThreadSafe(link.Bufio(link.Json())))
