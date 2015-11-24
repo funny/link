@@ -31,12 +31,12 @@ link包核心由`Server`、`Session`、`CodecType`组成。`Server`和`Session`�
 
 link的核心部分代码是极少的，link另外提供了一些常用到的工具类型，下面一一对其进行介绍。
 
-[channel.go]()
+[channel.go](https://github.com/funny/link/blob/master/channel.go)
 --------------
 
 这个文件里实现了一个`Channel`类型，用于手工管理`Session`或者对一组`Session`发送广播。广播发送方式可以通过实现`BroadcastProtocol`接口来自定义，默认的广播方式只是简单的逐个`Session`发送。
 
-[codec_async.go]()
+[codec_async.go](https://github.com/funny/link/blob/master/codec_async.go)
 ------------------
 
 这个文件中实现了一个用于支持异步消息发送的`CodecType`。之前的版本中`Session`有一个`AsyncSend()`方法用于异步消息发送。我一直很不满意`AsyncSend()`的设计，从link包的历史版本中可以看到`AsyncSend()`经过了多次修改。
@@ -49,14 +49,14 @@ link的核心部分代码是极少的，link另外提供了一些常用到的工
 
 2015-11-23更新：需要注意，目前的设计会导致`Session.Send()`的行为从阻塞变为非阻塞，这样设计的目的是规避掉同时支持两种模式的复杂性，避免使用者犯错误。对于高级用户如果需要同时支持阻塞和非阻塞，可以通过判断消息类型来实现，但是实现时需要考虑到Encoder会被并发使用，请注意线程安全性。
 
-[codec_bufio.go]()
+[codec_bufio.go](https://github.com/funny/link/blob/master/codec_bufio.go)
 ------------------
 
 这个文件中实现了带缓冲的IO以及缓冲对象重用，这是网络层很常用到的优化。缓冲读和缓冲写可以显著的降低实际的IO调用次数，在Go语言中一次实际的`net.Conn.Read()`调用开销并不低，它需要给文件句柄加锁然后放入事件循环里等待IO事件，这里面有一系列的系统调用。所以实际项目中，强烈建议使用bufio来降低IO调用次数。
 
 有一个细节需要注意`sync.Pool`是跟着`BufioCodecType`实例的，所以在实际使用中，特别是创建客户端`Session`时，需要重用`BufioCodecType`而不是每次调用`link.Dial()`时都创建一个新的`BufioCodecType`实例。服务端不容易出现这个问题是因为`BufioCodecType`会被存在`Server`对象里，反复赋值给新建的服务端`Session`。
 
-[codec_general.go]()
+[codec_general.go](https://github.com/funny/link/blob/master/codec_general.go)
 --------------------
 
 里面实现了常见的Json、Gob、Xml格式的消息编解码，正好这三种消息类型都不需要分包协议就可以逐条消息解码，所以很容易内置到link包里。
@@ -67,14 +67,14 @@ link的核心部分代码是极少的，link另外提供了一些常用到的工
 
 2015-11-23更新：已加入Erlang的{packet, N}分包协议支持。
 
-[codec_packet.go]()
+[codec_packet.go](https://github.com/funny/link/blob/master/codec_packet.go)
 --------------------
 
 里面实现了对应Erlang的{packet, N}格式的分包协议。这种分包协议很简单，每个消息包由固定长度N的包头和不定长的包体组成，包头的数据是小端格式或者大段格式编码的包体长度值。分包的时候先读取包头，解码后获得包体长度N，接着读取长度为N的数据即为包体。封包时则是先将消息序列化成字节，然后获得消息的字节长度后编码到包头，接着发送消息包。
 
 这种分包协议简单易用，但是需要注意消息包的大小要控制好，否则容易成为漏掉被黑客利用，比如伪造一个长度超长的包头信息，让服务器一次申请一大块内存，导致服务器内存耗尽。同时还需要注意读取过程需要先读包头再读包体，这时候不用bufio做预读就会真正发生两次IO调用，所以`PacketCodecType`有个`ReadBufferSize`参数，细调这个参数可以获得较好的性价比。
 
-[codec_safe.go]()
+[codec_safe.go](https://github.com/funny/link/blob/master/codec_safe.go)
 -----------------
 
 里面实现了线程安全的`CodecType`，旧版本的link里`Session`内置了收发锁让`Session.Receive()和`Session.Send()`可以被并发调用。但是实际项目中并发接收或者并发发送的场景很少，如果一开始就内置到`Session`里，这部分调用开销就多余了。
