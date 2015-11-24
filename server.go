@@ -3,6 +3,7 @@ package link
 import (
 	"net"
 	"sync"
+	"time"
 )
 
 type Server struct {
@@ -35,11 +36,26 @@ func (server *Server) Listener() net.Listener {
 }
 
 func (server *Server) Accept() (*Session, error) {
-	conn, err := server.listener.Accept()
-	if err != nil {
-		return nil, err
+	var tempDelay time.Duration
+	for {
+		conn, err := server.listener.Accept()
+		if err != nil {
+			if ne, ok := err.(net.Error); ok && ne.Temporary() {
+				if tempDelay == 0 {
+					tempDelay = 5 * time.Millisecond
+				} else {
+					tempDelay *= 2
+				}
+				if max := 1 * time.Second; tempDelay > max {
+					tempDelay = max
+				}
+				time.Sleep(tempDelay)
+				continue
+			}
+			return nil, err
+		}
+		return server.newSession(conn), nil
 	}
-	return server.newSession(conn), nil
 }
 
 func (server *Server) Stop() {
