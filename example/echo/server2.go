@@ -1,21 +1,32 @@
 package main
 
 import (
-	"encoding/binary"
 	"flag"
 	"io"
 	"io/ioutil"
 
+	"github.com/funny/binary"
 	"github.com/funny/link"
 )
 
 func main() {
 	var addr string
+	var pro bool
 
 	flag.StringVar(&addr, "addr", ":10010", "echo server address")
+	flag.BoolVar(&pro, "pro", true, "use PacketPro()")
 	flag.Parse()
 
-	server, err := link.Serve("tcp", addr, link.Packet(2, 1024*1024, 1024, binary.LittleEndian, TestCodec{}))
+	var codecType link.CodecType
+
+	if pro {
+		pool := binary.NewBufferPool(2, 1, 32)
+		codecType = link.PacketPro(2, 1024*1024, 1024, link.LittleEndian, pool, TestCodec{})
+	} else {
+		codecType = link.Packet(2, 1024*1024, 1024, link.LittleEndian, TestCodec{})
+	}
+
+	server, err := link.Serve("tcp", addr, codecType)
 	if err != nil {
 		panic(err)
 	}

@@ -74,6 +74,8 @@ link的核心部分代码是极少的，link另外提供了一些常用到的工
 
 这种分包协议简单易用，但是需要注意消息包的大小要控制好，否则容易成为漏掉被黑客利用，比如伪造一个长度超长的包头信息，让服务器一次申请一大块内存，导致服务器内存耗尽。同时还需要注意读取过程需要先读包头再读包体，这时候不用bufio做预读就会真正发生两次IO调用，所以`PacketCodecType`有个`ReadBufferSize`参数，细调这个参数可以获得较好的性价比。
 
+2015-11-25更新：新加了`PacketPro()`，可以传一个[`funny/binary.BufferPool()`](https://github.com/funny/binary/blob/master/buffer_pool.go)作为参数优化内存分配。
+
 [codec_safe.go](https://github.com/funny/link/blob/master/codec_safe.go)
 -----------------
 
@@ -117,7 +119,7 @@ srv, err := link.Serve("tcp", "0.0.0.0:0", link.Async(link.ThreadSafe(link.Bufio
 示例，使用`{packet, 4}`做消息分包：
 
 ```go
-srv, err := link.Serve("tcp", "0.0.0.0:0", link.Packet(4, 1024 * 1024, 4096, binary.LittleEndian, link.Json()))
+srv, err := link.Serve("tcp", "0.0.0.0:0", link.Packet(4, 1024 * 1024, 4096, link.LittleEndian, link.Json()))
 ```
 
 俄罗斯套娃 ：）
@@ -176,7 +178,7 @@ func (decoder *MyDecoder) Decode(msg interface{}) error {
 把这个CodecType和link内置的分包协议结合起来创建一个TCP服务：
 
 ```
-srv, err := link.Serve("tcp", "0.0.0.0:0", link.Packet(4, 1024 * 1024, 4096, binary.LittleEndian, MyCodecType{}))
+srv, err := link.Serve("tcp", "0.0.0.0:0", link.Packet(4, 1024 * 1024, 4096, link.LittleEndian, MyCodecType{}))
 ```
 
 现在消息可以按类型解析了，但是接收消息时link要求传入一个消息对象给`Session.Receive()`，这不就成了先有鸡还是先有蛋的问题了吗？在知道消息类型前我们怎么直到应该传入什么消息类型的对象呢？

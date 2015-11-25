@@ -23,11 +23,23 @@ func Packet(n, maxPacketSize, readBufferSize int, byteOrder gobinary.ByteOrder, 
 	}
 }
 
+func PacketPro(n, maxPacketSize, readBufferSize int, byteOrder gobinary.ByteOrder, bufferPool *binary.BufferPool, base CodecType) CodecType {
+	return &packetCodecType{
+		n:              n,
+		base:           base,
+		bufferPool:     bufferPool,
+		maxPacketSize:  maxPacketSize,
+		readBufferSize: readBufferSize,
+		byteOrder:      byteOrder,
+	}
+}
+
 type packetCodecType struct {
 	n              int
 	maxPacketSize  int
 	readBufferSize int
 	base           CodecType
+	bufferPool     *binary.BufferPool
 	encoderPool    sync.Pool
 	decoderPool    sync.Pool
 	byteOrder      gobinary.ByteOrder
@@ -43,7 +55,11 @@ func (codecType *packetCodecType) NewEncoder(w io.Writer) Encoder {
 			writer: w,
 			parent: codecType,
 		}
-		encoder.buffer.Data = make([]byte, codecType.n+codecType.readBufferSize)
+		if codecType.bufferPool != nil {
+			codecType.bufferPool.Manage(&encoder.buffer)
+		} else {
+			encoder.buffer.Data = make([]byte, codecType.n+codecType.readBufferSize)
+		}
 		switch codecType.n {
 		case 1:
 			encoder.writeHead = codecType.writeHead1
@@ -101,7 +117,11 @@ func (codecType *packetCodecType) NewDecoder(r io.Reader) Decoder {
 			parent: codecType,
 			reader: bufio.NewReaderSize(r, codecType.readBufferSize),
 		}
-		decoder.buffer.Data = make([]byte, codecType.n+codecType.readBufferSize)
+		if codecType.bufferPool != nil {
+			codecType.bufferPool.Manage(&decoder.buffer)
+		} else {
+			decoder.buffer.Data = make([]byte, codecType.n+codecType.readBufferSize)
+		}
 		switch codecType.n {
 		case 1:
 			decoder.readHead = codecType.readHead1
@@ -183,11 +203,7 @@ func (decoder *packetDecoder) Decode(msg interface{}) (err error) {
 		return err
 	}
 	n := decoder.readHead(decoder.buffer.Data)
-	if cap(decoder.buffer.Data) < n {
-		decoder.buffer.Data = make([]byte, n, n+512)
-	} else {
-		decoder.buffer.Data = decoder.buffer.Data[:n]
-	}
+	decoder.buffer.Renew(n)
 	if _, err = io.ReadFull(decoder.reader, decoder.buffer.Data); err != nil {
 		return err
 	}

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/binary"
 	"flag"
 	"fmt"
 	"io"
@@ -16,7 +15,7 @@ func main() {
 	flag.StringVar(&addr, "addr", "127.0.0.1:10010", "echo server address")
 	flag.Parse()
 
-	session, err := link.Connect("tcp", addr, link.Packet(2, 1024*1024, 1024, binary.LittleEndian, TestCodec{}))
+	session, err := link.Connect("tcp", addr, link.Packet(2, 1024*1024, 1024, link.LittleEndian, TestCodec{}))
 	if err != nil {
 		panic(err)
 	}
