@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/funny/binary"
 	"github.com/funny/unitest"
 )
 
@@ -172,9 +171,4 @@ func Test_Bufio_Xml(t *testing.T) {
 
 func Test_Packet(t *testing.T) {
 	SessionTest(t, Packet(2, 1024, 1024, LittleEndian, Json()), ObjectTest)
-}
-
-func Test_PacketPro(t *testing.T) {
-	pool := binary.NewBufferPool(2, 1, 32)
-	SessionTest(t, PacketPro(2, 1024, 1024, LittleEndian, pool, Json()), ObjectTest)
 }

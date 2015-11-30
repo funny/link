@@ -2,32 +2,21 @@ package link
 
 import (
 	"bufio"
-	gobinary "encoding/binary"
-	"github.com/funny/binary"
+	"bytes"
+	"encoding/binary"
 	"io"
 	"sync"
 )
 
 var (
-	BigEndian    = gobinary.BigEndian
-	LittleEndian = gobinary.LittleEndian
+	BigEndian    = binary.BigEndian
+	LittleEndian = binary.LittleEndian
 )
 
-func Packet(n, maxPacketSize, readBufferSize int, byteOrder gobinary.ByteOrder, base CodecType) CodecType {
+func Packet(n, maxPacketSize, readBufferSize int, byteOrder binary.ByteOrder, base CodecType) CodecType {
 	return &packetCodecType{
 		n:              n,
 		base:           base,
-		maxPacketSize:  maxPacketSize,
-		readBufferSize: readBufferSize,
-		byteOrder:      byteOrder,
-	}
-}
-
-func PacketPro(n, maxPacketSize, readBufferSize int, byteOrder gobinary.ByteOrder, bufferPool *binary.BufferPool, base CodecType) CodecType {
-	return &packetCodecType{
-		n:              n,
-		base:           base,
-		bufferPool:     bufferPool,
 		maxPacketSize:  maxPacketSize,
 		readBufferSize: readBufferSize,
 		byteOrder:      byteOrder,
@@ -39,10 +28,9 @@ type packetCodecType struct {
 	maxPacketSize  int
 	readBufferSize int
 	base           CodecType
-	bufferPool     *binary.BufferPool
 	encoderPool    sync.Pool
 	decoderPool    sync.Pool
-	byteOrder      gobinary.ByteOrder
+	byteOrder      binary.ByteOrder
 }
 
 func (codecType *packetCodecType) NewEncoder(w io.Writer) Encoder {
@@ -55,53 +43,71 @@ func (codecType *packetCodecType) NewEncoder(w io.Writer) Encoder {
 			writer: w,
 			parent: codecType,
 		}
-		if codecType.bufferPool != nil {
-			codecType.bufferPool.Manage(&encoder.buffer)
-		} else {
-			encoder.buffer.Data = make([]byte, codecType.n+codecType.readBufferSize)
-		}
 		switch codecType.n {
 		case 1:
-			encoder.writeHead = codecType.writeHead1
+			encoder.encodeHead = codecType.encodeHead1
+			codecType.prepareBuffer1(&encoder.buffer)
 		case 2:
-			encoder.writeHead = codecType.writeHead2
+			encoder.encodeHead = codecType.encodeHead2
+			codecType.prepareBuffer2(&encoder.buffer)
 		case 4:
-			encoder.writeHead = codecType.writeHead4
+			encoder.encodeHead = codecType.encodeHead4
+			codecType.prepareBuffer4(&encoder.buffer)
 		case 8:
-			encoder.writeHead = codecType.writeHead8
+			encoder.encodeHead = codecType.encodeHead8
+			codecType.prepareBuffer8(&encoder.buffer)
 		}
 	}
 	encoder.base = codecType.base.NewEncoder(&encoder.buffer)
 	return encoder
 }
 
-func (codecType *packetCodecType) writeHead1(buf *binary.Buffer) {
-	if n := len(buf.Data) - 1; n <= 254 && n <= codecType.maxPacketSize {
-		buf.Data[0] = byte(n)
+func (codecType *packetCodecType) prepareBuffer1(buf *bytes.Buffer) {
+	buf.WriteByte(0)
+}
+
+func (codecType *packetCodecType) prepareBuffer2(buf *bytes.Buffer) {
+	var b [2]byte
+	buf.Write(b[:])
+}
+
+func (codecType *packetCodecType) prepareBuffer4(buf *bytes.Buffer) {
+	var b [4]byte
+	buf.Write(b[:])
+}
+
+func (codecType *packetCodecType) prepareBuffer8(buf *bytes.Buffer) {
+	var b [8]byte
+	buf.Write(b[:])
+}
+
+func (codecType *packetCodecType) encodeHead1(b []byte) {
+	if n := len(b) - 1; n <= 254 && n <= codecType.maxPacketSize {
+		b[0] = byte(n)
 	} else {
 		panic("too large packet size")
 	}
 }
 
-func (codecType *packetCodecType) writeHead2(buf *binary.Buffer) {
-	if n := len(buf.Data) - 2; n <= 65534 && n <= codecType.maxPacketSize {
-		codecType.byteOrder.PutUint16(buf.Data, uint16(n))
+func (codecType *packetCodecType) encodeHead2(b []byte) {
+	if n := len(b) - 2; n <= 65534 && n <= codecType.maxPacketSize {
+		codecType.byteOrder.PutUint16(b, uint16(n))
 	} else {
 		panic("too large packet size")
 	}
 }
 
-func (codecType *packetCodecType) writeHead4(buf *binary.Buffer) {
-	if n := len(buf.Data) - 4; n <= codecType.maxPacketSize {
-		codecType.byteOrder.PutUint32(buf.Data, uint32(n))
+func (codecType *packetCodecType) encodeHead4(b []byte) {
+	if n := len(b) - 4; n <= codecType.maxPacketSize {
+		codecType.byteOrder.PutUint32(b, uint32(n))
 	} else {
 		panic("too large packet size")
 	}
 }
 
-func (codecType *packetCodecType) writeHead8(buf *binary.Buffer) {
-	if n := len(buf.Data) - 8; n <= codecType.maxPacketSize {
-		codecType.byteOrder.PutUint64(buf.Data, uint64(n))
+func (codecType *packetCodecType) encodeHead8(b []byte) {
+	if n := len(b) - 8; n <= codecType.maxPacketSize {
+		codecType.byteOrder.PutUint64(b, uint64(n))
 	} else {
 		panic("too large packet size")
 	}
@@ -117,97 +123,87 @@ func (codecType *packetCodecType) NewDecoder(r io.Reader) Decoder {
 			parent: codecType,
 			reader: bufio.NewReaderSize(r, codecType.readBufferSize),
 		}
-		if codecType.bufferPool != nil {
-			codecType.bufferPool.Manage(&decoder.buffer)
-		} else {
-			decoder.buffer.Data = make([]byte, codecType.n+codecType.readBufferSize)
-		}
 		switch codecType.n {
 		case 1:
-			decoder.readHead = codecType.readHead1
+			decoder.decodeHead = codecType.decodeHead1
 		case 2:
-			decoder.readHead = codecType.readHead2
+			decoder.decodeHead = codecType.decodeHead2
 		case 4:
-			decoder.readHead = codecType.readHead4
+			decoder.decodeHead = codecType.decodeHead4
 		case 8:
-			decoder.readHead = codecType.readHead8
+			decoder.decodeHead = codecType.decodeHead8
 		}
 	}
 	decoder.base = codecType.base.NewDecoder(&decoder.buffer)
 	return decoder
 }
 
-func (codecType *packetCodecType) readHead1(buf []byte) int {
-	if n := int(buf[0]); n <= 254 && n <= codecType.maxPacketSize {
+func (codecType *packetCodecType) decodeHead1(b []byte) int {
+	if n := int(b[0]); n <= 254 && n <= codecType.maxPacketSize {
 		return n
-	} else {
-		panic("too large packet size")
 	}
+	panic("too large packet size")
 }
 
-func (codecType *packetCodecType) readHead2(buf []byte) int {
-	if n := int(codecType.byteOrder.Uint16(buf)); n > 0 && n <= 65534 && n <= codecType.maxPacketSize {
+func (codecType *packetCodecType) decodeHead2(b []byte) int {
+	if n := int(codecType.byteOrder.Uint16(b)); n > 0 && n <= 65534 && n <= codecType.maxPacketSize {
 		return n
-	} else {
-		panic("too large packet size")
 	}
+	panic("too large packet size")
 }
 
-func (codecType *packetCodecType) readHead4(buf []byte) int {
-	if n := int(codecType.byteOrder.Uint32(buf)); n > 0 && n <= codecType.maxPacketSize {
+func (codecType *packetCodecType) decodeHead4(b []byte) int {
+	if n := int(codecType.byteOrder.Uint32(b)); n > 0 && n <= codecType.maxPacketSize {
 		return n
-	} else {
-		panic("too large packet size")
 	}
+	panic("too large packet size")
 }
 
-func (codecType *packetCodecType) readHead8(buf []byte) int {
-	if n := int(codecType.byteOrder.Uint64(buf)); n > 0 && n <= codecType.maxPacketSize {
+func (codecType *packetCodecType) decodeHead8(b []byte) int {
+	if n := int(codecType.byteOrder.Uint64(b)); n > 0 && n <= codecType.maxPacketSize {
 		return n
-	} else {
-		panic("too large packet size")
 	}
+	panic("too large packet size")
 }
 
 type packetEncoder struct {
-	n         int
-	base      Encoder
-	buffer    binary.Buffer
-	writer    io.Writer
-	parent    *packetCodecType
-	writeHead func(*binary.Buffer)
+	n          int
+	base       Encoder
+	buffer     bytes.Buffer
+	writer     io.Writer
+	parent     *packetCodecType
+	encodeHead func([]byte)
 }
 
 type packetDecoder struct {
-	n        int
-	base     Decoder
-	buffer   binary.Buffer
-	reader   *bufio.Reader
-	parent   *packetCodecType
-	readHead func([]byte) int
+	n          int
+	base       Decoder
+	buffer     bytes.Buffer
+	reader     *bufio.Reader
+	parent     *packetCodecType
+	decodeHead func([]byte) int
 }
 
 func (encoder *packetEncoder) Encode(msg interface{}) (err error) {
-	encoder.buffer.Data = encoder.buffer.Data[:encoder.n]
+	encoder.buffer.Truncate(encoder.n)
 	if err = encoder.base.Encode(msg); err != nil {
 		return err
 	}
-	encoder.writeHead(&encoder.buffer)
-	_, err = encoder.writer.Write(encoder.buffer.Data)
+	b := encoder.buffer.Bytes()
+	encoder.encodeHead(b)
+	_, err = encoder.writer.Write(b)
 	return err
 }
 
 func (decoder *packetDecoder) Decode(msg interface{}) (err error) {
-	decoder.buffer.Data = decoder.buffer.Data[:decoder.n]
-	if _, err = io.ReadFull(decoder.reader, decoder.buffer.Data); err != nil {
+	decoder.buffer.Reset()
+	if _, err = decoder.buffer.ReadFrom(io.LimitReader(decoder.reader, int64(decoder.n))); err != nil {
 		return err
 	}
-	n := decoder.readHead(decoder.buffer.Data)
-	decoder.buffer.Renew(n)
-	if _, err = io.ReadFull(decoder.reader, decoder.buffer.Data); err != nil {
+	n := decoder.decodeHead(decoder.buffer.Next(decoder.n))
+	if _, err = decoder.buffer.ReadFrom(io.LimitReader(decoder.reader, int64(n))); err != nil {
 		return err
 	}
-	decoder.buffer.ReadPos = 0
 	return decoder.base.Decode(msg)
 }
 
@@ -215,6 +211,7 @@ func (encoder *packetEncoder) Dispose() {
 	if d, ok := encoder.base.(Disposeable); ok {
 		d.Dispose()
 	}
+	encoder.base = nil
 	encoder.parent.encoderPool.Put(encoder)
 }
 
@@ -222,5 +219,6 @@ func (decoder *packetDecoder) Dispose() {
 	if d, ok := decoder.base.(Disposeable); ok {
 		d.Dispose()
 	}
+	decoder.base = nil
 	decoder.parent.decoderPool.Put(decoder)
 }
