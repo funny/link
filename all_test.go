@@ -1,7 +1,6 @@
 package link
 
 import (
-	"bytes"
 	"io"
 	"math/rand"
 	"sync"
@@ -54,7 +53,7 @@ func RandBytes(n int) []byte {
 
 func SessionTest(t *testing.T, codecType CodecType, test func(*testing.T, *Session)) {
 	server, err := Serve("tcp", "0.0.0.0:0", TestCodec{})
-	unitest.NotError(t, err)
+	unitest.AssertNotError(t, err)
 	addr := server.listener.Addr().String()
 
 	serverWait := new(sync.WaitGroup)
@@ -77,7 +76,7 @@ func SessionTest(t *testing.T, codecType CodecType, test func(*testing.T, *Sessi
 		clientWait.Add(1)
 		go func() {
 			session, err := Connect("tcp", addr, codecType)
-			unitest.NotError(t, err)
+			unitest.AssertNotError(t, err)
 			test(t, session)
 			session.Close()
 			clientWait.Done()
@@ -93,12 +92,12 @@ func BytesTest(t *testing.T, session *Session) {
 	for i := 0; i < 2000; i++ {
 		msg1 := RandBytes(512)
 		err := session.Send(msg1)
-		unitest.NotError(t, err)
+		unitest.AssertNotError(t, err)
 
 		var msg2 = make([]byte, len(msg1))
 		err = session.Receive(msg2)
-		unitest.NotError(t, err)
-		unitest.Pass(t, bytes.Equal(msg1, msg2))
+		unitest.AssertNotError(t, err)
+		unitest.AssertBytes(t, msg1, msg2)
 	}
 }
 
@@ -136,12 +135,12 @@ func ObjectTest(t *testing.T, session *Session) {
 	for i := 0; i < 2000; i++ {
 		msg1 := RandObject()
 		err := session.Send(&msg1)
-		unitest.NotError(t, err)
+		unitest.AssertNotError(t, err)
 
 		var msg2 TestObject
 		err = session.Receive(&msg2)
-		unitest.NotError(t, err)
-		unitest.Pass(t, msg1 == msg2)
+		unitest.AssertNotError(t, err)
+		unitest.Assert(t, msg1 == msg2, msg1, msg2)
 	}
 }
 
