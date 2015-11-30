@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/binary"
 	"flag"
 	"fmt"
 	"io"
@@ -13,7 +14,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/funny/binary"
 	"github.com/funny/link"
 	_ "github.com/funny/unitest"
 )
@@ -26,7 +26,6 @@ var (
 	proces      = flag.Int("procs", 1, "how many benchmark process")
 	randsize    = flag.Bool("rand", false, "random message size")
 	waitMaster  = flag.Bool("wait", false, "DO NOT USE")
-	pro         = flag.Bool("pro", true, "use PacketPro()")
 )
 
 type CountConn struct {
@@ -106,15 +105,6 @@ func main() {
 		conns     = make([]*CountConn, 0, *clientNum)
 	)
 
-	var codecType link.CodecType
-
-	if *pro {
-		pool := binary.NewBufferPool(2, 1, 32)
-		codecType = link.PacketPro(2, *messageSize, *messageSize*2, link.LittleEndian, pool, TestCodec{})
-	} else {
-		codecType = link.Packet(2, *messageSize, *messageSize*2, link.LittleEndian, TestCodec{})
-	}
-
 	for i := 0; i < *clientNum; i++ {
 		conn, err := net.DialTimeout("tcp", *serverAddr, time.Second*3)
 		if err != nil {
@@ -125,7 +115,7 @@ func main() {
 		conns = append(conns, countConn)
 
 		initWait.Add(2)
-		go client(initWait, countConn, startChan, timeout, msg, codecType)
+		go client(initWait, countConn, startChan, timeout, msg)
 	}
 	initWait.Wait()
 	close(startChan)
@@ -143,8 +133,8 @@ func main() {
 	fmt.Printf(OutputFormat, sum.SendCount, sum.RecvCount, sum.ReadCount, sum.WriteCount)
 }
 
-func client(initWait *sync.WaitGroup, conn *CountConn, startChan chan int, timeout time.Time, msg []byte, codecType link.CodecType) {
-	var client = link.NewSession(conn, codecType)
+func client(initWait *sync.WaitGroup, conn *CountConn, startChan chan int, timeout time.Time, msg []byte) {
+	client := link.NewSession(conn, link.Packet(2, *messageSize, *messageSize*2, binary.LittleEndian, TestCodec{}))
 
 	var wg sync.WaitGroup
 
