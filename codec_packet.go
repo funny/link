@@ -43,19 +43,20 @@ func (codecType *packetCodecType) NewEncoder(w io.Writer) Encoder {
 			writer: w,
 			parent: codecType,
 		}
+		encoder.buffer.max = codecType.maxPacketSize
 		switch codecType.n {
 		case 1:
 			encoder.encodeHead = codecType.encodeHead1
-			codecType.prepareBuffer1(&encoder.buffer)
+			codecType.prepareBuffer1(&encoder.buffer.buf)
 		case 2:
 			encoder.encodeHead = codecType.encodeHead2
-			codecType.prepareBuffer2(&encoder.buffer)
+			codecType.prepareBuffer2(&encoder.buffer.buf)
 		case 4:
 			encoder.encodeHead = codecType.encodeHead4
-			codecType.prepareBuffer4(&encoder.buffer)
+			codecType.prepareBuffer4(&encoder.buffer.buf)
 		case 8:
 			encoder.encodeHead = codecType.encodeHead8
-			codecType.prepareBuffer8(&encoder.buffer)
+			codecType.prepareBuffer8(&encoder.buffer.buf)
 		}
 	}
 	encoder.base = codecType.base.NewEncoder(&encoder.buffer)
@@ -169,7 +170,7 @@ func (codecType *packetCodecType) decodeHead8(b []byte) int {
 type packetEncoder struct {
 	n          int
 	base       Encoder
-	buffer     bytes.Buffer
+	buffer     limitedBuffer
 	writer     io.Writer
 	parent     *packetCodecType
 	encodeHead func([]byte)
@@ -185,11 +186,12 @@ type packetDecoder struct {
 }
 
 func (encoder *packetEncoder) Encode(msg interface{}) (err error) {
-	encoder.buffer.Truncate(encoder.n)
+	encoder.buffer.n = 0
+	encoder.buffer.buf.Truncate(encoder.n)
 	if err = encoder.base.Encode(msg); err != nil {
 		return err
 	}
-	b := encoder.buffer.Bytes()
+	b := encoder.buffer.buf.Bytes()
 	encoder.encodeHead(b)
 	_, err = encoder.writer.Write(b)
 	return err
@@ -201,6 +203,7 @@ func (decoder *packetDecoder) Decode(msg interface{}) (err error) {
 		return err
 	}
 	n := decoder.decodeHead(decoder.buffer.Next(decoder.n))
+	decoder.buffer.Grow(n)
 	if _, err = decoder.buffer.ReadFrom(io.LimitReader(decoder.reader, int64(n))); err != nil {
 		return err
 	}
@@ -221,4 +224,18 @@ func (decoder *packetDecoder) Dispose() {
 	}
 	decoder.base = nil
 	decoder.parent.decoderPool.Put(decoder)
+}
+
+type limitedBuffer struct {
+	buf bytes.Buffer
+	max int
+	n   int
+}
+
+func (lb *limitedBuffer) Write(p []byte) (int, error) {
+	lb.n += len(p)
+	if lb.n > lb.max {
+		panic("too large packet")
+	}
+	return lb.buf.Write(p)
 }
