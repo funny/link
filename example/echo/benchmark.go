@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/funny/link"
-	_ "github.com/funny/unitest"
+	_ "github.com/funny/utest"
 )
 
 var (

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/funny/unitest"
+	"github.com/funny/utest"
 )
 
 func init() {
@@ -53,7 +53,7 @@ func RandBytes(n int) []byte {
 
 func SessionTest(t *testing.T, codecType CodecType, test func(*testing.T, *Session)) {
 	server, err := Serve("tcp", "0.0.0.0:0", TestCodec{})
-	unitest.AssertNotError(t, err)
+	utest.IsNilNow(t, err)
 	addr := server.listener.Addr().String()
 
 	serverWait := new(sync.WaitGroup)
@@ -76,7 +76,7 @@ func SessionTest(t *testing.T, codecType CodecType, test func(*testing.T, *Sessi
 		clientWait.Add(1)
 		go func() {
 			session, err := Connect("tcp", addr, codecType)
-			unitest.AssertNotError(t, err)
+			utest.IsNilNow(t, err)
 			test(t, session)
 			session.Close()
 			clientWait.Done()
@@ -92,12 +92,12 @@ func BytesTest(t *testing.T, session *Session) {
 	for i := 0; i < 2000; i++ {
 		msg1 := RandBytes(512)
 		err := session.Send(msg1)
-		unitest.AssertNotError(t, err)
+		utest.IsNilNow(t, err)
 
 		var msg2 = make([]byte, len(msg1))
 		err = session.Receive(msg2)
-		unitest.AssertNotError(t, err)
-		unitest.AssertBytes(t, msg1, msg2)
+		utest.IsNilNow(t, err)
+		utest.EqualNow(t, msg1, msg2)
 	}
 }
 
@@ -135,12 +135,12 @@ func ObjectTest(t *testing.T, session *Session) {
 	for i := 0; i < 2000; i++ {
 		msg1 := RandObject()
 		err := session.Send(&msg1)
-		unitest.AssertNotError(t, err)
+		utest.IsNilNow(t, err)
 
 		var msg2 TestObject
 		err = session.Receive(&msg2)
-		unitest.AssertNotError(t, err)
-		unitest.Assert(t, msg1 == msg2, msg1, msg2)
+		utest.IsNilNow(t, err)
+		utest.Assert(t, msg1 == msg2, msg1, msg2)
 	}
 }
 
