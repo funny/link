@@ -14,13 +14,19 @@ var (
 	LittleEndian = binary.LittleEndian
 )
 
-var ErrTooLargePacket = errors.New("too large packet")
+var (
+	ErrBadPacketN     = errors.New("packet N must 1, 2, 4 or 8")
+	ErrTooLargePacket = errors.New("too large packet")
+)
 
 type Sizer interface {
 	Sizeof(msg interface{}) int
 }
 
 func Packet(n, maxPacketSize, readBufferSize int, byteOrder binary.ByteOrder, base CodecType) CodecType {
+	if n != 1 && n != 2 && n != 4 && n != 8 {
+		panic(ErrBadPacketN)
+	}
 	return &packetCodecType{
 		n:              n,
 		base:           base,
@@ -214,8 +220,7 @@ func (decoder *packetDecoder) Decode(msg interface{}) (err error) {
 	if _, err = io.ReadFull(decoder.reader.R, head); err != nil {
 		return
 	}
-	n := decoder.decodeHead(head)
-	decoder.reader.N = int64(n)
+	decoder.reader.N = int64(decoder.decodeHead(head))
 	if err = decoder.base.Decode(msg); err != nil {
 		return
 	}
