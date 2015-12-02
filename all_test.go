@@ -42,6 +42,10 @@ func (decoder TestDecoder) Decode(msg interface{}) error {
 	return err
 }
 
+func (encoder TestEncoder) Sizeof(msg interface{}) int {
+	return len(msg.([]byte))
+}
+
 func RandBytes(n int) []byte {
 	n = rand.Intn(n) + 1
 	b := make([]byte, n)
@@ -125,6 +129,10 @@ type TestObject struct {
 	X, Y, Z int
 }
 
+func (tb TestObject) Equals(a interface{}) bool {
+	return tb == a.(TestObject)
+}
+
 func RandObject() TestObject {
 	return TestObject{
 		X: rand.Int(), Y: rand.Int(), Z: rand.Int(),
@@ -140,7 +148,7 @@ func ObjectTest(t *testing.T, session *Session) {
 		var msg2 TestObject
 		err = session.Receive(&msg2)
 		utest.IsNilNow(t, err)
-		utest.Assert(t, msg1 == msg2, msg1, msg2)
+		utest.EqualNow(t, msg1, msg2)
 	}
 }
 
@@ -170,4 +178,8 @@ func Test_Bufio_Xml(t *testing.T) {
 
 func Test_Packet(t *testing.T) {
 	SessionTest(t, Packet(2, 1024, 1024, LittleEndian, Json()), ObjectTest)
+}
+
+func Test_PacketFast(t *testing.T) {
+	SessionTest(t, Packet(2, 1024, 1024, LittleEndian, TestCodec{}), BytesTest)
 }

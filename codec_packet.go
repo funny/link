@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"io"
 	"sync"
 )
@@ -12,6 +13,12 @@ var (
 	BigEndian    = binary.BigEndian
 	LittleEndian = binary.LittleEndian
 )
+
+var ErrTooLargePacket = errors.New("too large packet")
+
+type Sizer interface {
+	Sizeof(msg interface{}) int
+}
 
 func Packet(n, maxPacketSize, readBufferSize int, byteOrder binary.ByteOrder, base CodecType) CodecType {
 	return &packetCodecType{
@@ -60,6 +67,7 @@ func (codecType *packetCodecType) NewEncoder(w io.Writer) Encoder {
 		}
 	}
 	encoder.base = codecType.base.NewEncoder(&encoder.buffer)
+	encoder.sizer, _ = encoder.base.(Sizer)
 	return encoder
 }
 
@@ -86,7 +94,7 @@ func (codecType *packetCodecType) encodeHead1(b []byte) {
 	if n := len(b) - 1; n <= 254 && n <= codecType.maxPacketSize {
 		b[0] = byte(n)
 	} else {
-		panic("too large packet size")
+		panic(ErrTooLargePacket)
 	}
 }
 
@@ -94,7 +102,7 @@ func (codecType *packetCodecType) encodeHead2(b []byte) {
 	if n := len(b) - 2; n <= 65534 && n <= codecType.maxPacketSize {
 		codecType.byteOrder.PutUint16(b, uint16(n))
 	} else {
-		panic("too large packet size")
+		panic(ErrTooLargePacket)
 	}
 }
 
@@ -102,7 +110,7 @@ func (codecType *packetCodecType) encodeHead4(b []byte) {
 	if n := len(b) - 4; n <= codecType.maxPacketSize {
 		codecType.byteOrder.PutUint32(b, uint32(n))
 	} else {
-		panic("too large packet size")
+		panic(ErrTooLargePacket)
 	}
 }
 
@@ -110,20 +118,20 @@ func (codecType *packetCodecType) encodeHead8(b []byte) {
 	if n := len(b) - 8; n <= codecType.maxPacketSize {
 		codecType.byteOrder.PutUint64(b, uint64(n))
 	} else {
-		panic("too large packet size")
+		panic(ErrTooLargePacket)
 	}
 }
 
 func (codecType *packetCodecType) NewDecoder(r io.Reader) Decoder {
 	decoder, ok := codecType.decoderPool.Get().(*packetDecoder)
 	if ok {
-		decoder.reader.Reset(r)
+		decoder.reader.R.(*bufio.Reader).Reset(r)
 	} else {
 		decoder = &packetDecoder{
 			n:      codecType.n,
 			parent: codecType,
-			reader: bufio.NewReaderSize(r, codecType.readBufferSize),
 		}
+		decoder.reader.R = bufio.NewReaderSize(r, codecType.readBufferSize)
 		switch codecType.n {
 		case 1:
 			decoder.decodeHead = codecType.decodeHead1
@@ -143,33 +151,34 @@ func (codecType *packetCodecType) decodeHead1(b []byte) int {
 	if n := int(b[0]); n <= 254 && n <= codecType.maxPacketSize {
 		return n
 	}
-	panic("too large packet size")
+	panic(ErrTooLargePacket)
 }
 
 func (codecType *packetCodecType) decodeHead2(b []byte) int {
 	if n := int(codecType.byteOrder.Uint16(b)); n > 0 && n <= 65534 && n <= codecType.maxPacketSize {
 		return n
 	}
-	panic("too large packet size")
+	panic(ErrTooLargePacket)
 }
 
 func (codecType *packetCodecType) decodeHead4(b []byte) int {
 	if n := int(codecType.byteOrder.Uint32(b)); n > 0 && n <= codecType.maxPacketSize {
 		return n
 	}
-	panic("too large packet size")
+	panic(ErrTooLargePacket)
 }
 
 func (codecType *packetCodecType) decodeHead8(b []byte) int {
 	if n := int(codecType.byteOrder.Uint64(b)); n > 0 && n <= codecType.maxPacketSize {
 		return n
 	}
-	panic("too large packet size")
+	panic(ErrTooLargePacket)
 }
 
 type packetEncoder struct {
 	n          int
 	base       Encoder
+	sizer      Sizer
 	buffer     limitedBuffer
 	writer     io.Writer
 	parent     *packetCodecType
@@ -180,7 +189,7 @@ type packetDecoder struct {
 	n          int
 	base       Decoder
 	buffer     bytes.Buffer
-	reader     *bufio.Reader
+	reader     io.LimitedReader
 	parent     *packetCodecType
 	decodeHead func([]byte) int
 }
@@ -188,6 +197,9 @@ type packetDecoder struct {
 func (encoder *packetEncoder) Encode(msg interface{}) (err error) {
 	encoder.buffer.n = 0
 	encoder.buffer.buf.Truncate(encoder.n)
+	if encoder.sizer != nil {
+		encoder.buffer.buf.Grow(encoder.sizer.Sizeof(msg))
+	}
 	if err = encoder.base.Encode(msg); err != nil {
 		return err
 	}
@@ -199,12 +211,14 @@ func (encoder *packetEncoder) Encode(msg interface{}) (err error) {
 
 func (decoder *packetDecoder) Decode(msg interface{}) (err error) {
 	decoder.buffer.Reset()
-	if _, err = decoder.buffer.ReadFrom(io.LimitReader(decoder.reader, int64(decoder.n))); err != nil {
+	decoder.reader.N = int64(decoder.n)
+	if _, err = decoder.buffer.ReadFrom(&decoder.reader); err != nil {
 		return err
 	}
 	n := decoder.decodeHead(decoder.buffer.Next(decoder.n))
 	decoder.buffer.Grow(n)
-	if _, err = decoder.buffer.ReadFrom(io.LimitReader(decoder.reader, int64(n))); err != nil {
+	decoder.reader.N = int64(n)
+	if _, err = decoder.buffer.ReadFrom(&decoder.reader); err != nil {
 		return err
 	}
 	return decoder.base.Decode(msg)
@@ -235,7 +249,7 @@ type limitedBuffer struct {
 func (lb *limitedBuffer) Write(p []byte) (int, error) {
 	lb.n += len(p)
 	if lb.n > lb.max {
-		panic("too large packet")
+		panic(ErrTooLargePacket)
 	}
 	return lb.buf.Write(p)
 }
