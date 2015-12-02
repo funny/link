@@ -143,7 +143,7 @@ func (codecType *packetCodecType) NewDecoder(r io.Reader) Decoder {
 			decoder.decodeHead = codecType.decodeHead8
 		}
 	}
-	decoder.base = codecType.base.NewDecoder(&decoder.buffer)
+	decoder.base = codecType.base.NewDecoder(&decoder.reader)
 	return decoder
 }
 
@@ -188,40 +188,41 @@ type packetEncoder struct {
 type packetDecoder struct {
 	n          int
 	base       Decoder
-	buffer     bytes.Buffer
+	head       [8]byte
 	reader     io.LimitedReader
 	parent     *packetCodecType
 	decodeHead func([]byte) int
 }
 
 func (encoder *packetEncoder) Encode(msg interface{}) (err error) {
-	encoder.buffer.n = 0
 	encoder.buffer.buf.Truncate(encoder.n)
 	if encoder.sizer != nil {
 		encoder.buffer.buf.Grow(encoder.sizer.Sizeof(msg))
 	}
+	encoder.buffer.n = 0
 	if err = encoder.base.Encode(msg); err != nil {
-		return err
+		return
 	}
 	b := encoder.buffer.buf.Bytes()
 	encoder.encodeHead(b)
 	_, err = encoder.writer.Write(b)
-	return err
+	return
 }
 
 func (decoder *packetDecoder) Decode(msg interface{}) (err error) {
-	decoder.buffer.Reset()
-	decoder.reader.N = int64(decoder.n)
-	if _, err = decoder.buffer.ReadFrom(&decoder.reader); err != nil {
-		return err
+	head := decoder.head[:decoder.n]
+	if _, err = io.ReadFull(decoder.reader.R, head); err != nil {
+		return
 	}
-	n := decoder.decodeHead(decoder.buffer.Next(decoder.n))
-	decoder.buffer.Grow(n)
+	n := decoder.decodeHead(head)
 	decoder.reader.N = int64(n)
-	if _, err = decoder.buffer.ReadFrom(&decoder.reader); err != nil {
-		return err
+	if err = decoder.base.Decode(msg); err != nil {
+		return
 	}
-	return decoder.base.Decode(msg)
+	if decoder.reader.N != 0 {
+		decoder.reader.R.(*bufio.Reader).Discard(int(decoder.reader.N))
+	}
+	return
 }
 
 func (encoder *packetEncoder) Dispose() {

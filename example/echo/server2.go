@@ -15,7 +15,7 @@ func main() {
 	flag.StringVar(&addr, "addr", ":10010", "echo server address")
 	flag.Parse()
 
-	server, err := link.Serve("tcp", addr, link.Packet(2, 1024*1024, 1024, binary.LittleEndian, TestCodec{}))
+	server, err := link.Serve("tcp", addr, link.Packet(2, 1024*1024, 4096, binary.LittleEndian, TestCodec{}))
 	if err != nil {
 		panic(err)
 	}
