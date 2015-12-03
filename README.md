@@ -162,7 +162,7 @@ import (
 
 type MyCodecType struct {}
 
-func (codecType MyCodecType) NewDecoder(r io.Reader) link.MyDecoder {
+func (codecType MyCodecType) NewDecoder(r io.Reader) link.Decoder {
 	return &MyDecoder{binary.NewReader(r)}
 }
 
