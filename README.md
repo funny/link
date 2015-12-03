@@ -174,11 +174,12 @@ type MyDecoder struct {
 func (decoder *MyDecoder) Decode(msg interface{}) error {
 	switch decoder.rd.ReadUint16LE() {
 	case 1:
-		return decoder.MessageType1(msg)
+		decoder.MessageType1(msg)
 	case 2:
-		return decoder.MessageType2(msg)
+		decoder.MessageType2(msg)
 	}
 	if decoder.rd.Error() != nil {
+		*(msg.(*Message)) = nil
 		return decoder.rd.Error()
 	}
 	return errors.New("unknow message type")
@@ -235,17 +236,11 @@ msg.Dispatch()
 注意传入`Receive()`的参数是`MyMessage`接口类型的指针，所以在赋值的时候需要这样写：
 
 ```go
-func (decoder *MyDecoder) MessageType1(msg interface{}) error {
-	var msg1 MessageType1
-	
-	msg1.Field1 = decoder.rd.ReadInt32LE()
-	msg1.Field2 = decoder.rd.ReadInt64LE()
-
-	if decoder.rd.Error() != nil {
-		return decoder.rd.Error()
+func (decoder *MyDecoder) MessageType1(msg interface{}) {
+	*(msg.(*Message)) = &MessageType1 {
+		Field1: decoder.rd.ReadInt32LE(),
+		Field2: decoder.rd.ReadInt64LE(),
 	}
-
-	*(msg.(*Message)) = &msg1
 }
 ```
 
