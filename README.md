@@ -162,11 +162,11 @@ import (
 
 type MyCodecType struct {}
 
-func (codecType MyCodecType) NewDecoder(r io.Reader) MyDecoder {
+func (codecType MyCodecType) NewDecoder(r io.Reader) link.MyDecoder {
 	return &MyDecoder{binary.NewReader(r)}
 }
 
-func (codecType MyCodecType) NewEncoder(w io.Writer) MyEncoder {
+func (codecType MyCodecType) NewEncoder(w io.Writer) link.Encoder {
 	return &MyEncoder{binary.NewWriter(w)}
 }
 
