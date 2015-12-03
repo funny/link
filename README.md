@@ -168,11 +168,11 @@ func (codecType MyCodecType) NewEncoder(w io.Writer) MyEncoder {
 }
 
 type MyDecoder struct {
-	r *binary.Reader
+	*binary.Reader
 }
 
 func (decoder *MyDecoder) Decode(msg interface{}) error {
-	switch decoder.rd.ReadUint16LE() {
+	switch decoder.ReadUint16LE() {
 	case 1:
 		decoder.MessageType1(msg)
 	case 2:
@@ -180,9 +180,9 @@ func (decoder *MyDecoder) Decode(msg interface{}) error {
 	default:
 		return errors.New("unknow message type")
 	}
-	if decoder.rd.Error() != nil {
+	if decoder.Error() != nil {
 		*(msg.(*Message)) = nil
-		return decoder.rd.Error()
+		return decoder.Error()
 	}
 	return nil
 }
@@ -240,8 +240,8 @@ msg.Dispatch()
 ```go
 func (decoder *MyDecoder) MessageType1(msg interface{}) {
 	*(msg.(*Message)) = &MessageType1 {
-		Field1: decoder.rd.ReadInt32LE(),
-		Field2: decoder.rd.ReadInt64LE(),
+		Field1: decoder.ReadInt32LE(),
+		Field2: decoder.ReadInt64LE(),
 	}
 }
 ```
