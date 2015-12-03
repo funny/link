@@ -161,15 +161,12 @@ type MyDecoder struct {
 }
 
 func (decoder *MyDecoder) Decode(msg interface{}) error {
-	var buf [2]byte
-	if _, err := io.ReadFull(decoder.reader, buf[:]); err != nil {
-		return err
-	}
-	switch binary.LittleEndian.Uint16(buf[:]) {
+	// readInt16() 和 lastErr 的设计请参考 github.com/funny/binary 包
+	switch decoder.readUint16() {
 	case 1:
-		return decoder.DecodeType1(msg)
+		return decoder.MessageType1(msg)
 	case 2:
-		return decoder.DecodeType2(msg)
+		return decoder.MessageType2(msg)
 	}
 	return errors.New("unknow message type")
 }
@@ -223,7 +220,7 @@ msg.Dispatch()
 注意传入`Receive()`的参数是`MyMessage`接口类型的指针，所以在赋值的时候需要这样写：
 
 ```go
-func (decoder *MyDecoder) DecodeType1(msg interface{}) error {
+func (decoder *MyDecoder) MessageType1(msg interface{}) error {
 	var msg1 MessageType1
 	
 	msg1.Field1 = decoder.readInt32()
@@ -231,7 +228,6 @@ func (decoder *MyDecoder) DecodeType1(msg interface{}) error {
 
 	*(msg.(*Message)) = &msg1
 
-	// readInt32() 和 lastErr 的设计请参考 github.com/funny/binary 包
 	return decoder.lastErr
 }
 ```
