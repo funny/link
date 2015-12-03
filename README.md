@@ -163,15 +163,15 @@ import (
 type MyCodecType struct {}
 
 func (codecType MyCodecType) NewDecoder(r io.Reader) link.Decoder {
-	return &MyDecoder{binary.NewReader(r)}
+	return &MyDecoder{binary.Reader{R:r}}
 }
 
 func (codecType MyCodecType) NewEncoder(w io.Writer) link.Encoder {
-	return &MyEncoder{binary.NewWriter(w)}
+	return &MyEncoder{binary.Writer{W:w}}
 }
 
 type MyDecoder struct {
-	r *binary.Reader
+	r binary.Reader
 }
 
 func (decoder *MyDecoder) Decode(msg interface{}) error {
