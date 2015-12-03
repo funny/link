@@ -150,27 +150,36 @@ srv, err := link.Serve("tcp", "0.0.0.0:0",
 实现起来大概像这样子：
 
 ```go
+package xxoo
+
+import (
+	"io"
+	"github.com/funny/binary"
+)
+
 type MyCodecType struct {}
 
 func (codecType MyCodecType) NewDecoder(r io.Reader) MyDecoder {
-	return &MyDecoder{r}
+	return &MyDecoder{binary.NewReader(r)}
 }
 
 func (codecType MyCodecType) NewEncoder(w io.Writer) MyEncoder {
-	return &MyEncoder{w}
+	return &MyEncoder{binary.NewWriter(w)}
 }
 
 type MyDecoder struct {
-	reader io.Reader
+	r *binary.Reader
 }
 
 func (decoder *MyDecoder) Decode(msg interface{}) error {
-	// readInt16() 和 lastErr 的设计请参考 github.com/funny/binary 包
-	switch decoder.readUint16() {
+	switch decoder.rd.ReadUint16LE() {
 	case 1:
 		return decoder.MessageType1(msg)
 	case 2:
 		return decoder.MessageType2(msg)
+	}
+	if decoder.rd.Error() != nil {
+		return decoder.rd.Error()
 	}
 	return errors.New("unknow message type")
 }
@@ -229,12 +238,14 @@ msg.Dispatch()
 func (decoder *MyDecoder) MessageType1(msg interface{}) error {
 	var msg1 MessageType1
 	
-	msg1.Field1 = decoder.readInt32()
-	msg1.Field2 = decoder.readInt64()
+	msg1.Field1 = decoder.rd.ReadInt32LE()
+	msg1.Field2 = decoder.rd.ReadInt64LE()
+
+	if decoder.rd.Error() != nil {
+		return decoder.rd.Error()
+	}
 
 	*(msg.(*Message)) = &msg1
-
-	return decoder.lastErr
 }
 ```
 
