@@ -115,13 +115,17 @@ srv, err := link.Serve("tcp", "0.0.0.0:0", link.Async(link.Json()))
 示例，把所有特性都加到一起（Async和ThreadSafe组合没有意义，这里只是纯炫技）：
 
 ```go
-srv, err := link.Serve("tcp", "0.0.0.0:0", link.Async(link.ThreadSafe(link.Bufio(link.Json())))
+srv, err := link.Serve("tcp", "0.0.0.0:0", 
+	link.Async(link.ThreadSafe(link.Bufio(link.Json())),
+)
 ```
 
 示例，使用`{packet, 4}`做消息分包：
 
 ```go
-srv, err := link.Serve("tcp", "0.0.0.0:0", link.Packet(4, 1024 * 1024, 4096, link.LittleEndian, link.Json()))
+srv, err := link.Serve("tcp", "0.0.0.0:0", 
+	link.Packet(4, 1024 * 1024, 4096, link.LittleEndian, link.Json()),
+)
 ```
 
 俄罗斯套娃 ：）
@@ -177,7 +181,9 @@ func (decoder *MyDecoder) Decode(msg interface{}) error {
 把这个CodecType和link内置的分包协议结合起来创建一个TCP服务：
 
 ```
-srv, err := link.Serve("tcp", "0.0.0.0:0", link.Packet(4, 1024 * 1024, 4096, link.LittleEndian, MyCodecType{}))
+srv, err := link.Serve("tcp", "0.0.0.0:0", 
+	link.Packet(4, 1024 * 1024, 4096, link.LittleEndian, MyCodecType{}),
+)
 ```
 
 现在消息可以按类型解析了，但是接收消息时link要求传入一个消息对象给`Session.Receive()`，这不就成了先有鸡还是先有蛋的问题了吗？在知道消息类型前我们怎么直到应该传入什么消息类型的对象呢？
