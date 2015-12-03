@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/funny/link.svg?branch=master)](https://travis-ci.org/funny/link)
+[![Coverage Status](https://coveralls.io/repos/funny/link/badge.svg?branch=master&service=github)](https://coveralls.io/github/funny/link?branch=master)
+
 介绍
 ====
 
