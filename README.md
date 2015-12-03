@@ -195,14 +195,45 @@ type MyMessage interface {
 }
 ```
 
-所有的上行消息（请求）都实现这个接口，这样我们就可以自然而然的这样调用link：
+分发处理的入口要叫Dispatch还是Process还是Handle请自便，这里只是举例。
+
+所有的上行消息（请求）都实现这个接口：
+
+```go
+type MessageType1 struct {
+	Field1 int32
+	Field2 int64
+}
+
+func (msg *MessageType1) Dispatch() {
+	// 做爱做的事
+}
+```
+
+这样我们就可以自然而然的这样调用link：
 
 ```go
 var msg MyMessage
 
-session.Receive(msg)
+session.Receive(&msg)
 
 msg.Dispatch()
+```
+
+注意传入`Receive()`的参数是`MyMessage`接口类型的指针，所以在赋值的时候需要这样写：
+
+```go
+func (decoder *MyDecoder) DecodeType1(msg interface{}) error {
+	var msg1 MessageType1
+	
+	msg1.Field1 = decoder.readInt32()
+	msg1.Field2 = decoder.readInt64()
+
+	*(msg.(*Message)) = &msg1
+
+	// readInt32() 和 lastErr 的设计请参考 github.com/funny/binary 包
+	return decoder.lastErr
+}
 ```
 
 具体的Dispatch内是通过怎样的机制把消息分发给对应的业务接口的，这就八仙过海各显神通了，我在项目里用的是注册回调函数的方式，大家可以根据实际的项目情况设计。
