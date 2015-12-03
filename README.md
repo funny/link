@@ -177,12 +177,14 @@ func (decoder *MyDecoder) Decode(msg interface{}) error {
 		decoder.MessageType1(msg)
 	case 2:
 		decoder.MessageType2(msg)
+	default:
+		return errors.New("unknow message type")
 	}
 	if decoder.rd.Error() != nil {
 		*(msg.(*Message)) = nil
 		return decoder.rd.Error()
 	}
-	return errors.New("unknow message type")
+	return nil
 }
 ```
 
