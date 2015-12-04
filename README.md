@@ -41,11 +41,11 @@ link的核心部分代码是极少的，link另外提供了一些常用到的工
 
 这个文件是不参与编译的，所以link实际上不存在一个叫`Channel`的类型，这个文件只是提供类型的模板。
 
-不同的`Channel`类型之间的差异在于索引`Session`用的key类型不同，不同的应用场景会需要用不同的信息来索引`Session`，Go又暂不支持泛型语法，所以`Channel`被设计成代码模板的形式，然后通过`channel_gen.go`这个工具来生成具体的`Channel`类型。
+不同的`Channel`类型之间的差异在于索引`Session`用的key类型不同，不同的应用场景会需要用不同的信息来索引`Session`，但是Go暂不支持泛型语法，所以我们通过`channel_gen.go`这个工具来生成具体的`Channel`类型的代码。
 
 举例，生成一个用`uint64`类型作为key的`Channel`：
 
-```go
+```
 go run channel_gen.go Uint64Channel uint64 channel_uint64.go
 ```
 
@@ -56,13 +56,14 @@ go run channel_gen.go Uint64Channel uint64 channel_uint64.go
 * 第三个参数是输出的代码文件名
 * 第四个参数是包名称，默认生成的代码属于link包，你可以通过这个参数把代码生成到自己的包
 
-提供一个技巧，当需要用多个值做key索引一个Session的时候可以用结构体做key。
-
 link默认生成了`channel_int64.go`、`channel_uint64.go`、`channel_string.go`这几个常用到的`Channel`类型。
 
 link使用`go generate channel.go`命令来生成这些内置的`Channel`类型，具体原理请自行阅读Go官方文档。
 
-新手提示：使用`Channel.Fetch()`进行遍历发送广播的时候，请注意存在io阻塞的可能，如果io阻塞会影响业务处理，那么请通过异步发送的方式避免阻塞。
+新手提示：
+
+* 当需要用多个值做key索引一个Session的时候可以用结构体做key。
+* 使用`Channel.Fetch()`进行遍历发送广播的时候，请注意存在io阻塞的可能，如果io阻塞会影响业务处理，那么请通过异步发送的方式避免阻塞。
 
 [codec_async.go](https://github.com/funny/link/blob/master/codec_async.go)
 ------------------
