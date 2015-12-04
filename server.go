@@ -13,7 +13,7 @@ type Server struct {
 	// About sessions
 	maxSessionId uint64
 	sessions     map[uint64]*Session
-	sessionMutex sync.Mutex
+	sessionMutex sync.RWMutex
 
 	// About server start and stop
 	stopOnce sync.Once
@@ -65,6 +65,13 @@ func (server *Server) Stop() {
 		server.closeSessions()
 		server.stopWait.Wait()
 	})
+}
+
+func (server *Server) GetSession(sessionId uint64) *Session {
+	server.sessionMutex.RLock()
+	defer server.sessionMutex.RUnlock()
+	session, _ := server.sessions[sessionId]
+	return session
 }
 
 func (server *Server) newSession(conn net.Conn) *Session {

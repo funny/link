@@ -58,13 +58,6 @@ func (channel *Channel) Fetch(callback func(*Session)) {
 	}
 }
 
-func (channel *Channel) Lookup(sessionId uint64) *Session {
-	channel.mutex.RLock()
-	defer channel.mutex.RUnlock()
-	session, _ := channel.sessions[sessionId]
-	return session
-}
-
 func (channel *Channel) Join(session *Session) {
 	channel.mutex.Lock()
 	defer channel.mutex.Unlock()
