@@ -51,19 +51,16 @@ go run channel_gen.go Uint64Channel uint64 channel_uint64.go
 
 `channel_gen.go`的参数列表如下：
 
-* 第一个参数为类型名（不一定非得叫Channel）
-* 第二个参数是key的类型
+* 第一个参数为类型名，不一定非得叫Channel，可以根据实际使用场景来命名
+* 第二个参数是key的类型，通常是int之类的简单类型，但如果需要同时根据多个条件索引Session，可以使用结构体做key
 * 第三个参数是输出的代码文件名
-* 第四个参数是包名称，默认生成的代码属于link包，你可以通过这个参数把代码生成到自己的包
+* 第四个参数是可选的包名称，没有指定此参数时生成的代码归属于link包，你可以通过这个参数生成归属于自己包的代码
 
-link借助`go generate`命令内置了`channel_int64.go`、`channel_uint64.go`、`channel_string.go`这几个常用到的`Channel`类型的代码生成。因为这些代码是工具自动生成的，所以不纳入版本管理，在刚拿到link包的代码时是找不到这些代码的。
+link借助`go generate`命令内置了`channel_int64.go`、`channel_uint64.go`、`channel_string.go`这几个常用到的`Channel`类型的代码生成。
 
-需要时，只要在link包的根目录下执行`go generate channel.go`命令，就可以生成以上`Channel`类型，关于`go generate`的原理请参阅Go官方文档。
+因为这些代码是工具自动生成的，所以不纳入版本管理，在刚拿到link包的代码时是找不到这些代码的。需要时，只要在link包的根目录下执行`go generate channel.go`命令，就可以生成以上`Channel`类型，关于`go generate`的原理请参阅Go官方文档。
 
-新手提示：
-
-* 当需要用多个值做key索引一个Session的时候可以用结构体做key。
-* 使用`Channel.Fetch()`进行遍历发送广播的时候，请注意存在io阻塞的可能，如果io阻塞会影响业务处理，可以通过异步发送的方式避免阻塞。
+新手提示： 使用`Channel.Fetch()`进行遍历发送广播的时候，请注意存在io阻塞的可能，如果io阻塞会影响业务处理，可以通过异步发送的方式避免阻塞。
 
 [codec_async.go](https://github.com/funny/link/blob/master/codec_async.go)
 ------------------
