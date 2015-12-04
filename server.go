@@ -67,11 +67,11 @@ func (server *Server) Stop() {
 	})
 }
 
-func (server *Server) GetSession(sessionId uint64) (*Session, bool) {
+func (server *Server) GetSession(sessionId uint64) *Session {
 	server.sessionMutex.RLock()
 	defer server.sessionMutex.RUnlock()
-	session, exists := server.sessions[sessionId]
-	return session, exists
+	session, _ := server.sessions[sessionId]
+	return session
 }
 
 func (server *Server) newSession(conn net.Conn) *Session {
