@@ -12,7 +12,7 @@ import (
 
 // This is broadcast server demo work with the echo_client.
 // usage:
-//     go run echo_broadcast.go
+//     go run echo_broadcast.go channel_uint64.go
 func main() {
 	var addr string
 
@@ -25,11 +25,13 @@ func main() {
 	}
 	println("server start:", server.Listener().Addr().String())
 
-	channel := link.NewChannel()
+	channel := link.NewUint64Channel()
 	go func() {
 		for range time.Tick(time.Second * 2) {
-			now := time.Now().Format("2006-01-02 15:04:05")
-			channel.Broadcast("from channel: " + now)
+			now := "from channel: " + time.Now().Format("2006-01-02 15:04:05")
+			channel.Fetch(func(session *link.Session) {
+				session.Send(now)
+			})
 		}
 	}()
 
@@ -43,7 +45,7 @@ func main() {
 			addr := session.Conn().RemoteAddr().String()
 			println("client", addr, "connected")
 
-			channel.Join(session)
+			channel.Put(session.Id(), session)
 
 			for {
 				var msg string
@@ -51,11 +53,13 @@ func main() {
 					break
 				}
 				println(addr, "say:", msg)
-				channel.Broadcast("from " + addr + ": " + string(msg))
+				channel.Fetch(func(session *link.Session) {
+					session.Send("from " + addr + ": " + string(msg))
+				})
 			}
 
 			println("client", addr, "closed")
-			channel.Exit(session)
+			channel.Remove(session.Id())
 		}()
 	}
 }

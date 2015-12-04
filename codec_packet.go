@@ -17,8 +17,8 @@ var (
 )
 
 var (
-	ErrBadPacketN     = errors.New("packet N must 1, 2, 4 or 8")
-	ErrTooLargePacket = errors.New("too large packet")
+	ErrUnsupportedPacketType = errors.New("unsupported packet type")
+	ErrTooLargePacket        = errors.New("too large packet")
 )
 
 type Sizer interface {
@@ -27,7 +27,7 @@ type Sizer interface {
 
 func Packet(n, maxPacketSize, readBufferSize int, byteOrder ByteOrder, base CodecType) CodecType {
 	if n != 1 && n != 2 && n != 4 && n != 8 {
-		panic(ErrBadPacketN)
+		panic(ErrUnsupportedPacketType)
 	}
 	return &packetCodecType{
 		n:              n,

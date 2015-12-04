@@ -1,36 +1,33 @@
-// +build ignore
-
-//go:generate go run channel_gen.go Int64Channel int64 channel_int64.go
-//go:generate go run channel_gen.go Uint64Channel uint64 channel_uint64.go
-//go:generate go run channel_gen.go StringChannel string channel_string.go
+// DO NOT EDIT
+// GENERATE BY 'go run channel_gen.go StringChannel string channel_string.go'
 package link
 
 import (
 	"sync"
 )
 
-type Channel struct {
+type StringChannel struct {
 	mutex    sync.RWMutex
-	sessions map[KEY]*Session
+	sessions map[string]*Session
 
 	// channel state
 	State interface{}
 }
 
-func NewChannel() *Channel {
-	return &Channel{
-		sessions: make(map[KEY]*Session),
+func NewStringChannel() *StringChannel {
+	return &StringChannel{
+		sessions: make(map[string]*Session),
 	}
 }
 
-func (channel *Channel) Len() int {
+func (channel *StringChannel) Len() int {
 	channel.mutex.RLock()
 	defer channel.mutex.RUnlock()
 	return len(channel.sessions)
 }
 
 // Fetch the sessions. NOTE: Dead lock happends if invoke Exit() in fetch callback.
-func (channel *Channel) Fetch(callback func(*Session)) {
+func (channel *StringChannel) Fetch(callback func(*Session)) {
 	channel.mutex.RLock()
 	defer channel.mutex.RUnlock()
 	for _, session := range channel.sessions {
@@ -38,14 +35,14 @@ func (channel *Channel) Fetch(callback func(*Session)) {
 	}
 }
 
-func (channel *Channel) Get(key KEY) *Session {
+func (channel *StringChannel) Get(key string) *Session {
 	channel.mutex.RLock()
 	defer channel.mutex.RUnlock()
 	session, _ := channel.sessions[key]
 	return session
 }
 
-func (channel *Channel) Put(key KEY, session *Session) {
+func (channel *StringChannel) Put(key string, session *Session) {
 	channel.mutex.Lock()
 	defer channel.mutex.Unlock()
 	if session, exists := channel.sessions[key]; exists {
@@ -57,12 +54,12 @@ func (channel *Channel) Put(key KEY, session *Session) {
 	channel.sessions[key] = session
 }
 
-func (channel *Channel) remove(key KEY, session *Session) {
+func (channel *StringChannel) remove(key string, session *Session) {
 	session.RemoveCloseCallback(channel)
 	delete(channel.sessions, key)
 }
 
-func (channel *Channel) Remove(key KEY) bool {
+func (channel *StringChannel) Remove(key string) bool {
 	channel.mutex.Lock()
 	defer channel.mutex.Unlock()
 	session, exists := channel.sessions[key]
@@ -72,7 +69,7 @@ func (channel *Channel) Remove(key KEY) bool {
 	return exists
 }
 
-func (channel *Channel) Close() {
+func (channel *StringChannel) Close() {
 	channel.mutex.Lock()
 	defer channel.mutex.Unlock()
 	for key, session := range channel.sessions {
