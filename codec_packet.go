@@ -9,6 +9,8 @@ import (
 	"sync"
 )
 
+type ByteOrder binary.ByteOrder
+
 var (
 	BigEndian    = binary.BigEndian
 	LittleEndian = binary.LittleEndian
@@ -23,7 +25,7 @@ type Sizer interface {
 	Sizeof(msg interface{}) int
 }
 
-func Packet(n, maxPacketSize, readBufferSize int, byteOrder binary.ByteOrder, base CodecType) CodecType {
+func Packet(n, maxPacketSize, readBufferSize int, byteOrder ByteOrder, base CodecType) CodecType {
 	if n != 1 && n != 2 && n != 4 && n != 8 {
 		panic(ErrBadPacketN)
 	}
