@@ -12,7 +12,9 @@ import (
 
 // This is broadcast server demo work with the echo_client.
 // usage:
-//     go run echo_broadcast.go channel_uint64.go
+//     cd src/github.com/funny/link
+//     go generate channel.go
+//     go run example/echo/broadcast.go
 func main() {
 	var addr string
 
