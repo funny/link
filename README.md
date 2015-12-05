@@ -74,7 +74,7 @@ go run channel_gen.go Uint64Channel uint64 channel_uint64.go
 
 此外，link借助`go generate`命令内置了一组常用到的`Channel`类型的代码生成。因为这些代码是工具自动生成的，所以不纳入版本管理，在刚拿到link包的代码时是找不到这些代码的。
 
-需要在link包的根目录下执行`go generate`命令，来生成这些`Channel`类型，关于`go generate`的原理请参阅Go官方文档。
+需要在link包的根目录下执行`go generate channel.go`命令，来生成这些`Channel`类型，关于`go generate`的原理请参阅Go官方文档。
 
 提示： 使用`Channel.Fetch()`进行遍历发送广播的时候，请注意存在io阻塞的可能，如果io阻塞会影响业务处理，可以通过异步发送的方式避免阻塞。
 

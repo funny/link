@@ -47,11 +47,13 @@ func main() {
 		log.Fatal(cmdErr.String())
 	}
 
-	cmd3Out.ReadBytes('\n')
-	cmd3Out.ReadBytes('\n')
-	cmd3Out.ReadBytes('\n')
-	cmd3Out.ReadBytes('\n')
-	cmd3Out.ReadBytes('\n')
+	cmd3Out.ReadBytes('\n') // ignore build
+	cmd3Out.ReadBytes('\n') // empty line
+	cmd3Out.ReadBytes('\n') // Int32Channel
+	cmd3Out.ReadBytes('\n') // Uint32Channel
+	cmd3Out.ReadBytes('\n') // Int64Channel
+	cmd3Out.ReadBytes('\n') // Uint64Channel
+	cmd3Out.ReadBytes('\n') // StringChannel
 
 	log.Print("save to target file '", flag.Arg(2), "'")
 	file, err := os.Create(flag.Arg(2))
