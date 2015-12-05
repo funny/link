@@ -1,4 +1,4 @@
-// +build ignore
+// +build generate
 
 //go:generate go run channel_gen.go Int32Channel int32 channel_int32.go
 //go:generate go run channel_gen.go Uint32Channel uint32 channel_uint32.go
