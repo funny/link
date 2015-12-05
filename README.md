@@ -41,7 +41,23 @@ link的核心部分代码是极少的，link另外提供了一些常用到的工
 
 这个文件是不参与编译的，所以link实际上不存在一个叫`Channel`的类型，这个文件只是提供类型的模板。
 
-不同的`Channel`类型之间的差异在于索引`Session`用的key类型不同，不同的应用场景会需要用不同的信息来索引`Session`，但是Go暂不支持泛型语法，所以我们通过`channel_gen.go`这个工具来生成具体的`Channel`类型的代码。
+之前版本的通用`Channel.go`类型，用的是`Session.Id()`做key，这个设计会导致实际项目种出现类似这样的操作逻辑：
+
+```
+用户ID -> Session ID -> Session
+```
+
+而新的`Channel.go`类型可以自定义key类型，在上述场景中就可以直接用`用户ID`做key来索引`Session`：
+
+```
+用户ID -> Session
+```
+
+不同的应用场景会需要用不同的信息来索引`Session`，但是Go暂不支持泛型语法，所以我们通过`channel_gen.go`这个工具来生成具体的`Channel`类型的代码。
+
+除了直观的可以看出少了一次map操作之外，其实额外维护一份`Session ID`映射关系也不是一件容易的事情，你需要重复`Channel.go`内部做的所有事情，而又不能重用`Channel.go`的代码。
+
+所以自动生成代码的方式解决了以上所有问题，唯一需要做的就是手工执行一个命令。
 
 举例，生成一个用`uint64`类型作为key的`Channel`：
 
@@ -56,11 +72,13 @@ go run channel_gen.go Uint64Channel uint64 channel_uint64.go
 * 第三个参数是输出的代码文件名
 * 第四个参数是可选的包名称，没有指定此参数时生成的代码归属于link包，你可以通过这个参数生成归属于自己包的代码
 
-link借助`go generate`命令内置了`channel_int64.go`、`channel_uint64.go`、`channel_string.go`这几个常用到的`Channel`类型的代码生成。
+此外，link借助`go generate`命令内置了`channel_int64.go`、`channel_uint64.go`、`channel_string.go`这几个常用到的`Channel`类型的代码生成。
 
-因为这些代码是工具自动生成的，所以不纳入版本管理，在刚拿到link包的代码时是找不到这些代码的。需要时，只要在link包的根目录下执行`go generate channel.go`命令，就可以生成以上`Channel`类型，关于`go generate`的原理请参阅Go官方文档。
+因为这些代码是工具自动生成的，所以不纳入版本管理，在刚拿到link包的代码时是找不到这些代码的。
 
-新手提示： 使用`Channel.Fetch()`进行遍历发送广播的时候，请注意存在io阻塞的可能，如果io阻塞会影响业务处理，可以通过异步发送的方式避免阻塞。
+需要时，只要在link包的根目录下执行`go generate channel.go`命令，就可以生成以上`Channel`类型，关于`go generate`的原理请参阅Go官方文档。
+
+提示： 使用`Channel.Fetch()`进行遍历发送广播的时候，请注意存在io阻塞的可能，如果io阻塞会影响业务处理，可以通过异步发送的方式避免阻塞。
 
 [codec_async.go](https://github.com/funny/link/blob/master/codec_async.go)
 ------------------
