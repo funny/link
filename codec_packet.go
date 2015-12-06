@@ -2,7 +2,6 @@ package link
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -20,10 +19,6 @@ var (
 	ErrUnsupportedPacketType = errors.New("unsupported packet type")
 	ErrTooLargePacket        = errors.New("too large packet")
 )
-
-type Sizer interface {
-	Sizeof(msg interface{}) int
-}
 
 func Packet(n, maxPacketSize, readBufferSize int, byteOrder ByteOrder, base CodecType) CodecType {
 	if n != 1 && n != 2 && n != 4 && n != 8 {
@@ -54,48 +49,25 @@ func (codecType *packetCodecType) NewEncoder(w io.Writer) Encoder {
 		encoder.writer = w
 	} else {
 		encoder = &packetEncoder{
-			n:      codecType.n,
 			writer: w,
 			parent: codecType,
 		}
+		encoder.buffer.data = make([]byte, 1024)
+		encoder.buffer.n = codecType.n
 		encoder.buffer.max = codecType.maxPacketSize
 		switch codecType.n {
 		case 1:
 			encoder.encodeHead = codecType.encodeHead1
-			codecType.prepareBuffer1(&encoder.buffer.buf)
 		case 2:
 			encoder.encodeHead = codecType.encodeHead2
-			codecType.prepareBuffer2(&encoder.buffer.buf)
 		case 4:
 			encoder.encodeHead = codecType.encodeHead4
-			codecType.prepareBuffer4(&encoder.buffer.buf)
 		case 8:
 			encoder.encodeHead = codecType.encodeHead8
-			codecType.prepareBuffer8(&encoder.buffer.buf)
 		}
 	}
 	encoder.base = codecType.base.NewEncoder(&encoder.buffer)
-	encoder.sizer, _ = encoder.base.(Sizer)
 	return encoder
-}
-
-func (codecType *packetCodecType) prepareBuffer1(buf *bytes.Buffer) {
-	buf.WriteByte(0)
-}
-
-func (codecType *packetCodecType) prepareBuffer2(buf *bytes.Buffer) {
-	var b [2]byte
-	buf.Write(b[:])
-}
-
-func (codecType *packetCodecType) prepareBuffer4(buf *bytes.Buffer) {
-	var b [4]byte
-	buf.Write(b[:])
-}
-
-func (codecType *packetCodecType) prepareBuffer8(buf *bytes.Buffer) {
-	var b [8]byte
-	buf.Write(b[:])
 }
 
 func (codecType *packetCodecType) encodeHead1(b []byte) {
@@ -184,10 +156,8 @@ func (codecType *packetCodecType) decodeHead8(b []byte) int {
 }
 
 type packetEncoder struct {
-	n          int
 	base       Encoder
-	sizer      Sizer
-	buffer     limitedBuffer
+	buffer     PacketBuffer
 	writer     io.Writer
 	parent     *packetCodecType
 	encodeHead func([]byte)
@@ -203,15 +173,11 @@ type packetDecoder struct {
 }
 
 func (encoder *packetEncoder) Encode(msg interface{}) (err error) {
-	encoder.buffer.buf.Truncate(encoder.n)
-	if encoder.sizer != nil {
-		encoder.buffer.buf.Grow(encoder.sizer.Sizeof(msg))
-	}
-	encoder.buffer.n = 0
+	encoder.buffer.reset()
 	if err = encoder.base.Encode(msg); err != nil {
 		return
 	}
-	b := encoder.buffer.buf.Bytes()
+	b := encoder.buffer.bytes()
 	encoder.encodeHead(b)
 	_, err = encoder.writer.Write(b)
 	return
@@ -248,16 +214,42 @@ func (decoder *packetDecoder) Dispose() {
 	decoder.parent.decoderPool.Put(decoder)
 }
 
-type limitedBuffer struct {
-	buf bytes.Buffer
-	max int
-	n   int
+type PacketBuffer struct {
+	data []byte
+	n    int
+	max  int
+	wpos int
 }
 
-func (lb *limitedBuffer) Write(p []byte) (int, error) {
-	lb.n += len(p)
-	if lb.n > lb.max {
+func (pb *PacketBuffer) bytes() []byte {
+	return pb.data[:pb.wpos]
+}
+
+func (pb *PacketBuffer) reset() {
+	pb.wpos = pb.n
+}
+
+func (pb *PacketBuffer) gorws(n int) {
+	if newLen := pb.wpos + n; newLen > len(pb.data) {
+		newData := make([]byte, newLen, newLen+512)
+		copy(newData, pb.data)
+		pb.data = newData
+	}
+}
+
+func (pb *PacketBuffer) Use(n int) (b []byte) {
+	pb.gorws(n)
+	n += pb.wpos
+	if n > pb.max {
 		panic(ErrTooLargePacket)
 	}
-	return lb.buf.Write(p)
+	b = pb.data[pb.wpos:n]
+	pb.wpos = n
+	return
+}
+
+func (pb *PacketBuffer) Write(b []byte) (int, error) {
+	n := len(b)
+	copy(pb.Use(n), b)
+	return n, nil
 }
