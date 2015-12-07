@@ -237,7 +237,7 @@ func (pb *PacketBuffer) gorws(n int) {
 	}
 }
 
-func (pb *PacketBuffer) Use(n int) (b []byte) {
+func (pb *PacketBuffer) Next(n int) (b []byte) {
 	pb.gorws(n)
 	n += pb.wpos
 	if n > pb.max {
@@ -250,6 +250,6 @@ func (pb *PacketBuffer) Use(n int) (b []byte) {
 
 func (pb *PacketBuffer) Write(b []byte) (int, error) {
 	n := len(b)
-	copy(pb.Use(n), b)
+	copy(pb.Next(n), b)
 	return n, nil
 }
