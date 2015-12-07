@@ -108,13 +108,101 @@ go run channel_gen.go Uint64Channel uint64 channel_uint64.go
 
 这是最实用的一个内置类型，里面实现了对应Erlang的`{packet, N}`格式的分包协议（`{N | 1,2,4,8}`）。
 
-这种分包协议很简单，每个消息包由固定长度N的包头和不定长的包体组成，包头的数据是小端格式或者大段格式编码的包体长度值。分包的时候先读取包头，解码后获得包体长度N，接着读取长度为N的数据即为包体。封包时则是先将消息序列化成字节，然后获得消息的字节长度后编码到包头，接着发送消息包。
+这种分包协议的包结构很简单，每个消息包由N个字节的固定长度的包头和不定长的包体组成，包头的数据是小端格式或者大段格式编码的包体长度值。分包的时候先读取包头，解码后获得包体长度，接着读取对应长度的数据即为包体。
 
-这种分包协议简单易用，但是需要注意消息包的大小要控制好，否则容易成为漏掉被黑客利用，比如伪造一个长度超长的包头信息，让服务器一次申请一大块内存，导致服务器内存耗尽。所以`PacketCodecType`函数有一个`MaxPacketSize`参数用来限制最大包大小，当接收或发送的消息超过这个体积限制时，内部将panic出`ErrTooLargePacket`错误。
+这种分包协议简单易用，但是需要注意消息包的大小要控制好，否则容易成为漏洞被黑客利用，比如伪造一个长度超长的包头信息，让服务器一次申请一大块内存，或者频繁发送无效的大消息包，导致服务器内存耗尽。`Packet()`函数有一个`MaxPacketSize`参数用来限制最大包大小，当接收或发送的消息超过这个体积限制时，内部将抛出`ErrTooLargePacket`错误，除了控制合理的`MaxPacketSize`之外，建议使用者在自己的网络层也要做好安全防范措施，比如控制每个用户的出错频率等。
 
-在实践中，建议采用2字节包头结构，在需要发送大消息包的地方在协议上做消息分帧，而不是一次性发送一个大体积的消息包。
+优化提示1：在实践中，建议采用2字节包头结构，在需要发送大消息包的地方在协议上做消息分帧，而不是一次性发送一个大体积的消息包，这样除了起到安全防范作用，也可以获得较好的性能表现。
 
-这种分包协议在分包过程中需要先读包头再读包体，如果不用`bufio.Reader`做预读就会真正发生两次IO调用，所以`PacketCodecType`内部使用了`bufio.Reader`，可以通过`ReadBufferSize`参数调节`bufio.Reader`的缓存大小，细调这个参数可以获得较好的性价比。
+优化提示2：`PacketCodecType`消息解包时使用了`bufio.Reader`来减少的IO调用次数，通过`ReadBufferSize`参数调节`bufio.Reader`的缓存大小，细调这个参数可以获得较好的性价比。
+
+优化提示3：在包体被完全缓存进`bufio.Reader`的情况下，可以在`Decoder`中直接取出`bufio.Reader`中的缓存进行反序列化操作，以减少数据拷贝。
+
+示例，直接拿`bufio.Reader`中的缓存进行消息反序列化：
+
+```go
+import (
+	"io"
+	"bufio"
+	"github.com/funny/binary"
+)
+
+type MyCodecType struct {
+}
+
+func (ct MyCodecType) NewDecoder(r io.Reader) link.Decoder {
+	lr := r.(*io.LimitedReader)
+	return &MyDecoder {
+		lr: lr, 
+		br: lr.R.(*bufio.Reader),
+	}
+}
+
+type MyDecoder struct {
+	lr *io.LimitedReader
+	br *bufio.Reader
+	buf []byte
+}
+
+func (d *MyDecoder) Decode(msg interface{}) error {
+	var buf binary.Buffer
+
+	if n := int(d.lr.N); d.br.Buffered() >= n {
+		buf.Data, _ = d.br.Peek(n)
+		d.br.Discard(n)
+	} else {
+		// 虽然缓存中数据不够，但我们还可以尽量重用[]byte
+		if n > cap(d.buf) {
+			d.buf = make([]byte, n, n + 512)
+		} else {
+			d.buf = d.buf[:n]
+		}
+		if _, err := io.ReadFull(br, d.buf); err != nil {
+			return err
+		}
+		buf.Data = d.buf
+	}
+
+	// ... ...
+}
+```
+
+优化提示4：在某些应用场景下，消息序列化之前就可以知道消息体积，这时候可以利用`PacketBuffer.Next(n)`取出buffer直接将数据序列化进去，这可以避免动态扩容并减少数据拷贝。
+
+示例，使用`PacketBuffer.Next(n)`特性：
+
+
+```go
+import (
+	"io"
+	"bufio"
+	"github.com/funny/binary"
+)
+
+type MyMessage interface {
+	BinarySize() int
+}
+
+type MyCodecType struct {
+}
+
+func (ct MyCodecType) NewEncoder(w io.Writer) link.Encoder {
+	return &MyEncoder {
+		buf: w.(*link.PacketBuffer),
+	}
+}
+
+type MyEncoder struct {
+	buf *link.PacketBuffer	
+}
+
+func (e *MyEncoder) Encode(msg interface{}) error {
+	n := msg.(MyMessage).BinarySize()
+	buf := binary.Buffer{Data: e.buf.Next(n)}
+
+	// ... ...
+}
+```
 
 [codec_safe.go](https://github.com/funny/link/blob/master/codec_safe.go)
 -----------------
