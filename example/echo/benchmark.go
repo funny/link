@@ -73,7 +73,12 @@ type TestDecoder struct {
 }
 
 func (decoder *TestDecoder) Decode(msg interface{}) error {
-	// message data already in buffer, no need copy.
+	d := make([]byte, decoder.r.(*io.LimitedReader).N)
+	_, err := io.ReadFull(decoder.r, d)
+	if err != nil {
+		return err
+	}
+	*(msg.(*[]byte)) = d
 	return nil
 }
 

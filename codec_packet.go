@@ -16,13 +16,14 @@ var (
 )
 
 var (
-	ErrUnsupportedPacketType = errors.New("unsupported packet type")
-	ErrTooLargePacket        = errors.New("too large packet")
+	ErrPacketUnsupported = errors.New("funny/link: unsupported packet type")
+	ErrPacketTooLarge    = errors.New("funny/link: too large packet")
+	ErrPacketNoReadAll   = errors.New("funny/link: no read all content from packet")
 )
 
 func Packet(n, maxPacketSize, readBufferSize int, byteOrder ByteOrder, base CodecType) CodecType {
 	if n != 1 && n != 2 && n != 4 && n != 8 {
-		panic(ErrUnsupportedPacketType)
+		panic(ErrPacketUnsupported)
 	}
 	return &packetCodecType{
 		n:              n,
@@ -54,7 +55,7 @@ func (codecType *packetCodecType) NewEncoder(w io.Writer) Encoder {
 		}
 		encoder.buffer.data = make([]byte, 1024)
 		encoder.buffer.n = codecType.n
-		encoder.buffer.max = codecType.maxPacketSize
+		encoder.buffer.max = codecType.n + codecType.maxPacketSize
 		switch codecType.n {
 		case 1:
 			encoder.encodeHead = codecType.encodeHead1
@@ -74,7 +75,7 @@ func (codecType *packetCodecType) encodeHead1(b []byte) {
 	if n := len(b) - 1; n <= 254 && n <= codecType.maxPacketSize {
 		b[0] = byte(n)
 	} else {
-		panic(ErrTooLargePacket)
+		panic(ErrPacketTooLarge)
 	}
 }
 
@@ -82,7 +83,7 @@ func (codecType *packetCodecType) encodeHead2(b []byte) {
 	if n := len(b) - 2; n <= 65534 && n <= codecType.maxPacketSize {
 		codecType.byteOrder.PutUint16(b, uint16(n))
 	} else {
-		panic(ErrTooLargePacket)
+		panic(ErrPacketTooLarge)
 	}
 }
 
@@ -90,7 +91,7 @@ func (codecType *packetCodecType) encodeHead4(b []byte) {
 	if n := len(b) - 4; n <= codecType.maxPacketSize {
 		codecType.byteOrder.PutUint32(b, uint32(n))
 	} else {
-		panic(ErrTooLargePacket)
+		panic(ErrPacketTooLarge)
 	}
 }
 
@@ -98,7 +99,7 @@ func (codecType *packetCodecType) encodeHead8(b []byte) {
 	if n := len(b) - 8; n <= codecType.maxPacketSize {
 		codecType.byteOrder.PutUint64(b, uint64(n))
 	} else {
-		panic(ErrTooLargePacket)
+		panic(ErrPacketTooLarge)
 	}
 }
 
@@ -131,28 +132,28 @@ func (codecType *packetCodecType) decodeHead1(b []byte) int {
 	if n := int(b[0]); n <= 254 && n <= codecType.maxPacketSize {
 		return n
 	}
-	panic(ErrTooLargePacket)
+	panic(ErrPacketTooLarge)
 }
 
 func (codecType *packetCodecType) decodeHead2(b []byte) int {
 	if n := int(codecType.byteOrder.Uint16(b)); n > 0 && n <= 65534 && n <= codecType.maxPacketSize {
 		return n
 	}
-	panic(ErrTooLargePacket)
+	panic(ErrPacketTooLarge)
 }
 
 func (codecType *packetCodecType) decodeHead4(b []byte) int {
 	if n := int(codecType.byteOrder.Uint32(b)); n > 0 && n <= codecType.maxPacketSize {
 		return n
 	}
-	panic(ErrTooLargePacket)
+	panic(ErrPacketTooLarge)
 }
 
 func (codecType *packetCodecType) decodeHead8(b []byte) int {
 	if n := int(codecType.byteOrder.Uint64(b)); n > 0 && n <= codecType.maxPacketSize {
 		return n
 	}
-	panic(ErrTooLargePacket)
+	panic(ErrPacketTooLarge)
 }
 
 type packetEncoder struct {
@@ -193,7 +194,7 @@ func (decoder *packetDecoder) Decode(msg interface{}) (err error) {
 		return
 	}
 	if decoder.reader.N != 0 {
-		decoder.reader.R.(*bufio.Reader).Discard(int(decoder.reader.N))
+		panic(ErrPacketNoReadAll)
 	}
 	return
 }
@@ -241,7 +242,7 @@ func (pb *PacketBuffer) Next(n int) (b []byte) {
 	pb.gorws(n)
 	n += pb.wpos
 	if n > pb.max {
-		panic(ErrTooLargePacket)
+		panic(ErrPacketTooLarge)
 	}
 	b = pb.data[pb.wpos:n]
 	pb.wpos = n
