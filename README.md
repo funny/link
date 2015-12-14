@@ -185,7 +185,7 @@ type MyDecoder struct {
 }
 
 func (d *MyDecoder) Decode(msg interface{}) error {
-	reader, err := d.bo.Next(d.lr.N)
+	reader, err := d.bo.Next(int(d.lr.N))
 	if err != nil {
 		return err
 	}
