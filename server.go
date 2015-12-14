@@ -6,14 +6,20 @@ import (
 	"time"
 )
 
+const sessionMapNum = 100
+
+type sessionMap struct {
+	sync.RWMutex
+	sessions map[uint64]*Session
+}
+
 type Server struct {
 	listener  net.Listener
 	codecType CodecType
 
 	// About sessions
 	maxSessionId uint64
-	sessions     map[uint64]*Session
-	sessionMutex sync.RWMutex
+	sessionMaps  [sessionMapNum]sessionMap
 
 	// About server start and stop
 	stopOnce sync.Once
@@ -24,11 +30,14 @@ type Server struct {
 }
 
 func NewServer(listener net.Listener, codecType CodecType) *Server {
-	return &Server{
+	server := &Server{
 		listener:  listener,
 		codecType: codecType,
-		sessions:  make(map[uint64]*Session),
 	}
+	for i := 0; i < sessionMapNum; i++ {
+		server.sessionMaps[i].sessions = make(map[uint64]*Session)
+	}
+	return server
 }
 
 func (server *Server) Listener() net.Listener {
@@ -68,9 +77,11 @@ func (server *Server) Stop() {
 }
 
 func (server *Server) GetSession(sessionId uint64) *Session {
-	server.sessionMutex.RLock()
-	defer server.sessionMutex.RUnlock()
-	session, _ := server.sessions[sessionId]
+	smap := &server.sessionMaps[sessionId%sessionMapNum]
+	smap.RLock()
+	defer smap.RUnlock()
+
+	session, _ := smap.sessions[sessionId]
 	return session
 }
 
@@ -81,29 +92,32 @@ func (server *Server) newSession(conn net.Conn) *Session {
 }
 
 func (server *Server) putSession(session *Session) {
-	server.sessionMutex.Lock()
-	defer server.sessionMutex.Unlock()
+	smap := &server.sessionMaps[session.id%sessionMapNum]
+	smap.Lock()
+	defer smap.Unlock()
 
 	session.AddCloseCallback(server, func() { server.delSession(session) })
-	server.sessions[session.id] = session
+	smap.sessions[session.id] = session
 	server.stopWait.Add(1)
 }
 
 func (server *Server) delSession(session *Session) {
-	server.sessionMutex.Lock()
-	defer server.sessionMutex.Unlock()
+	smap := &server.sessionMaps[session.id%sessionMapNum]
+	smap.Lock()
+	defer smap.Unlock()
 
 	session.RemoveCloseCallback(server)
-	delete(server.sessions, session.id)
+	delete(smap.sessions, session.id)
 	server.stopWait.Done()
 }
 
-func (server *Server) copySessions() []*Session {
-	server.sessionMutex.Lock()
-	defer server.sessionMutex.Unlock()
+func (server *Server) copySessions(n int) []*Session {
+	smap := &server.sessionMaps[n]
+	smap.Lock()
+	defer smap.Unlock()
 
-	sessions := make([]*Session, 0, len(server.sessions))
-	for _, session := range server.sessions {
+	sessions := make([]*Session, 0, len(smap.sessions))
+	for _, session := range smap.sessions {
 		sessions = append(sessions, session)
 	}
 	return sessions
@@ -111,8 +125,10 @@ func (server *Server) copySessions() []*Session {
 
 func (server *Server) closeSessions() {
 	// copy session to avoid deadlock
-	sessions := server.copySessions()
-	for _, session := range sessions {
-		session.Close()
+	for i := 0; i < sessionMapNum; i++ {
+		sessions := server.copySessions(i)
+		for _, session := range sessions {
+			session.Close()
+		}
 	}
 }

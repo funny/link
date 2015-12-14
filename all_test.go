@@ -162,8 +162,7 @@ func Test_Gob(t *testing.T) {
 }
 
 func Test_Bufio_Gob(t *testing.T) {
-	codecType := Bufio(Gob())
-	SessionTest(t, codecType, ObjectTest)
+	SessionTest(t, Bufio(Gob()), ObjectTest)
 }
 
 func Test_Json(t *testing.T) {
@@ -171,8 +170,7 @@ func Test_Json(t *testing.T) {
 }
 
 func Test_Bufio_Json(t *testing.T) {
-	codecType := Bufio(Json())
-	SessionTest(t, codecType, ObjectTest)
+	SessionTest(t, Bufio(Json()), ObjectTest)
 }
 
 func Test_Xml(t *testing.T) {
@@ -180,8 +178,11 @@ func Test_Xml(t *testing.T) {
 }
 
 func Test_Bufio_Xml(t *testing.T) {
-	codecType := Bufio(Xml())
-	SessionTest(t, codecType, ObjectTest)
+	SessionTest(t, Bufio(Xml()), ObjectTest)
+}
+
+func Test_BufioSize(t *testing.T) {
+	SessionTest(t, BufioSize(0, 0, Json()), ObjectTest)
 }
 
 func Test_Packet1(t *testing.T) {
