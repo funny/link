@@ -155,7 +155,7 @@ go run channel_gen.go Uint64Channel uint64 channel_uint64.go
 
 优化提示3：在包体被完全缓存进`bufio.Reader`的情况下，可以在`Decoder`中直接取出`bufio.Reader`中的缓存进行反序列化操作，以减少数据拷贝。
 
-示例，直接拿`bufio.Reader`中的缓存进行消息反序列化：
+示例，利用`github.com/funny/binary`包中提供的`BufioOptimizer`，直接拿`bufio.Reader`中的缓存进行消息反序列化：
 
 ```go
 import (
@@ -168,39 +168,28 @@ type MyCodecType struct {
 }
 
 func (ct MyCodecType) NewDecoder(r io.Reader) link.Decoder {
+	// PacketCodecType传递过来的是一个io.LimitedReader
 	lr := r.(*io.LimitedReader)
 	return &MyDecoder {
 		lr: lr, 
-		br: lr.R.(*bufio.Reader),
+		// io.LimitedReader包裹着bufio.Reader
+		bo: binary.BufioOptimizer{
+			R: lr.R.(*bufio.Reader),
+		},
 	}
 }
 
 type MyDecoder struct {
 	lr *io.LimitedReader
-	br *bufio.Reader
-	buf []byte
+	bo binary.BufioOptimizer
 }
 
 func (d *MyDecoder) Decode(msg interface{}) error {
-	var buf binary.Buffer
-
-	if n := int(d.lr.N); d.br.Buffered() >= n {
-		buf.Data, _ = d.br.Peek(n)
-		d.br.Discard(n)
-	} else {
-		// 虽然缓存中数据不够，但我们还可以尽量重用[]byte
-		if n > cap(d.buf) {
-			d.buf = make([]byte, n, n + 512)
-		} else {
-			d.buf = d.buf[:n]
-		}
-		if _, err := io.ReadFull(br, d.buf); err != nil {
-			return err
-		}
-		buf.Data = d.buf
+	var reader, err := d.bo.Next(d.lr.N)
+	if err != nil {
+		return err
 	}
-
-	// ... ...
+	// 接着就可以用reader进行消息反序列化了
 }
 ```
 
@@ -237,7 +226,7 @@ func (e *MyEncoder) Encode(msg interface{}) error {
 	n := msg.(MyMessage).BinarySize()
 	buf := binary.Buffer{Data: e.buf.Next(n)}
 
-	// ... ...
+	// 接着就可以用buf进行消息序列化了
 }
 ```
 
@@ -297,7 +286,8 @@ func (decoder *MyDecoder) Decode(msg interface{}) error {
 		return errors.New("unknow message type")
 	}
 	if decoder.Error() != nil {
-		*(msg.(*Message)) = nil
+		// MyMessage接口说明在下面，请继续阅读文档
+		*(msg.(*MyMessage)) = nil
 		return decoder.Error()
 	}
 	return nil
