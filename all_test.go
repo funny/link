@@ -42,10 +42,6 @@ func (decoder TestDecoder) Decode(msg interface{}) error {
 	return err
 }
 
-func (encoder TestEncoder) Sizeof(msg interface{}) int {
-	return len(msg.([]byte))
-}
-
 func RandBytes(n int) []byte {
 	n = rand.Intn(n) + 1
 	b := make([]byte, n)
@@ -76,15 +72,24 @@ func SessionTest(t *testing.T, codecType CodecType, test func(*testing.T, *Sessi
 	}()
 
 	clientWait := new(sync.WaitGroup)
-	for i := 0; i < 60; i++ {
+
+	testFunc := func() {
+		session, err := Connect("tcp", addr, codecType)
+		utest.IsNilNow(t, err)
+		test(t, session)
+		session.Close()
+		clientWait.Done()
+	}
+
+	for i := 0; i < 30; i++ {
 		clientWait.Add(1)
-		go func() {
-			session, err := Connect("tcp", addr, codecType)
-			utest.IsNilNow(t, err)
-			test(t, session)
-			session.Close()
-			clientWait.Done()
-		}()
+		go testFunc()
+	}
+	clientWait.Wait()
+
+	for i := 0; i < 30; i++ {
+		clientWait.Add(1)
+		go testFunc()
 	}
 	clientWait.Wait()
 
@@ -157,7 +162,8 @@ func Test_Gob(t *testing.T) {
 }
 
 func Test_Bufio_Gob(t *testing.T) {
-	SessionTest(t, Bufio(Gob()), ObjectTest)
+	codecType := Bufio(Gob())
+	SessionTest(t, codecType, ObjectTest)
 }
 
 func Test_Json(t *testing.T) {
@@ -165,7 +171,8 @@ func Test_Json(t *testing.T) {
 }
 
 func Test_Bufio_Json(t *testing.T) {
-	SessionTest(t, Bufio(Json()), ObjectTest)
+	codecType := Bufio(Json())
+	SessionTest(t, codecType, ObjectTest)
 }
 
 func Test_Xml(t *testing.T) {
@@ -173,13 +180,22 @@ func Test_Xml(t *testing.T) {
 }
 
 func Test_Bufio_Xml(t *testing.T) {
-	SessionTest(t, Bufio(Xml()), ObjectTest)
+	codecType := Bufio(Xml())
+	SessionTest(t, codecType, ObjectTest)
 }
 
-func Test_Packet(t *testing.T) {
+func Test_Packet1(t *testing.T) {
+	SessionTest(t, Packet(1, 1024, 1024, LittleEndian, Json()), ObjectTest)
+}
+
+func Test_Packet2(t *testing.T) {
 	SessionTest(t, Packet(2, 1024, 1024, LittleEndian, Json()), ObjectTest)
 }
 
-func Test_PacketFast(t *testing.T) {
-	SessionTest(t, Packet(2, 1024, 1024, LittleEndian, TestCodec{}), BytesTest)
+func Test_Packet4(t *testing.T) {
+	SessionTest(t, Packet(4, 1024, 1024, LittleEndian, Json()), ObjectTest)
+}
+
+func Test_Packet8(t *testing.T) {
+	SessionTest(t, Packet(8, 1024, 1024, LittleEndian, Json()), ObjectTest)
 }
