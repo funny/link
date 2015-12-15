@@ -22,7 +22,7 @@ var (
 )
 
 func Packet(n, maxPacketSize, readBufferSize int, byteOrder ByteOrder, base CodecType) CodecType {
-	if n != 1 && n != 2 && n != 4 && n != 8 {
+	if n != 1 && n != 2 && n != 4 {
 		panic(ErrPacketUnsupported)
 	}
 	return &packetCodecType{
@@ -63,8 +63,6 @@ func (codecType *packetCodecType) NewEncoder(w io.Writer) Encoder {
 			encoder.encodeHead = codecType.encodeHead2
 		case 4:
 			encoder.encodeHead = codecType.encodeHead4
-		case 8:
-			encoder.encodeHead = codecType.encodeHead8
 		}
 	}
 	encoder.base = codecType.base.NewEncoder(&encoder.buffer)
@@ -95,14 +93,6 @@ func (codecType *packetCodecType) encodeHead4(b []byte) {
 	}
 }
 
-func (codecType *packetCodecType) encodeHead8(b []byte) {
-	if n := len(b) - 8; n <= codecType.maxPacketSize {
-		codecType.byteOrder.PutUint64(b, uint64(n))
-	} else {
-		panic(ErrPacketTooLarge)
-	}
-}
-
 func (codecType *packetCodecType) NewDecoder(r io.Reader) Decoder {
 	decoder, ok := codecType.decoderPool.Get().(*packetDecoder)
 	if ok {
@@ -120,8 +110,6 @@ func (codecType *packetCodecType) NewDecoder(r io.Reader) Decoder {
 			decoder.decodeHead = codecType.decodeHead2
 		case 4:
 			decoder.decodeHead = codecType.decodeHead4
-		case 8:
-			decoder.decodeHead = codecType.decodeHead8
 		}
 	}
 	decoder.base = codecType.base.NewDecoder(&decoder.reader)
@@ -144,13 +132,6 @@ func (codecType *packetCodecType) decodeHead2(b []byte) int {
 
 func (codecType *packetCodecType) decodeHead4(b []byte) int {
 	if n := int(codecType.byteOrder.Uint32(b)); n > 0 && n <= codecType.maxPacketSize {
-		return n
-	}
-	panic(ErrPacketTooLarge)
-}
-
-func (codecType *packetCodecType) decodeHead8(b []byte) int {
-	if n := int(codecType.byteOrder.Uint64(b)); n > 0 && n <= codecType.maxPacketSize {
 		return n
 	}
 	panic(ErrPacketTooLarge)

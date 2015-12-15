@@ -196,7 +196,3 @@ func Test_Packet2(t *testing.T) {
 func Test_Packet4(t *testing.T) {
 	SessionTest(t, Packet(4, 1024, 1024, LittleEndian, Json()), ObjectTest)
 }
-
-func Test_Packet8(t *testing.T) {
-	SessionTest(t, Packet(8, 1024, 1024, LittleEndian, Json()), ObjectTest)
-}

@@ -345,7 +345,7 @@ msg.Dispatch()
 
 ```go
 func (decoder *MyDecoder) MessageType1(msg interface{}) {
-	*(msg.(*Message)) = &MessageType1 {
+	*(msg.(*MyMessage)) = &MessageType1 {
 		Field1: decoder.r.ReadInt32LE(),
 		Field2: decoder.r.ReadInt64LE(),
 	}
