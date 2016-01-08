@@ -140,7 +140,7 @@ func (tb TestObject) Equals(a interface{}) bool {
 	return tb == a.(TestObject)
 }
 
-func (tb *TestObject) PacketSize() int {
+func (tb *TestObject) BinarySize() int {
 	return 8 + 8 + 8
 }
 

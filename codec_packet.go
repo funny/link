@@ -18,7 +18,7 @@ type PacketUnmarshaler interface {
 }
 
 type PacketMarshaler interface {
-	PacketSize() int
+	BinarySize() int
 	MarshalPacket([]byte) error
 }
 
@@ -73,7 +73,7 @@ type packetDecoder struct {
 func (encoder *packetEncoder) Encode(msg interface{}) (err error) {
 	rsp := msg.(PacketMarshaler)
 
-	n := rsp.PacketSize()
+	n := rsp.BinarySize()
 	if n > math.MaxUint16 {
 		panic(ErrPacketTooLarge)
 	}
