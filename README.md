@@ -56,14 +56,6 @@ srv, err := link.Serve("tcp", "0.0.0.0:0", link.ThreadSafe(link.Json()))
 srv, err := link.Serve("tcp", "0.0.0.0:0", link.Async(link.Json()))
 ```
 
-示例，使用小端的`{packet, 4}`做分包协议，用Json作为消息格式：
-
-```go
-srv, err := link.Serve("tcp", "0.0.0.0:0", 
-	link.Packet(4, 1024 * 1024, 4096, link.LittleEndian, link.Json()),
-)
-```
-
 我是不会告诉你除了以上示例，阅读`all_test.go`和`example`目录下的代码也是很有帮助的！
 
 内置类型
@@ -122,9 +114,9 @@ go run channel_gen.go Uint64Channel uint64 channel_uint64.go
 
 原因是不同的应用场景会有不同的异步消息发送需求，比如我们在游戏里很简单粗暴的把异步发送时出现chan阻塞的Session关闭掉，但是别的应用场景可能会需要等待一段时间后再重试，或者丢弃阻塞的消息，又或者阻塞允许一段时间，等到超时再做进一步处理。
 
-所以`AsyncSend()`怎么改都不可能满足所有需求，最后我干脆删除它，由CodecType来决定消息是否异步发送，以及怎么进行异步发送。目前内置的`asyncCodecType`的逻辑是一旦遇到发送用的chan阻塞就立即返回`ErrBlocking`错误。如果这个设计不符合你的需求，你可以参考它实现出自己所需的异步发送逻辑。
+所以`AsyncSend()`怎么改都不可能满足所有需求，最后我干脆删除它，由CodecType来决定消息是否异步发送，以及怎么进行异步发送。目前内置的`asyncCodecType`的逻辑是一旦遇到发送用的chan阻塞就立即关闭`Writer`并返回`ErrBlocking`错误。如果这个设计不符合你的需求，你可以参考它实现出自己所需的异步发送逻辑。
 
-需要注意，目前的`asyncCodecType`的设计会导致将`Session.Send()`的行为从同步变为异步，这样设计的目的是规避掉同时支持两种模式的复杂性，避免使用者误用。
+需要注意，目前的`asyncCodecType`的设计会将`Session.Send()`的行为从同步变为异步，这样设计的目的是规避掉同时支持两种模式的复杂性，避免使用者误用。
 
 对于高级用户如果需要同时支持同步和异步发送，可以自己实现一个`Encoder`在发送消息时通过判断消息类型来决定采用哪种发送方式，但是这样的设计需要周全的考虑各种并行执行的可能性。
 
@@ -143,92 +135,15 @@ go run channel_gen.go Uint64Channel uint64 channel_uint64.go
 [codec_packet.go](https://github.com/funny/link/blob/master/codec_packet.go)
 --------------------
 
-这是最实用的一个内置类型，里面实现了对应Erlang的`{packet, N}`格式的分包协议（`{N | 1,2,4,8}`）。
+这是最实用的一个内置类型，里面实现了对应Erlang的`{packet, 2}`格式的分包协议。
 
-这种分包协议的包结构很简单，每个消息包由N个字节的固定长度的包头和不定长的包体组成，包头的数据是小端格式或者大段格式编码的包体长度值。分包的时候先读取包头，解码后获得包体长度，接着读取对应长度的数据即为包体。
+这种分包协议的包结构很简单，每个消息包由2个字节包头和不定长的包体组成，包头的数据是小端格式编码的包体长度值。分包的时候先读取包头，解码后获得包体长度，接着读取对应长度的数据即为包体。
 
-这种分包协议简单易用，但是需要注意消息包的大小要控制好，否则容易成为漏洞被黑客利用，比如伪造一个长度超长的包头信息，让服务器一次申请一大块内存，或者频繁发送无效的大消息包，导致服务器内存耗尽。`Packet()`函数有一个`MaxPacketSize`参数用来限制最大包大小，当接收或发送的消息超过这个体积限制时，内部将抛出`ErrPacketTooLarge`错误，除了控制合理的`MaxPacketSize`之外，建议使用者在自己的网络层也要做好安全防范措施，比如控制每个用户的出错频率等。
+由于包头固定是2个字节，所以最大的消息长度是64K，实际应用场景中如果有可能出现超过此大小的消息，需要自己再封装一层消息分帧。
 
-优化提示1：在实践中，建议采用2字节包头结构，在需要发送大消息包的地方在协议上做消息分帧，而不是一次性发送一个大体积的消息包，这样除了起到安全防范作用，也可以获得较好的性能表现。
+在使用次类型时，`Session`接收的消息必须实现`PacketUnmarshaler`接口，发送的消息必须实现`PacketMarshaler`接口。
 
-优化提示2：`PacketCodecType`消息解包时使用了`bufio.Reader`来减少的IO调用次数，通过`ReadBufferSize`参数调节`bufio.Reader`的缓存大小，细调这个参数可以获得较好的性价比。
-
-优化提示3：在包体被完全缓存进`bufio.Reader`的情况下，可以在`Decoder`中直接取出`bufio.Reader`中的缓存进行反序列化操作，以减少数据拷贝。
-
-示例，利用`github.com/funny/binary`包中提供的`BufioOptimizer`，直接拿`bufio.Reader`中的缓存进行消息反序列化：
-
-```go
-import (
-	"io"
-	"bufio"
-	"github.com/funny/binary"
-)
-
-type MyCodecType struct {
-}
-
-func (ct MyCodecType) NewDecoder(r io.Reader) link.Decoder {
-	// PacketCodecType传递过来的是一个io.LimitedReader
-	lr := r.(*io.LimitedReader)
-	return &MyDecoder {
-		lr: lr, 
-		// io.LimitedReader包裹着bufio.Reader
-		bo: binary.BufioOptimizer{
-			R: lr.R.(*bufio.Reader),
-		},
-	}
-}
-
-type MyDecoder struct {
-	lr *io.LimitedReader
-	bo binary.BufioOptimizer
-}
-
-func (d *MyDecoder) Decode(msg interface{}) error {
-	reader, err := d.bo.Next(int(d.lr.N))
-	if err != nil {
-		return err
-	}
-	// 接着就可以用reader进行消息反序列化了
-}
-```
-
-优化提示4：在某些应用场景下，消息序列化之前就可以知道消息体积，这时候可以利用`PacketBuffer.Next(n)`取出buffer直接将数据序列化进去，这可以避免动态扩容并减少数据拷贝。
-
-示例，使用`PacketBuffer.Next(n)`特性：
-
-
-```go
-import (
-	"io"
-	"bufio"
-	"github.com/funny/binary"
-)
-
-type MyMessage interface {
-	BinarySize() int
-}
-
-type MyCodecType struct {
-}
-
-func (ct MyCodecType) NewEncoder(w io.Writer) link.Encoder {
-	return &MyEncoder {
-		buf: w.(*link.PacketBuffer),
-	}
-}
-
-type MyEncoder struct {
-	buf *link.PacketBuffer	
-}
-
-func (e *MyEncoder) Encode(msg interface{}) error {
-	n := msg.(MyMessage).BinarySize()
-	buf := binary.Buffer{Data: e.buf.Next(n)}
-
-	// 接着就可以用buf进行消息序列化了
-}
-```
+可以配合[`fastbin`](https://github.com/funny/fastbin)来自动生成这两种接口的代码。
 
 [codec_safe.go](https://github.com/funny/link/blob/master/codec_safe.go)
 -----------------
@@ -240,17 +155,19 @@ func (e *MyEncoder) Encode(msg interface{}) error {
 消息分发
 =======
 
-实际项目中通常都会需要识别消息类型然后执行不同消息类型的解包（反序列化）接着调用不同的消息处理过程（业务逻辑），link包的测试代码和示例代码都没有直接体现出如何做消息分发，所以新手经常会卡在这一步。下面我就简单的演示怎样实现一个可以识别消息类型的CodecType，并演示如何进行消息分发。
+实际项目中通常都会需要识别消息类型然后执行不同消息类型的解包（反序列化）接着调用不同的消息处理过程（业务逻辑），link包的测试代码和示例代码都没有直接体现出如何做消息分发，所以新手经常会卡在这一步。
+
+下面我就简单的演示怎样实现一个可以消息类型识别和消息分发。
 
 首先我先假定我们需要实现这样一个协议格式：
 
 ```
-4字节的包头 + 2字节的消息类型ID + 消息内容
+2字节的包头 + 2字节的消息类型ID + 消息内容
 ```
 
-通过消息类型ID的区分我们就可以支持一种以上的消息类型，消息内容格式这里不举例，我们只需要假设它们内容格式都不一样。
+我们通过消息类型ID来识别消息类型，消息内容的格式这里不举例，我们只需要假设它们内容格式都不一样。
 
-因为link已经内置了4字节包头的分包协议支持，所以我们不需要自己做分包，只需要实现一个识别消息类型的CodecType。
+因为link已经内置了分包协议支持，所以我们只需要实现一个可以识别消息类型的`PacketUnmarshaler`。
 
 实现起来大概像这样子：
 
@@ -262,105 +179,62 @@ import (
 	"github.com/funny/binary"
 )
 
-type MyCodecType struct {}
-
-func (codecType MyCodecType) NewDecoder(r io.Reader) link.Decoder {
-	return &MyDecoder{binary.Reader{R:r}}
+// 所有的请求都必须实现这个接口
+type Request interface {
+	Process(*link.Session) error
 }
 
-func (codecType MyCodecType) NewEncoder(w io.Writer) link.Encoder {
-	return &MyEncoder{binary.Writer{W:w}}
+// 用于消息识别
+type Recognizer struct {
+	Request Request // 真正要处理的请求
 }
 
-type MyDecoder struct {
-	r binary.Reader
-}
-
-func (decoder *MyDecoder) Decode(msg interface{}) error {
-	switch decoder.r.ReadUint16LE() {
+// 实现PacketUnmarshaler接口
+func (r *Recognizer) UnmarshalPacket(p []byte) error {
+	switch binary.LittleEndian.Uint16(p) {
 	case 1:
-		decoder.MessageType1(msg)
+		msg := new(MessageType1)
+		msg.UnmarshalPacket(p[2:])
+		r.Request = msg
 	case 2:
-		decoder.MessageType2(msg)
+		msg := new(MessageType2)
+		msg.UnmarshalPacket(p[2:])
+		r.Request = msg
 	default:
 		return errors.New("unknow message type")
-	}
-	if decoder.Error() != nil {
-		// MyMessage接口说明在下面，请继续阅读文档
-		*(msg.(*MyMessage)) = nil
-		return decoder.Error()
 	}
 	return nil
 }
 ```
 
-上面示例只给出Decoder的结构，Encoder只是反过程，这里就不再重复。
-
-把这个CodecType和link内置的分包协议结合起来创建一个TCP服务：
-
-```
-srv, err := link.Serve("tcp", "0.0.0.0:0", 
-	link.Packet(4, 1024 * 1024, 4096, link.LittleEndian, MyCodecType{}),
-)
-```
-
-现在消息可以按类型解析了，但是接收消息时link要求传入一个消息对象给`Session.Receive()`，这不就成了先有鸡还是先有蛋的问题了吗？在知道消息类型前我们怎么直到应该传入什么消息类型的对象呢？
-
-这边需要脑筋急转弯一下，利用Go的interface机制可以解决这个问题并顺便帮我们把协议解析和消息分发解耦开。
-
-我们知道所有的请求都需要被分发处理，那么我们可以定义这样一个接口：
+这样我们就可以在接收消息时传入`Recognizer`，接收到消息后调用`Recognizer`里的`Request.Process()`处理请求：
 
 ```go
-type MyMessage interface {
-	Dispatch()
-}
+var msg Recognizer
+
+session.Receive(&Recognizer)
+
+msg.Request.Process(session)
 ```
 
-分发处理的入口要叫Dispatch还是Process还是Handle请自便，这里只是举例。
+具体的`Request.Process()`内是通过怎样的机制把消息分发给对应的业务接口的，这就八仙过海各显神通了，我在项目里用的是注册回调函数的方式，大家可以根据实际的项目情况设计。
 
-所有的上行消息（请求）都实现这个接口：
+包括上面示例中的MessageType1和MessageType2，实际项目中不一定是这样做的，接口比较多的项目里通常会需要把不同业务模块的消息类型分到不同的包里，所以会需要做多级的消息识别。
 
-```go
-type MessageType1 struct {
-	Field1 int32
-	Field2 int64
-}
-
-func (msg *MessageType1) Dispatch() {
-	// 做爱做的事
-}
-```
-
-这样我们就可以自然而然的这样调用link：
-
-```go
-var msg MyMessage
-
-session.Receive(&msg)
-
-msg.Dispatch()
-```
-
-注意传入`Receive()`的参数是`MyMessage`接口类型的指针，所以在赋值的时候需要这样写：
-
-```go
-func (decoder *MyDecoder) MessageType1(msg interface{}) {
-	*(msg.(*MyMessage)) = &MessageType1 {
-		Field1: decoder.r.ReadInt32LE(),
-		Field2: decoder.r.ReadInt64LE(),
-	}
-}
-```
-
-具体的Dispatch内是通过怎样的机制把消息分发给对应的业务接口的，这就八仙过海各显神通了，我在项目里用的是注册回调函数的方式，大家可以根据实际的项目情况设计。
-
-包括上面示例中的DecodeType1和DecodeType2，实际项目中不一定是这样做的，接口比较多的项目里通常会需要把不同业务模块的消息类型分到不同的包里，示例只是提供思路，希望大家要灵活变通不要死记硬背。
+示例只是提供思路，希望大家要灵活变通不要死记硬背。
 
 总结
 ====
 
-从link的核心代码和内置类型可以看出，核心其实很简单，IO调用方式和协议实现都靠`CodecType`解耦了。
+link的核心其实很简单，IO调用方式和协议实现都靠`CodecType`解耦，理解了`CodecType`就能熟练的用link搭建针对各种场景的网络层。
 
-建议在实际项目中根据项目需求，参考内置类型的设计实现针对项目的CodecType，这样可以得到最好的执行效率和使用体验。
+建议在实际项目中根据项目需求，参考内置类型的设计实现针对项目的`CodecType`，这样可以得到最好的执行效率和使用体验。
 
 如果有问题或者改进建议，欢迎加技术交(xian)流(liao)群一起讨论：188680931
+
+附录
+====
+
+* 也许用得上的免配置通用网关 - [https://github.com/funny/gateway](https://github.com/funny/gateway)
+* 可以配合link一起使用的通讯协议代码生成器 - [https://github.com/funny/fastbin](https://github.com/funny/fastbin)
+* `codec_packet.go`中用到的无锁slab分配算法的内存池 - [https://github.com/funny/slab](https://github.com/funny/slab)

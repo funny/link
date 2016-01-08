@@ -1,12 +1,14 @@
 package link
 
 import (
+	"encoding/binary"
 	"io"
 	"math/rand"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/funny/slab"
 	"github.com/funny/utest"
 )
 
@@ -138,6 +140,24 @@ func (tb TestObject) Equals(a interface{}) bool {
 	return tb == a.(TestObject)
 }
 
+func (tb *TestObject) PacketSize() int {
+	return 8 + 8 + 8
+}
+
+func (tb *TestObject) MarshalPacket(b []byte) error {
+	binary.LittleEndian.PutUint64(b[0:8], uint64(tb.X))
+	binary.LittleEndian.PutUint64(b[8:16], uint64(tb.Y))
+	binary.LittleEndian.PutUint64(b[16:24], uint64(tb.Z))
+	return nil
+}
+
+func (tb *TestObject) UnmarshalPacket(b []byte) error {
+	tb.X = int(binary.LittleEndian.Uint64(b[0:8]))
+	tb.Y = int(binary.LittleEndian.Uint64(b[8:16]))
+	tb.Z = int(binary.LittleEndian.Uint64(b[16:24]))
+	return nil
+}
+
 func RandObject() TestObject {
 	return TestObject{
 		X: rand.Int(), Y: rand.Int(), Z: rand.Int(),
@@ -185,14 +205,6 @@ func Test_BufioSize(t *testing.T) {
 	SessionTest(t, BufioSize(0, 0, Json()), ObjectTest)
 }
 
-func Test_Packet1(t *testing.T) {
-	SessionTest(t, Packet(1, 1024, 1024, LittleEndian, Json()), ObjectTest)
-}
-
-func Test_Packet2(t *testing.T) {
-	SessionTest(t, Packet(2, 1024, 1024, LittleEndian, Json()), ObjectTest)
-}
-
-func Test_Packet4(t *testing.T) {
-	SessionTest(t, Packet(4, 1024, 1024, LittleEndian, Json()), ObjectTest)
+func Test_Packet(t *testing.T) {
+	SessionTest(t, Packet(1024, slab.NewPool(64, 128, 2, 256)), ObjectTest)
 }

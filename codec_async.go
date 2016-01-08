@@ -20,6 +20,7 @@ type asyncCodecType struct {
 func (codecType *asyncCodecType) NewEncoder(w io.Writer) Encoder {
 	encoder := &asyncEncoder{
 		base:     codecType.base.NewEncoder(w),
+		writer:   w,
 		stopChan: make(chan struct{}),
 		sendChan: make(chan interface{}, codecType.chanSize),
 	}
@@ -33,9 +34,21 @@ func (codecType *asyncCodecType) NewDecoder(r io.Reader) Decoder {
 
 type asyncEncoder struct {
 	base     Encoder
+	writer   io.Writer
 	sendChan chan interface{}
 	stopChan chan struct{}
 	stopWait sync.WaitGroup
+	stopOnce sync.Once
+}
+
+func (encoder *asyncEncoder) stop() {
+	encoder.stopOnce.Do(func() {
+		close(encoder.stopChan)
+		encoder.stopWait.Wait()
+		if closer, ok := encoder.writer.(io.Closer); ok {
+			closer.Close()
+		}
+	})
 }
 
 func (encoder *asyncEncoder) start() {
@@ -61,15 +74,15 @@ func (encoder *asyncEncoder) Encode(msg interface{}) error {
 	select {
 	case encoder.sendChan <- msg:
 	default:
+		encoder.stop()
 		return ErrBlocking
 	}
 	return nil
 }
 
 func (encoder *asyncEncoder) Dispose() {
-	close(encoder.stopChan)
+	encoder.stop()
 	if d, ok := encoder.base.(Disposeable); ok {
 		d.Dispose()
 	}
-	encoder.stopWait.Wait()
 }
