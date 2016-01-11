@@ -15,19 +15,19 @@ link是协议无关的，使用link只需要理解`CodecType`的概念，你可�
 基础
 ====
 
-link包核心由`Server`、`Session`、`CodecType`组成。`Server`和`Session`很容易理解，分别用于实现网络服务和连接管理。`CodecType`则提供具体的协议实现和io逻辑。
+link包核心由`Server`、`Session`、`CodecType`组成。`Server`和`Session`很容易理解，分别用于实现网络服务和连接管理，`CodecType`则提供具体的协议实现和IO处理。
 
-`Server`在使用的时候很简单，可以用 `link.Serve()`创建，也可以用`link.NewServer()`的方式创建。这样设计的目的是可以支持更多类型的`Listener`，不受限于net包。
+`Server`在使用的时候很简单，可以用 `link.Serve()`创建，也可以用`link.NewServer()`的方式创建，这样设计的目的是可以支持更多类型的`Listener`，不受限于net包。
 
 `Session`在使用上分为两种情况，一种是由`Server.Accept()`产生的服务端会话，一种是由`link.Dial()`或`link.NewSession()`产生的客户端会话。
 
-`CodecType`的设计目的是让每个`Session`都有各自的`Encoder`和`Decoder`用于消息的收发，这样才有机会实现有状态的通讯协议，比如有多阶段握手的通讯协议。
+`CodecType`的设计目的是让每个`Session`都有各自的`Encoder`和`Decoder`用于消息的收发，这样才有机会实现有状态的通讯协议或者有状态的IO，比如有多阶段握手的通讯协议和使用`bufio.Reader`。
 
 `Server`和`Session`上都有一个`interface{}`类型的`State`字段，可用于存储自定义状态。
 
-`Session`上提供了关闭事件的监听机制，有一些应用场景需要在会话关闭时对一些资源做回收，就可以利用这个机制。
+`Session`上提供了关闭事件的监听机制，有一些应用场景需要在会话关闭时对一些资源做回收就可以利用这个机制。
 
-`Encoder`和`Decoder`都可以选择性的实现`Dispose()`方法，`Session`关闭时将会尝试调用这个方法，这可以可以做到`Encoder`和`Decoder`的资源回收利用，内置的`BufioCodecType`就利用这个机制引入了`sync.Pool`来提高对象的重用性。
+`Encoder`和`Decoder`都可以选择性的实现`Dispose()`方法，`Session`关闭时将会尝试调用这个方法，可以通过这个方法来实现`Encoder`和`Decoder`的内部资源回收利用，内置的`BufioCodecType`就利用这个机制引入了`sync.Pool`来重用`bufio.Reader`。
 
 一些示例
 =======
@@ -56,37 +56,35 @@ srv, err := link.Serve("tcp", "0.0.0.0:0", link.ThreadSafe(link.Json()))
 srv, err := link.Serve("tcp", "0.0.0.0:0", link.Async(link.Json()))
 ```
 
-我是不会告诉你除了以上示例，阅读`all_test.go`和`example`目录下的代码也是很有帮助的！
+除了以上示例，阅读`all_test.go`和`example`目录下的代码也是很重要的示例。
 
 内置类型
 =======
 
-link的核心部分代码是极少的，link另外提供了一些常用到的工具类型，下面一一对其进行介绍。
+link的核心部分代码极少，基于这个核心link提供了一些常用到的工具类型来辅助项目开发，下面一一对这些工具类型进行介绍。
 
 [channel.go](https://github.com/funny/link/blob/master/channel.go)
 --------------
 
-这个文件里实现了`Channel`类型的模板，`Channel`类型用于手工管理一组`Session`通常用于发送广播和维护在线列表。
+这个文件里实现了`Channel`类型的模板，`Channel`类型用于管理一组`Session`，通常用于发送广播和维护在线列表。
 
-这个文件是不参与编译的，所以link实际上不存在一个叫`Channel`的类型，这个文件只是提供类型的模板。
+这个文件是不参与编译的，link实际上不存在一个叫`Channel`的类型，这个文件只是`Channel`类型的模板。
 
 之前版本的通用`Channel.go`类型，用的是`Session.Id()`做key，这个设计会导致实际项目种出现类似这样的操作逻辑：
 
 ```
-用户ID -> Session ID -> Session
+取用户ID -> 从自己维护的映射关系中取用户ID对应的Session ID -> 到Channel里取Session
 ```
 
 而新的`Channel.go`类型可以自定义key类型，在上述场景中就可以直接用`用户ID`做key来索引`Session`：
 
 ```
-用户ID -> Session
+取用户ID -> 到Channel里取Session
 ```
-
-不同的应用场景会需要用不同的信息来索引`Session`，但是Go暂不支持泛型语法，所以我们通过`channel_gen.go`这个工具来生成具体的`Channel`类型的代码。
 
 除了直观的可以看出少了一次map操作之外，其实额外维护一份`Session ID`映射关系也不是一件容易的事情，你需要重复`Channel.go`内部做的所有事情，而又不能重用`Channel.go`的代码。
 
-所以自动生成代码的方式解决了以上所有问题，唯一需要做的就是手工执行一个命令。
+不同的应用场景会需要用不同的信息来索引`Session`，但是Go暂不支持泛型语法，所以我们通过`channel_gen.go`这个工具来生成具体的`Channel`类型的代码。
 
 举例，生成一个用`uint64`类型作为key的`Channel`：
 
@@ -103,18 +101,22 @@ go run channel_gen.go Uint64Channel uint64 channel_uint64.go
 
 此外，link借助`go generate`命令内置了一组常用到的`Channel`类型的代码生成。因为这些代码是工具自动生成的，所以不纳入版本管理，在刚拿到link包的代码时是找不到这些代码的。
 
-需要在link包的根目录下执行`go generate channel.go`命令，来生成这些`Channel`类型，关于`go generate`的原理请参阅Go官方文档。
+需要在link包的根目录下执行`go generate channel.go`命令来生成这些类型。
 
-提示： 使用`Channel.Fetch()`进行遍历发送广播的时候，请注意存在io阻塞的可能，如果io阻塞会影响业务处理，可以通过异步发送的方式避免阻塞。
+关于`go generate`的原理请参阅Go官方文档。
+
+提示： 使用`Channel.Fetch()`进行遍历发送广播的时候，请注意存在IO阻塞的可能，如果IO阻塞会影响业务处理，就需要使用异步发送，关于异步发送请参考`codec_async.go`的说明。
 
 [codec_async.go](https://github.com/funny/link/blob/master/codec_async.go)
 ------------------
 
-这个文件中实现了一个用于支持异步消息发送的`CodecType`。之前的版本中`Session`有一个`AsyncSend()`方法用于异步消息发送。我一直很不满意`AsyncSend()`的设计，从link包的历史版本中可以看到`AsyncSend()`经过了多次修改。
+这份代码中实现了一个用于支持异步消息发送的`CodecType`。之前的版本中`Session`有一个`AsyncSend()`方法用于异步消息发送。我一直很不满意`AsyncSend()`的设计，从link包的历史版本中可以看到`AsyncSend()`经过了多次修改。
 
-原因是不同的应用场景会有不同的异步消息发送需求，比如我们在游戏里很简单粗暴的把异步发送时出现chan阻塞的Session关闭掉，但是别的应用场景可能会需要等待一段时间后再重试，或者丢弃阻塞的消息，又或者阻塞允许一段时间，等到超时再做进一步处理。
+原因是不同的应用场景会有不同的异步消息发送需求，比如我们在游戏里很简单粗暴的把异步发送时出现chan阻塞的Session关闭掉，但是别的应用场景可能会需要等待一段时间后再重试，或者丢弃阻塞的消息，又或者阻塞允许一段时间等到超时再做进一步处理。
 
-所以`AsyncSend()`怎么改都不可能满足所有需求，最后我干脆删除它，由CodecType来决定消息是否异步发送，以及怎么进行异步发送。目前内置的`asyncCodecType`的逻辑是一旦遇到发送用的chan阻塞就立即关闭`Writer`并返回`ErrBlocking`错误。如果这个设计不符合你的需求，你可以参考它实现出自己所需的异步发送逻辑。
+需求多种多样，所以`AsyncSend()`怎么改都不可能满足所有需求，最后我干脆删除它，由CodecType来决定消息是否异步发送，以及怎么进行异步发送。
+
+目前内置的`asyncCodecType`的逻辑是一旦遇到发送用的chan阻塞就立即关闭`Writer`并返回`ErrBlocking`错误。如果这个设计不符合你的需求，你可以参考它实现出自己所需的异步发送逻辑。
 
 需要注意，目前的`asyncCodecType`的设计会将`Session.Send()`的行为从同步变为异步，这样设计的目的是规避掉同时支持两种模式的复杂性，避免使用者误用。
 
@@ -123,14 +125,14 @@ go run channel_gen.go Uint64Channel uint64 channel_uint64.go
 [codec_bufio.go](https://github.com/funny/link/blob/master/codec_bufio.go)
 ------------------
 
-这个文件中实现了带缓冲的IO以及缓冲对象重用，这是网络层很常用到的优化。缓冲读和缓冲写可以显著的降低实际的IO调用次数，在Go语言中一次实际的`net.Conn.Read()`调用开销并不低，它需要给文件句柄加锁然后放入事件循环里等待IO事件，这里面有一系列的系统调用。所以实际项目中，强烈建议使用bufio来降低IO调用次数。
+这份代码中实现了带缓冲的IO以及`bufio.Reader`重用。缓冲读和缓冲写可以显著的降低实际的IO调用次数，在Go语言中一次实际的`net.Conn.Read()`调用开销并不低，它需要完成给文件句柄加锁然后放入事件循环里等待IO事件等一系列动作。所以实际项目中，强烈建议使用`bufio.Reader`来降低IO调用次数。
 
-有一个细节需要注意`sync.Pool`是跟着`BufioCodecType`实例的，所以在实际使用中，特别是创建客户端`Session`时，需要重用`BufioCodecType`而不是每次调用`link.Dial()`时都创建一个新的`BufioCodecType`实例。服务端不容易出现这个问题是因为`BufioCodecType`会被存在`Server`对象里，反复赋值给新建的服务端`Session`。
+有一个细节需要注意`sync.Pool`是跟着`BufioCodecType`实例的，所以在实际使用中，特别是创建客户端`Session`时，需要重用`BufioCodecType`而不是每次调用`link.Dial()`时都创建一个新的`BufioCodecType`实例。服务端不容易出现这个问题是因为`BufioCodecType`会被存在`Server`对象里反复赋值给新建的`Session`。
 
 [codec_general.go](https://github.com/funny/link/blob/master/codec_general.go)
 --------------------
 
-里面实现了常见的Json、Gob、Xml格式的消息编解码，这三种消息格式都不需要分包协议就可以直接使用，但也可以跟分包协议配合使用。
+这份代码中实现了常见的Json、Gob、Xml格式的消息编解码，这三种消息格式都不需要额外分包协议就可以直接使用，但也可以跟分包协议配合使用。
 
 [codec_fastbin.go](https://github.com/funny/link/blob/master/codec_fastbin.go)
 --------------------
@@ -155,10 +157,12 @@ session.Receive(&req)
 req.Process()
 ```
 
+fastbin不一定符合你的项目需求，如果要自己实现分包、消息识别和消息分发可以把这份代码当成示例来用。
+
 [codec_safe.go](https://github.com/funny/link/blob/master/codec_safe.go)
 -----------------
 
-里面实现了线程安全的`CodecType`，旧版本的link里`Session`内置了收发锁让`Session.Receive()和`Session.Send()`可以被并发调用。但是实际项目中并发接收或者并发发送的场景很少，如果一开始就内置到`Session`里，这部分调用开销就多余了。
+这份代码实现了线程安全的`CodecType`，旧版本的link里`Session`内置了收发锁让`Session.Receive()和`Session.Send()`可以被并发调用。但是实际项目中并发接收或者并发发送的场景很少，如果一开始就内置到`Session`里，这部分调用开销就多余了。
 
 所以后来我删除了`Session`里面加锁的逻辑，引入了`ThreadSafe()`。在需要对收发过程进行加锁保护的时候可以用它。
 
