@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/funny/slab"
 	"github.com/funny/utest"
 )
 
@@ -140,24 +139,6 @@ func (tb TestObject) Equals(a interface{}) bool {
 	return tb == a.(TestObject)
 }
 
-func (tb *TestObject) BinarySize() int {
-	return 8 + 8 + 8
-}
-
-func (tb *TestObject) MarshalPacket(b []byte) error {
-	binary.LittleEndian.PutUint64(b[0:8], uint64(tb.X))
-	binary.LittleEndian.PutUint64(b[8:16], uint64(tb.Y))
-	binary.LittleEndian.PutUint64(b[16:24], uint64(tb.Z))
-	return nil
-}
-
-func (tb *TestObject) UnmarshalPacket(b []byte) error {
-	tb.X = int(binary.LittleEndian.Uint64(b[0:8]))
-	tb.Y = int(binary.LittleEndian.Uint64(b[8:16]))
-	tb.Z = int(binary.LittleEndian.Uint64(b[16:24]))
-	return nil
-}
-
 func RandObject() TestObject {
 	return TestObject{
 		X: rand.Int(), Y: rand.Int(), Z: rand.Int(),
@@ -205,6 +186,72 @@ func Test_BufioSize(t *testing.T) {
 	SessionTest(t, BufioSize(0, 0, Json()), ObjectTest)
 }
 
-func Test_Packet(t *testing.T) {
-	SessionTest(t, Packet(1024, slab.NewPool(64, 128, 2, 256)), ObjectTest)
+type TestFbService struct{}
+
+func (s TestFbService) ServiceID() byte {
+	return 1
+}
+
+func (s TestFbService) NewRequest(id byte) (FbMessage, FbHandler) {
+	switch id {
+	case 1:
+		return new(TestFbMessage), nil
+	case 2:
+		return new(TestFbMessage), nil
+	}
+	return nil, nil
+}
+
+type TestFbMessage struct {
+	messageID byte
+	TestObject
+}
+
+func (m *TestFbMessage) ServiceID() byte {
+	return 1
+}
+
+func (m *TestFbMessage) MessageID() byte {
+	return 2
+}
+
+func (tb *TestObject) BinarySize() int {
+	return 8 + 8 + 8
+}
+
+func (tb *TestObject) MarshalPacket(b []byte) {
+	binary.LittleEndian.PutUint64(b[0:8], uint64(tb.X))
+	binary.LittleEndian.PutUint64(b[8:16], uint64(tb.Y))
+	binary.LittleEndian.PutUint64(b[16:24], uint64(tb.Z))
+}
+
+func (tb *TestObject) UnmarshalPacket(b []byte) {
+	tb.X = int(binary.LittleEndian.Uint64(b[0:8]))
+	tb.Y = int(binary.LittleEndian.Uint64(b[8:16]))
+	tb.Z = int(binary.LittleEndian.Uint64(b[16:24]))
+}
+
+func Test_Fastbin(t *testing.T) {
+	fbCodecType := Fastbin(4096, nil)
+	fbCodecType.Register(TestFbService{})
+
+	SessionTest(t, fbCodecType, func(t *testing.T, session *Session) {
+		for i := 0; i < 2000; i++ {
+			var msgID byte = 1
+			if rand.Intn(100) < 50 {
+				msgID = 2
+			}
+			msg1 := RandObject()
+			err := session.Send(&TestFbMessage{
+				msgID,
+				msg1,
+			})
+			utest.IsNilNow(t, err)
+
+			var msg2 FbRequest
+			err = session.Receive(&msg2)
+			utest.IsNilNow(t, err)
+			utest.EqualNow(t, msg1, msg2.message.(*TestFbMessage).TestObject)
+		}
+	})
 }

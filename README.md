@@ -132,18 +132,28 @@ go run channel_gen.go Uint64Channel uint64 channel_uint64.go
 
 里面实现了常见的Json、Gob、Xml格式的消息编解码，这三种消息格式都不需要分包协议就可以直接使用，但也可以跟分包协议配合使用。
 
-[codec_packet.go](https://github.com/funny/link/blob/master/codec_packet.go)
+[codec_fastbin.go](https://github.com/funny/link/blob/master/codec_fastbin.go)
 --------------------
 
-这是最实用的一个内置类型，里面实现了对应Erlang的`{packet, 2}`格式的分包协议。
+这个文件中实现了link和[`fastbin`](https://github.com/funny/fastbin)的配套接口，用fastbin生成的消息接口和消息编解码可以通过此CodecType跟link配套使用。
 
-这种分包协议的包结构很简单，每个消息包由2个字节包头和不定长的包体组成，包头的数据是小端格式编码的包体长度值。分包的时候先读取包头，解码后获得包体长度，接着读取对应长度的数据即为包体。
+fastbin用的是每个消息4个字节的包头来进行分包和消息识别于派发，包头的前2个字节是小端格式编码的包体长度值，第3个字节为服务类型ID，第4个字节为消息类型ID。
+
+所以fastbin支持256个服务类型，每个服务类型中可处理256种消息。
 
 由于包头固定是2个字节，所以最大的消息长度是64K，实际应用场景中如果有可能出现超过此大小的消息，需要自己再封装一层消息分帧。
 
-在使用次类型时，`Session`接收的消息必须实现`PacketUnmarshaler`接口，发送的消息必须实现`PacketMarshaler`接口。
+在使用次类型时，`Session`接收的消息必须是`*FbRequest`，发送的消息必须实现`FbMessage`接口。
 
-可以配合[`fastbin`](https://github.com/funny/fastbin)来自动生成这两种接口的代码。
+接收消息后，通过调用`*FbRequest`的`Process`方法来进行请求处理：
+
+```go
+var req FbRequest
+
+session.Receive(&req)
+
+req.Process()
+```
 
 [codec_safe.go](https://github.com/funny/link/blob/master/codec_safe.go)
 -----------------
@@ -151,77 +161,6 @@ go run channel_gen.go Uint64Channel uint64 channel_uint64.go
 里面实现了线程安全的`CodecType`，旧版本的link里`Session`内置了收发锁让`Session.Receive()和`Session.Send()`可以被并发调用。但是实际项目中并发接收或者并发发送的场景很少，如果一开始就内置到`Session`里，这部分调用开销就多余了。
 
 所以后来我删除了`Session`里面加锁的逻辑，引入了`ThreadSafe()`。在需要对收发过程进行加锁保护的时候可以用它。
-
-消息分发
-=======
-
-实际项目中通常都会需要识别消息类型然后执行不同消息类型的解包（反序列化）接着调用不同的消息处理过程（业务逻辑），link包的测试代码和示例代码都没有直接体现出如何做消息分发，所以新手经常会卡在这一步。
-
-下面我就简单的演示怎样实现一个可以消息类型识别和消息分发。
-
-首先我先假定我们需要实现这样一个协议格式：
-
-```
-2字节的包头 + 2字节的消息类型ID + 消息内容
-```
-
-我们通过消息类型ID来识别消息类型，消息内容的格式这里不举例，我们只需要假设它们内容格式都不一样。
-
-因为link已经内置了分包协议支持，所以我们只需要实现一个可以识别消息类型的`PacketUnmarshaler`。
-
-实现起来大概像这样子：
-
-```go
-package xxoo
-
-import (
-	"io"
-	"github.com/funny/binary"
-)
-
-// 所有的请求都必须实现这个接口
-type Request interface {
-	Process(*link.Session) error
-}
-
-// 用于消息识别
-type Recognizer struct {
-	Request Request // 真正要处理的请求
-}
-
-// 实现PacketUnmarshaler接口
-func (r *Recognizer) UnmarshalPacket(p []byte) error {
-	switch binary.LittleEndian.Uint16(p) {
-	case 1:
-		msg := new(MessageType1)
-		msg.UnmarshalPacket(p[2:])
-		r.Request = msg
-	case 2:
-		msg := new(MessageType2)
-		msg.UnmarshalPacket(p[2:])
-		r.Request = msg
-	default:
-		return errors.New("unknow message type")
-	}
-	return nil
-}
-```
-
-这样我们就可以在接收消息时传入`Recognizer`，接收到消息后调用`Recognizer`里的`Request.Process()`处理请求：
-
-```go
-var msg Recognizer
-
-session.Receive(&Recognizer)
-
-msg.Request.Process(session)
-```
-
-具体的`Request.Process()`内是通过怎样的机制把消息分发给对应的业务接口的，这就八仙过海各显神通了，我在项目里用的是注册回调函数的方式，大家可以根据实际的项目情况设计。
-
-包括上面示例中的MessageType1和MessageType2，实际项目中不一定是这样做的，接口比较多的项目里通常会需要把不同业务模块的消息类型分到不同的包里，所以会需要做多级的消息识别。
-
-示例只是提供思路，希望大家要灵活变通不要死记硬背。
 
 总结
 ====
@@ -236,5 +175,5 @@ link的核心其实很简单，IO调用方式和协议实现都靠`CodecType`解
 ====
 
 * 也许用得上的免配置通用网关 - [https://github.com/funny/gateway](https://github.com/funny/gateway)
-* 可以配合link一起使用的通讯协议代码生成器 - [https://github.com/funny/fastbin](https://github.com/funny/fastbin)
-* `codec_packet.go`中用到的无锁slab分配算法的内存池 - [https://github.com/funny/slab](https://github.com/funny/slab)
+* 配套`codec_fastbin.go`使用的fastbin项目 - [https://github.com/funny/fastbin](https://github.com/funny/fastbin)
+* `codec_fastbin.go`中可以用到的内存池 - [https://github.com/funny/slab](https://github.com/funny/slab)
