@@ -154,8 +154,11 @@ var req FbRequest
 
 session.Receive(&req)
 
-req.Process()
+// 用默认的Session实现
+req.Process(FbSessionWrapper{session})
 ```
+
+Process方法之所以用`link.FbSession`接口类型做参数而不用`*link.Session`，目的是要跟`*link.Session`解耦，在项目中才有机会做自定义的Session管理。
 
 fastbin不一定符合你的项目需求，如果要自己实现分包、消息识别和消息分发可以把这份代码当成示例来用。
 
