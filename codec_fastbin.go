@@ -63,6 +63,10 @@ func (req *FbRequest) Process(s FbSession) {
 	req.handler(s, req.message)
 }
 
+func (req *FbRequest) Message() FbMessage {
+	return req.message
+}
+
 // Allocator provide a way to pooling memory.
 // Reference: https://github.com/funny/slab
 type Allocator interface {
