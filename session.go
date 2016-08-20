@@ -11,26 +11,29 @@ import (
 var ErrClosed = errors.New("link.Session closed")
 
 type Session struct {
-	id              uint64
-	conn            net.Conn
-	encoder         Encoder
-	decoder         Decoder
-	closeChan       chan int
-	closeFlag       int32
-	closeEventMutex sync.Mutex
-	closeCallbacks  *list.List
-	State           interface{}
+	id               uint64
+	conn             net.Conn
+	encoder          Encoder
+	decoder          Decoder
+	closeChan        chan int
+	closeFlag        int32
+	closeEventMutex  sync.Mutex
+	closeCallbacks   *list.List
+	State            interface{}
+	SendPackageList  *list.List
+	sendPackageMutex sync.Mutex
 }
 
 var globalSessionId uint64
 
 func NewSession(conn net.Conn, codecType CodecType) *Session {
 	session := &Session{
-		id:             atomic.AddUint64(&globalSessionId, 1),
-		conn:           conn,
-		encoder:        codecType.NewEncoder(conn),
-		decoder:        codecType.NewDecoder(conn),
-		closeCallbacks: list.New(),
+		id:              atomic.AddUint64(&globalSessionId, 1),
+		conn:            conn,
+		encoder:         codecType.NewEncoder(conn),
+		decoder:         codecType.NewDecoder(conn),
+		closeCallbacks:  list.New(),
+		SendPackageList: list.New(),
 	}
 	return session
 }
@@ -53,6 +56,25 @@ func (session *Session) Close() {
 			d.Dispose()
 		}
 	}
+}
+
+func (session *Session) AppendSendPackage(msg interface{}) {
+	session.sendPackageMutex.Lock()
+	defer session.sendPackageMutex.Unlock()
+	session.SendPackageList.PushBack(msg)
+}
+
+func (session *Session) ClearSendPackage() bool {
+	if session.SendPackageList.Len() <= 0 {
+		return false
+	}
+	session.sendPackageMutex.Lock()
+	defer session.sendPackageMutex.Unlock()
+	for i := session.SendPackageList.Front(); i != nil; i = i.Next() {
+		session.Send(i.Value)
+	}
+	session.SendPackageList = list.New()
+	return true
 }
 
 func (session *Session) Receive(msg interface{}) (err error) {
@@ -117,4 +139,5 @@ func (session *Session) invokeCloseCallbacks() {
 		callback := i.Value.(closeCallback)
 		callback.Func()
 	}
+	session.ClearSendPackage()
 }
