@@ -8,60 +8,104 @@
 
 但是在提取这些公共部分的时候并没有期初想象的那么容易，因为不同的应用场景有不同的需求，比如有的场景需要异步，有的场景需要同步，有的协议需要握手过程，有的则需要keepalive。从代码的提交历史里面可以看出这个包前后经过了很多次大的调整，因为要做一个能满足所有需求的通用底层真的很难。
 
-经过不断的提炼，就像在简化公式一样的，link变得十分的简单，同时它的定位也很清楚。link不是一个网络层也不是一个框架，它只是一个脚手架，但它可以帮助你快速的实现出你所需要的网络层或者框架，帮你约束网络层的实现方式，不至于用不合理的方式实现网络层，除此之外它不会管更多的事情。
+经过不断的提炼，就像在简化公式，目前link变得十分的简单，同时它的定位也很清楚。link不是一个完整网络层也不是一个框架，它只是一个脚手架，但它可以帮助你快速的实现出你所需要的网络层或者通讯框架，帮你约束网络层的实现方式，不至于用不合理的方式实现网络层，除此之外它不会管更多的事情。
 
-link是协议无关的，使用link只需要理解`CodecType`的概念，你可以加入任何你需要的通讯协议实现。
+link是协议无关的，使用link只需要理解少数几个概念就可以上手了。
 
 基础
 ====
 
-link包核心由`Server`、`Session`、`CodecType`组成。`Server`和`Session`很容易理解，分别用于实现网络服务和连接管理，`CodecType`则提供具体的协议实现和IO处理。
+link包的核心是`Session`，`Session`的字面含义是`会话`，就是一次对话过程。每一个连接的生命周期被表达为一个会话过程，这个过程中通讯双方的消息有来有往。
 
-`Server`在使用的时候很简单，可以用 `link.Serve()`创建，也可以用`link.NewServer()`的方式创建，这样设计的目的是可以支持更多类型的`Listener`，不受限于net包。
+会话过程所用的具体通讯协议通过`Codec`接口解耦，通过`Codec`接口可以自定义通讯的IO实现方式，如：TPC、UDP、UNIX套接字、共享内存等，也可以自定义流的实现方式，如：压缩、加密、校验等，也可以实现自定义的协议格式，如：JSON、Gob、XML、Protobuf等。
 
-`Session`在使用上分为两种情况，一种是由`Server.Accept()`产生的服务端会话，一种是由`link.Dial()`或`link.NewSession()`产生的客户端会话。
+在实际项目中，通常不会只有一个会话，所以link提供了几种不同的`Session`管理方式。
 
-`CodecType`的设计目的是让每个`Session`都有各自的`Encoder`和`Decoder`用于消息的收发，这样才有机会实现有状态的通讯协议或者有状态的IO，比如有多阶段握手的通讯协议和使用`bufio.Reader`。
+`Manager`是最基础的`Session`管理方式，它负责创建和管理一组`Session`。`Manager`是不于通讯形式关联的，于通讯有关联的`Manager`叫`Server`，它的行为比`Manager`更具体，它负责从`net.Listener`上接收新连接，并创建对应`Session`。
 
-`Server`和`Session`上都有一个`interface{}`类型的`State`字段，可用于存储自定义状态。
+link还提供了`Channel`用于对`Session`进行按需分组，`Channel`用key-value的形式管理`Session`，`Channel`的key类型通过代码生成的形式来实现自定义。
 
-`Session`上提供了关闭事件的监听机制，有一些应用场景需要在会话关闭时对一些资源做回收就可以利用这个机制。
-
-`Encoder`和`Decoder`都可以选择性的实现`Dispose()`方法，`Session`关闭时将会尝试调用这个方法，可以通过这个方法来实现`Encoder`和`Decoder`的内部资源回收利用，内置的`BufioCodecType`就利用这个机制引入了`sync.Pool`来重用`bufio.Reader`。
-
-一些示例
+示例
 =======
 
 示例，创建一个使用Json作为消息格式的TCP服务端：
 
 ```go
-srv, err := link.Serve("tcp", "0.0.0.0:0", link.Json())
+package main
+
+import (
+	"log"
+
+	"github.com/funny/link"
+	"github.com/funny/link/codec"
+)
+
+type AddReq struct {
+	A, B int
+}
+
+type AddRsp struct {
+	C int
+}
+
+func main() {
+	json := codec.Json()
+	json.Register(AddReq{})
+	json.Register(AddRsp{})
+
+	server, err := link.Serve("tcp", "0.0.0.0:0", json, 0 /* sync send */)
+	checkErr(err)
+	go serverLoop(server)
+	addr := server.Listener().Addr().String()
+
+	client, err := link.Connect("tcp", addr, json, 0)
+	checkErr(err)
+	clientLoop(client)
+}
+
+func serverLoop(server *link.Server) {
+	for {
+		session, err := server.Accept()
+		checkErr(err)
+		go sessionLoop(session)
+	}
+}
+
+func sessionLoop(session *link.Session) {
+	for {
+		req, err := session.Receive()
+		checkErr(err)
+
+		err = session.Send(&AddRsp{
+			req.(*AddReq).A + req.(*AddReq).B,
+		})
+		checkErr(err)
+	}
+}
+
+func clientLoop(session *link.Session) {
+	for i := 0; i < 10; i++ {
+		err := client.Send(&AddReq{
+			i, i,
+		})
+		checkErr(err)
+		log.Printf("Send: %d + %d", i, i)
+
+		rsp, err := client.Receive()
+		checkErr(err)
+		log.Printf("Receive: %d", rsp.(*AddRsp).C)
+	}
+}
+
+func checkErr(err error) {
+	if err != nil {
+		log.Fatal(err)
+	}
+}
 ```
 
-示例，使用Bufio优化IO：
-
-```go
-srv, err := link.Serve("tcp", "0.0.0.0:0", link.Bufio(link.Json()))
-```
-
-示例，加入线程安全：
-
-```go
-srv, err := link.Serve("tcp", "0.0.0.0:0", link.ThreadSafe(link.Json()))
-```
-
-示例，把发送方式改为异步：
-
-```go
-srv, err := link.Serve("tcp", "0.0.0.0:0", link.Async(link.Json()))
-```
-
-除了以上示例，阅读`all_test.go`和`example`目录下的代码也是很重要的示例。
-
-内置类型
+补充说明
 =======
-
-link的核心部分代码极少，基于这个核心link提供了一些常用到的工具类型来辅助项目开发，下面一一对这些工具类型进行介绍。
 
 [channel.go](https://github.com/funny/link/blob/master/channel.go)
 --------------
@@ -70,7 +114,7 @@ link的核心部分代码极少，基于这个核心link提供了一些常用到
 
 这个文件是不参与编译的，link实际上不存在一个叫`Channel`的类型，这个文件只是`Channel`类型的模板。
 
-之前版本的通用`Channel.go`类型，用的是`Session.Id()`做key，这个设计会导致实际项目种出现类似这样的操作逻辑：
+之前版本的通用`Channel.go`类型，用的是`Session.ID()`做key，这个设计会导致实际项目种出现类似这样的操作逻辑：
 
 ```
 取用户ID -> 从自己维护的映射关系中取用户ID对应的Session ID -> 到Channel里取Session
@@ -107,78 +151,9 @@ go run channel_gen.go Uint64Channel uint64 channel_uint64.go
 
 提示： 使用`Channel.Fetch()`进行遍历发送广播的时候，请注意存在IO阻塞的可能，如果IO阻塞会影响业务处理，就需要使用异步发送，关于异步发送请参考`codec_async.go`的说明。
 
-[codec_async.go](https://github.com/funny/link/blob/master/codec_async.go)
-------------------
-
-这份代码中实现了一个用于支持异步消息发送的`CodecType`。之前的版本中`Session`有一个`AsyncSend()`方法用于异步消息发送。我一直很不满意`AsyncSend()`的设计，从link包的历史版本中可以看到`AsyncSend()`经过了多次修改。
-
-原因是不同的应用场景会有不同的异步消息发送需求，比如我们在游戏里很简单粗暴的把异步发送时出现chan阻塞的Session关闭掉，但是别的应用场景可能会需要等待一段时间后再重试，或者丢弃阻塞的消息，又或者阻塞允许一段时间等到超时再做进一步处理。
-
-需求多种多样，所以`AsyncSend()`怎么改都不可能满足所有需求，最后我干脆删除它，由CodecType来决定消息是否异步发送，以及怎么进行异步发送。
-
-目前内置的`asyncCodecType`的逻辑是一旦遇到发送用的chan阻塞就立即关闭`Writer`并返回`ErrBlocking`错误。如果这个设计不符合你的需求，你可以参考它实现出自己所需的异步发送逻辑。
-
-需要注意，目前的`asyncCodecType`的设计会将`Session.Send()`的行为从同步变为异步，这样设计的目的是规避掉同时支持两种模式的复杂性，避免使用者误用。
-
-对于高级用户如果需要同时支持同步和异步发送，可以自己实现一个`Encoder`在发送消息时通过判断消息类型来决定采用哪种发送方式，但是这样的设计需要周全的考虑各种并行执行的可能性。
-
-[codec_bufio.go](https://github.com/funny/link/blob/master/codec_bufio.go)
-------------------
-
-这份代码中实现了带缓冲的IO以及`bufio.Reader`重用。缓冲读和缓冲写可以显著的降低实际的IO调用次数，在Go语言中一次实际的`net.Conn.Read()`调用开销并不低，它需要完成给文件句柄加锁然后放入事件循环里等待IO事件等一系列动作。所以实际项目中，强烈建议使用`bufio.Reader`来降低IO调用次数。
-
-有一个细节需要注意`sync.Pool`是跟着`BufioCodecType`实例的，所以在实际使用中，特别是创建客户端`Session`时，需要重用`BufioCodecType`而不是每次调用`link.Dial()`时都创建一个新的`BufioCodecType`实例。服务端不容易出现这个问题是因为`BufioCodecType`会被存在`Server`对象里反复赋值给新建的`Session`。
-
-[codec_general.go](https://github.com/funny/link/blob/master/codec_general.go)
---------------------
-
-这份代码中实现了常见的Json、Gob、Xml格式的消息编解码，这三种消息格式都不需要额外分包协议就可以直接使用，但也可以跟分包协议配合使用。
-
-[codec_fastbin.go](https://github.com/funny/link/blob/master/codec_fastbin.go)
---------------------
-
-这个文件中实现了link和[`fastbin`](https://github.com/funny/fastbin)的配套接口，用fastbin生成的消息接口和消息编解码可以通过此CodecType跟link配套使用。
-
-fastbin用的是每个消息4个字节的包头来进行分包和消息识别于派发，包头的前2个字节是小端格式编码的包体长度值，第3个字节为服务类型ID，第4个字节为消息类型ID。
-
-所以fastbin支持256个服务类型，每个服务类型中可处理256种消息。
-
-由于包头固定是2个字节，所以最大的消息长度是64K，实际应用场景中如果有可能出现超过此大小的消息，需要自己再封装一层消息分帧。
-
-在使用次类型时，`Session`接收的消息必须是`*FbRequest`，发送的消息必须实现`FbMessage`接口。
-
-接收消息后，通过调用`*FbRequest`的`Process`方法来进行请求处理：
-
-```go
-var req FbRequest
-
-session.Receive(&req)
-
-// 用默认的Session实现
-req.Process(FbSessionWrapper{session})
-```
-
-Process方法之所以用`link.FbSession`接口类型做参数而不用`*link.Session`，目的是要跟`*link.Session`解耦，在项目中才有机会做自定义的Session管理。
-
-fastbin不一定符合你的项目需求，如果要自己实现分包、消息识别和消息分发可以把这份代码当成示例来用。
-
-[codec_safe.go](https://github.com/funny/link/blob/master/codec_safe.go)
------------------
-
-这份代码实现了线程安全的`CodecType`，旧版本的link里`Session`内置了收发锁让`Session.Receive()和`Session.Send()`可以被并发调用。但是实际项目中并发接收或者并发发送的场景很少，如果一开始就内置到`Session`里，这部分调用开销就多余了。
-
-所以后来我删除了`Session`里面加锁的逻辑，引入了`ThreadSafe()`。在需要对收发过程进行加锁保护的时候可以用它。
-
-总结
-====
-
-link的核心其实很简单，IO调用方式和协议实现都靠`CodecType`解耦，理解了`CodecType`就能熟练的用link搭建针对各种场景的网络层。
-
-建议在实际项目中根据项目需求，参考内置类型的设计实现针对项目的`CodecType`，这样可以得到最好的执行效率和使用体验。
-
 附录
 ====
 
-* 也许用得上的免配置通用网关 - [https://github.com/funny/gateway](https://github.com/funny/gateway)
-* 配套`codec_fastbin.go`使用的fastbin项目 - [https://github.com/funny/fastbin](https://github.com/funny/fastbin)
-* `codec_fastbin.go`中可以用到的内存池 - [https://github.com/funny/slab](https://github.com/funny/slab)
+* 网关 - [https://github.com/funny/gateway](https://github.com/funny/gateway)
+* 内存池 - [https://github.com/funny/slab](https://github.com/funny/slab)
+* 通讯协议 - [https://github.com/funny/fastbin](https://github.com/funny/fastbin)

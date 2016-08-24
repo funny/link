@@ -53,14 +53,14 @@ func (channel *Channel) Put(key KEY, session *Session) {
 	if session, exists := channel.sessions[key]; exists {
 		channel.remove(key, session)
 	}
-	session.AddCloseCallback(channel, func() {
+	session.addCloseCallback(channel, func() {
 		channel.Remove(key)
 	})
 	channel.sessions[key] = session
 }
 
 func (channel *Channel) remove(key KEY, session *Session) {
-	session.RemoveCloseCallback(channel)
+	session.removeCloseCallback(channel)
 	delete(channel.sessions, key)
 }
 

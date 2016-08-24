@@ -1,3 +1,10 @@
+2015-08-24
+
+* 将会话管理从`Server`中剥离到`Manager`
+* 将`Encoder`和`Decoder`合并为`Codec`
+* 将`CodecType`改为`Protocol`
+* `Session`通过`SendChanSize`决定发送是异步还是同步
+
 2015-11-23
 
 * 修复了一些BUG，更新了示例代码
