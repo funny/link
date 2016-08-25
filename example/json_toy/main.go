@@ -52,13 +52,13 @@ func sessionLoop(session *link.Session) {
 
 func clientLoop(session *link.Session) {
 	for i := 0; i < 10; i++ {
-		err := client.Send(&AddReq{
+		err := session.Send(&AddReq{
 			i, i,
 		})
 		checkErr(err)
 		log.Printf("Send: %d + %d", i, i)
 
-		rsp, err := client.Receive()
+		rsp, err := session.Receive()
 		checkErr(err)
 		log.Printf("Receive: %d", rsp.(*AddRsp).C)
 	}
