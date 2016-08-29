@@ -50,13 +50,13 @@ func (j *JsonProtocol) NewCodec(rw io.ReadWriter) link.Codec {
 }
 
 type jsonIn struct {
-	Type    string           `json:"t"`
-	Message *json.RawMessage `json:"m"`
+	Head string
+	Body *json.RawMessage
 }
 
 type jsonOut struct {
-	Type    string      `json:"t"`
-	Message interface{} `json:"m"`
+	Head string
+	Body interface{}
 }
 
 type jsonCodec struct {
@@ -72,17 +72,17 @@ func (c *jsonCodec) Receive() (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	var message interface{}
-	if in.Type != "" {
-		if t, exists := c.p.types[in.Type]; exists {
-			message = reflect.New(t).Interface()
+	var body interface{}
+	if in.Head != "" {
+		if t, exists := c.p.types[in.Head]; exists {
+			body = reflect.New(t).Interface()
 		}
 	}
-	err = json.Unmarshal(*in.Message, &message)
+	err = json.Unmarshal(*in.Body, &body)
 	if err != nil {
 		return nil, err
 	}
-	return message, nil
+	return body, nil
 }
 
 func (c *jsonCodec) Send(msg interface{}) error {
@@ -92,9 +92,9 @@ func (c *jsonCodec) Send(msg interface{}) error {
 		t = t.Elem()
 	}
 	if name, exists := c.p.names[t]; exists {
-		out.Type = name
+		out.Head = name
 	}
-	out.Message = msg
+	out.Body = msg
 	return c.encoder.Encode(&out)
 }
 

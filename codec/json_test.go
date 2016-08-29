@@ -3,31 +3,37 @@ package codec
 import (
 	"bytes"
 	"testing"
+
+	"github.com/funny/link"
 )
 
-func Test_Json(t *testing.T) {
-	type MyMessage1 struct {
-		Field1 string
-		Field2 int
-	}
+type MyMessage1 struct {
+	Field1 string
+	Field2 int
+}
 
-	type MyMessage2 struct {
-		Field1 int
-		Field2 string
-	}
+type MyMessage2 struct {
+	Field1 int
+	Field2 string
+}
 
+func JsonTestProtocol() *JsonProtocol {
 	protocol := Json()
 	protocol.Register(MyMessage1{})
 	protocol.RegisterName("msg2", &MyMessage2{})
+	return protocol
+}
 
+func JsonTest(t *testing.T, protocol link.Protocol) {
 	var stream bytes.Buffer
+
+	codec := protocol.NewCodec(&stream)
 
 	sendMsg1 := MyMessage1{
 		Field1: "abc",
 		Field2: 123,
 	}
 
-	codec := protocol.NewCodec(&stream)
 	err := codec.Send(&sendMsg1)
 	if err != nil {
 		t.Fatal(err)
@@ -97,4 +103,9 @@ func Test_Json(t *testing.T) {
 	if recvMepLevel2["Field1"].(string) != "abc" {
 		t.Fatalf("map not match %v", recvMepLevel2)
 	}
+}
+
+func Test_Json(t *testing.T) {
+	protocol := JsonTestProtocol()
+	JsonTest(t, protocol)
 }
