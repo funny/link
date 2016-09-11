@@ -7,7 +7,7 @@ import (
 )
 
 type Protocol interface {
-	NewCodec(rw io.ReadWriter) Codec
+	NewCodec(rw io.ReadWriter) (Codec, error)
 }
 
 type Codec interface {
@@ -29,7 +29,11 @@ func Connect(network, address string, protocol Protocol, sendChanSize int) (*Ses
 	if err != nil {
 		return nil, err
 	}
-	return NewSession(protocol.NewCodec(conn), sendChanSize), nil
+	codec, err := protocol.NewCodec(conn)
+	if err != nil {
+		return nil, err
+	}
+	return NewSession(codec, sendChanSize), nil
 }
 
 func ConnectTimeout(network, address string, timeout time.Duration, protocol Protocol, sendChanSize int) (*Session, error) {
@@ -37,5 +41,9 @@ func ConnectTimeout(network, address string, timeout time.Duration, protocol Pro
 	if err != nil {
 		return nil, err
 	}
-	return NewSession(protocol.NewCodec(conn), sendChanSize), nil
+	codec, err := protocol.NewCodec(conn)
+	if err != nil {
+		return nil, err
+	}
+	return NewSession(codec, sendChanSize), nil
 }

@@ -55,23 +55,15 @@ func main() {
 
 	server, err := link.Serve("tcp", "0.0.0.0:0", json, 0 /* sync send */)
 	checkErr(err)
-	go serverLoop(server)
 	addr := server.Listener().Addr().String()
+	go server.Serve(link.HandlerFunc(sessionLoop))
 
 	client, err := link.Connect("tcp", addr, json, 0)
 	checkErr(err)
 	clientLoop(client)
 }
 
-func serverLoop(server *link.Server) {
-	for {
-		session, err := server.Accept()
-		checkErr(err)
-		go sessionLoop(session)
-	}
-}
-
-func sessionLoop(session *link.Session) {
+func sessionLoop(session *link.Session, _ error) {
 	for {
 		req, err := session.Receive()
 		checkErr(err)
@@ -85,13 +77,13 @@ func sessionLoop(session *link.Session) {
 
 func clientLoop(session *link.Session) {
 	for i := 0; i < 10; i++ {
-		err := client.Send(&AddReq{
+		err := session.Send(&AddReq{
 			i, i,
 		})
 		checkErr(err)
 		log.Printf("Send: %d + %d", i, i)
 
-		rsp, err := client.Receive()
+		rsp, err := session.Receive()
 		checkErr(err)
 		log.Printf("Receive: %d", rsp.(*AddRsp).C)
 	}
