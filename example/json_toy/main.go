@@ -3,8 +3,8 @@ package main
 import (
 	"log"
 
-	"github.com/fastgo/link"
-	"github.com/fastgo/link/codec"
+	"github.com/funny/link"
+	"github.com/funny/link/codec"
 )
 
 type AddReq struct {
