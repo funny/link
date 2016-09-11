@@ -3,8 +3,8 @@ package main
 import (
 	"log"
 
-	"github.com/funny/link"
-	"github.com/funny/link/codec"
+	"github.com/fastgo/link"
+	"github.com/fastgo/link/codec"
 )
 
 type AddReq struct {
@@ -22,23 +22,15 @@ func main() {
 
 	server, err := link.Serve("tcp", "0.0.0.0:0", json, 0 /* sync send */)
 	checkErr(err)
-	go serverLoop(server)
 	addr := server.Listener().Addr().String()
+	go server.Serve(link.HandlerFunc(sessionLoop))
 
 	client, err := link.Connect("tcp", addr, json, 0)
 	checkErr(err)
 	clientLoop(client)
 }
 
-func serverLoop(server *link.Server) {
-	for {
-		session, err := server.Accept()
-		checkErr(err)
-		go sessionLoop(session)
-	}
-}
-
-func sessionLoop(session *link.Session) {
+func sessionLoop(session *link.Session, _ error) {
 	for {
 		req, err := session.Receive()
 		checkErr(err)

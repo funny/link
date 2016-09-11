@@ -5,7 +5,7 @@ import (
 	"io"
 	"reflect"
 
-	"github.com/funny/link"
+	"github.com/fastgo/link"
 )
 
 type JsonProtocol struct {
@@ -39,14 +39,14 @@ func (j *JsonProtocol) RegisterName(name string, t interface{}) {
 	j.names[rt] = name
 }
 
-func (j *JsonProtocol) NewCodec(rw io.ReadWriter) link.Codec {
+func (j *JsonProtocol) NewCodec(rw io.ReadWriter) (link.Codec, error) {
 	codec := &jsonCodec{
 		p:       j,
 		encoder: json.NewEncoder(rw),
 		decoder: json.NewDecoder(rw),
 	}
 	codec.closer, _ = rw.(io.Closer)
-	return codec
+	return codec, nil
 }
 
 type jsonIn struct {
