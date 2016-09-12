@@ -41,15 +41,15 @@ type Server struct {
 }
 
 type Handler interface {
-	HandleSession(session *Session, err error)
+	HandleSession(session *Session, ctx Context, err error)
 }
 
 var _ Handler = HandlerFunc(nil)
 
-type HandlerFunc func(session *Session, err error)
+type HandlerFunc func(session *Session, ctx Context, err error)
 
-func (hf HandlerFunc) HandleSession(session *Session, err error) {
-	hf(session, err)
+func (hf HandlerFunc) HandleSession(session *Session, ctx Context, err error) {
+	hf(session, ctx, err)
 }
 
 func NewServer(l net.Listener, p Protocol, sendChanSize int) *Server {
@@ -73,15 +73,14 @@ func (server *Server) Serve(handler Handler) error {
 		}
 
 		go func() {
-			codec, err := server.protocol.NewCodec(conn)
+			codec, ctx, err := server.protocol.NewCodec(conn)
 			if err != nil {
-				handler.HandleSession(nil, err)
+				handler.HandleSession(nil, nil, err)
 				conn.Close()
 				return
 			}
-
 			session := server.manager.NewSession(codec, server.sendChanSize)
-			handler.HandleSession(session, nil)
+			handler.HandleSession(session, ctx, nil)
 		}()
 	}
 }
