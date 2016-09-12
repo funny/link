@@ -71,12 +71,15 @@ func (server *Server) Serve(handler Handler) error {
 		if err != nil {
 			return err
 		}
+
 		go func() {
 			codec, err := server.protocol.NewCodec(conn)
 			if err != nil {
 				handler.HandleSession(nil, err)
+				conn.Close()
 				return
 			}
+
 			session := server.manager.NewSession(codec, server.sendChanSize)
 			handler.HandleSession(session, nil)
 		}()
