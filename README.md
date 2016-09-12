@@ -58,12 +58,12 @@ func main() {
 	addr := server.Listener().Addr().String()
 	go server.Serve(link.HandlerFunc(sessionLoop))
 
-	client, err := link.Connect("tcp", addr, json, 0)
+	client, _, err := link.Connect("tcp", addr, json, 0)
 	checkErr(err)
 	clientLoop(client)
 }
 
-func sessionLoop(session *link.Session, _ error) {
+func sessionLoop(session *link.Session, _ link.Context, _ error) {
 	for {
 		req, err := session.Receive()
 		checkErr(err)
