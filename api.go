@@ -12,6 +12,12 @@ type Protocol interface {
 	NewCodec(rw io.ReadWriter) (Codec, Context, error)
 }
 
+type ProtocolFunc func(rw io.ReadWriter) (Codec, Context, error)
+
+func (pf ProtocolFunc) NewCodec(rw io.ReadWriter) (Codec, Context, error) {
+	return pf(rw)
+}
+
 type Codec interface {
 	Receive() (interface{}, error)
 	Send(interface{}) error
