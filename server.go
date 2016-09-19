@@ -85,6 +85,10 @@ func (server *Server) Serve(handler Handler) error {
 	}
 }
 
+func (server *Server) GetSession(sessionID uint64) *Session {
+	return server.manager.GetSession(sessionID)
+}
+
 func (server *Server) Stop() {
 	server.listener.Close()
 	server.manager.Dispose()
