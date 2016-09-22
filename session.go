@@ -106,7 +106,7 @@ func (session *Session) Send(msg interface{}) (err error) {
 	}
 }
 
-func (session *Session) SendChan() <-chan interface{} {
+func (session *Session) SendChan() chan interface{} {
 	return session.sendChan
 }
 
