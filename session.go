@@ -106,6 +106,10 @@ func (session *Session) Send(msg interface{}) (err error) {
 	}
 }
 
+func (session *Session) SendChan() <-chan interface{} {
+	return session.sendChan
+}
+
 type closeCallback struct {
 	Handler interface{}
 	Func    func()
