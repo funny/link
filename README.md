@@ -143,9 +143,17 @@ go run channel_gen.go Uint64Channel uint64 channel_uint64.go
 
 提示： 使用`Channel.Fetch()`进行遍历发送广播的时候，请注意存在IO阻塞的可能，如果IO阻塞会影响业务处理，就需要使用异步发送，关于异步发送请参考`codec_async.go`的说明。
 
-附录
+相关项目
 ====
 
-* 网关 - [https://github.com/funny/gateway](https://github.com/funny/gateway)
-* 内存池 - [https://github.com/funny/slab](https://github.com/funny/slab)
-* 通讯协议 - [https://github.com/funny/fastbin](https://github.com/funny/fastbin)
+* [通讯协议代码生成](https://github.com/funny/fastbin)
+* [用link开发的网关](https://github.com/funny/fastway)
+* [slab算法的内存池](https://github.com/funny/slab)
+* [支持断线重连和加密的流协议](https://github.com/funny/snet)
+
+参与项目
+=======
+
+欢迎提交通过github的issues功能提交反馈或提问。
+
+技术群：474995422
