@@ -21,7 +21,7 @@ type bufioProtocol struct {
 	writeBuf int
 }
 
-func (b *bufioProtocol) NewCodec(rw io.ReadWriter) (cc link.Codec, ctx link.Context, err error) {
+func (b *bufioProtocol) NewCodec(rw io.ReadWriter) (cc link.Codec, err error) {
 	codec := new(bufioCodec)
 
 	if b.writeBuf > 0 {
@@ -39,7 +39,7 @@ func (b *bufioProtocol) NewCodec(rw io.ReadWriter) (cc link.Codec, ctx link.Cont
 
 	codec.stream.c, _ = rw.(io.Closer)
 
-	codec.base, ctx, err = b.base.NewCodec(&codec.stream)
+	codec.base, err = b.base.NewCodec(&codec.stream)
 	if err != nil {
 		return
 	}

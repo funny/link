@@ -3,18 +3,17 @@ package link
 import (
 	"io"
 	"net"
+	"strings"
 	"time"
 )
 
-type Context interface{}
-
 type Protocol interface {
-	NewCodec(rw io.ReadWriter) (Codec, Context, error)
+	NewCodec(rw io.ReadWriter) (Codec, error)
 }
 
-type ProtocolFunc func(rw io.ReadWriter) (Codec, Context, error)
+type ProtocolFunc func(rw io.ReadWriter) (Codec, error)
 
-func (pf ProtocolFunc) NewCodec(rw io.ReadWriter) (Codec, Context, error) {
+func (pf ProtocolFunc) NewCodec(rw io.ReadWriter) (Codec, error) {
 	return pf(rw)
 }
 
@@ -32,26 +31,52 @@ func Serve(network, address string, protocol Protocol, sendChanSize int) (*Serve
 	return NewServer(listener, protocol, sendChanSize), nil
 }
 
-func Connect(network, address string, protocol Protocol, sendChanSize int) (*Session, Context, error) {
+func Connect(network, address string, protocol Protocol, sendChanSize int) (*Session, error) {
 	conn, err := net.Dial(network, address)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	codec, ctx, err := protocol.NewCodec(conn)
+	codec, err := protocol.NewCodec(conn)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return NewSession(codec, sendChanSize), ctx, nil
+	return NewSession(codec, sendChanSize), nil
 }
 
-func ConnectTimeout(network, address string, timeout time.Duration, protocol Protocol, sendChanSize int) (*Session, Context, error) {
+func ConnectTimeout(network, address string, timeout time.Duration, protocol Protocol, sendChanSize int) (*Session, error) {
 	conn, err := net.DialTimeout(network, address, timeout)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	codec, ctx, err := protocol.NewCodec(conn)
+	codec, err := protocol.NewCodec(conn)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return NewSession(codec, sendChanSize), ctx, nil
+	return NewSession(codec, sendChanSize), nil
+}
+
+func Accept(listener net.Listener) (net.Conn, error) {
+	var tempDelay time.Duration
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			if ne, ok := err.(net.Error); ok && ne.Temporary() {
+				if tempDelay == 0 {
+					tempDelay = 5 * time.Millisecond
+				} else {
+					tempDelay *= 2
+				}
+				if max := 1 * time.Second; tempDelay > max {
+					tempDelay = max
+				}
+				time.Sleep(tempDelay)
+				continue
+			}
+			if strings.Contains(err.Error(), "use of closed network connection") {
+				return nil, io.EOF
+			}
+			return nil, err
+		}
+		return conn, nil
+	}
 }

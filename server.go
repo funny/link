@@ -1,37 +1,6 @@
 package link
 
-import (
-	"io"
-	"net"
-	"strings"
-	"time"
-)
-
-func Accept(listener net.Listener) (net.Conn, error) {
-	var tempDelay time.Duration
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			if ne, ok := err.(net.Error); ok && ne.Temporary() {
-				if tempDelay == 0 {
-					tempDelay = 5 * time.Millisecond
-				} else {
-					tempDelay *= 2
-				}
-				if max := 1 * time.Second; tempDelay > max {
-					tempDelay = max
-				}
-				time.Sleep(tempDelay)
-				continue
-			}
-			if strings.Contains(err.Error(), "use of closed network connection") {
-				return nil, io.EOF
-			}
-			return nil, err
-		}
-		return conn, nil
-	}
-}
+import "net"
 
 type Server struct {
 	manager      *Manager
@@ -41,15 +10,15 @@ type Server struct {
 }
 
 type Handler interface {
-	HandleSession(session *Session, ctx Context, err error)
+	HandleSession(*Session)
 }
 
 var _ Handler = HandlerFunc(nil)
 
-type HandlerFunc func(session *Session, ctx Context, err error)
+type HandlerFunc func(*Session)
 
-func (hf HandlerFunc) HandleSession(session *Session, ctx Context, err error) {
-	hf(session, ctx, err)
+func (f HandlerFunc) HandleSession(session *Session) {
+	f(session)
 }
 
 func NewServer(l net.Listener, p Protocol, sendChanSize int) *Server {
@@ -73,13 +42,13 @@ func (server *Server) Serve(handler Handler) error {
 		}
 
 		go func() {
-			codec, ctx, err := server.protocol.NewCodec(conn)
+			codec, err := server.protocol.NewCodec(conn)
 			if err != nil {
 				conn.Close()
 				return
 			}
 			session := server.manager.NewSession(codec, server.sendChanSize)
-			handler.HandleSession(session, ctx, nil)
+			handler.HandleSession(session)
 		}()
 	}
 }
