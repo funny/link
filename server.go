@@ -75,7 +75,6 @@ func (server *Server) Serve(handler Handler) error {
 		go func() {
 			codec, ctx, err := server.protocol.NewCodec(conn)
 			if err != nil {
-				handler.HandleSession(nil, nil, err)
 				conn.Close()
 				return
 			}
