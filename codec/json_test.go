@@ -27,7 +27,7 @@ func JsonTestProtocol() *JsonProtocol {
 func JsonTest(t *testing.T, protocol link.Protocol) {
 	var stream bytes.Buffer
 
-	codec, _, _ := protocol.NewCodec(&stream)
+	codec, _ := protocol.NewCodec(&stream)
 
 	sendMsg1 := MyMessage1{
 		Field1: "abc",
