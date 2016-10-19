@@ -13,10 +13,11 @@ var SessionBlockedError = errors.New("Session Blocked")
 var globalSessionId uint64
 
 type Session struct {
-	id       uint64
-	codec    Codec
-	manager  *Manager
-	sendChan chan interface{}
+	id        uint64
+	codec     Codec
+	manager   *Manager
+	sendChan  chan interface{}
+	sendMutex sync.RWMutex
 
 	closeFlag      int32
 	closeChan      chan int
@@ -54,8 +55,18 @@ func (session *Session) IsClosed() bool {
 
 func (session *Session) Close() error {
 	if atomic.CompareAndSwapInt32(&session.closeFlag, 0, 1) {
-		err := session.codec.Close()
 		close(session.closeChan)
+
+		if session.sendChan != nil {
+			session.sendMutex.Lock()
+			close(session.sendChan)
+			if clear, ok := session.codec.(ClearSendChan); ok {
+				clear.ClearSendChan(session.sendChan)
+			}
+			session.sendMutex.Unlock()
+		}
+
+		err := session.codec.Close()
 		if session.manager != nil {
 			session.manager.delSession(session)
 		}
@@ -91,23 +102,32 @@ func (session *Session) sendLoop() {
 	}
 }
 
-func (session *Session) Send(msg interface{}) (err error) {
+func (session *Session) Send(msg interface{}) error {
 	if session.IsClosed() {
 		return SessionClosedError
 	}
+
 	if session.sendChan == nil {
-		return session.codec.Send(msg)
+		err := session.codec.Send(msg)
+		if err != nil {
+			session.Close()
+		}
+		return err
 	}
+
+	session.sendMutex.RLock()
 	select {
 	case session.sendChan <- msg:
+		session.sendMutex.RUnlock()
 		return nil
+	case <-session.closeChan:
+		session.sendMutex.RUnlock()
+		return SessionClosedError
 	default:
+		session.sendMutex.RUnlock()
+		session.Close()
 		return SessionBlockedError
 	}
-}
-
-func (session *Session) SendChan() chan interface{} {
-	return session.sendChan
 }
 
 type closeCallback struct {

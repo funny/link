@@ -23,6 +23,10 @@ type Codec interface {
 	Close() error
 }
 
+type ClearSendChan interface {
+	ClearSendChan(<-chan interface{})
+}
+
 func Serve(network, address string, protocol Protocol, sendChanSize int) (*Server, error) {
 	listener, err := net.Listen(network, address)
 	if err != nil {
