@@ -26,7 +26,7 @@ type TestCodec struct {
 	rw io.ReadWriteCloser
 }
 
-func (c TestCodec) Send(msg interface{}) error {
+func (c *TestCodec) Send(msg interface{}) error {
 	var head [2]byte
 	binary.LittleEndian.PutUint16(head[:], uint16(len(msg.([]byte))))
 	_, err := c.rw.Write(head[:])
@@ -40,7 +40,7 @@ func (c TestCodec) Send(msg interface{}) error {
 	return nil
 }
 
-func (c TestCodec) Receive() (interface{}, error) {
+func (c *TestCodec) Receive() (interface{}, error) {
 	var head [2]byte
 	_, err := io.ReadFull(c.rw, head[:])
 	if err != nil {
@@ -55,11 +55,11 @@ func (c TestCodec) Receive() (interface{}, error) {
 	return buf, nil
 }
 
-func (c TestCodec) Close() error {
+func (c *TestCodec) Close() error {
 	return c.rw.Close()
 }
 
-func (c TestCodec) ClearSendChan(ch <-chan interface{}) {
+func (c *TestCodec) ClearSendChan(ch <-chan interface{}) {
 	for _ = range ch {
 	}
 }
