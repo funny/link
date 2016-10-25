@@ -1,15 +1,10 @@
-// +build generate
-
-//go:generate go run channel_gen.go Int32Channel int32 channel_int32.go
-//go:generate go run channel_gen.go Uint32Channel uint32 channel_uint32.go
-//go:generate go run channel_gen.go Int64Channel int64 channel_int64.go
-//go:generate go run channel_gen.go Uint64Channel uint64 channel_uint64.go
-//go:generate go run channel_gen.go StringChannel string channel_string.go
 package link
 
 import (
 	"sync"
 )
+
+type KEY interface{}
 
 type Channel struct {
 	mutex    sync.RWMutex
