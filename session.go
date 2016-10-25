@@ -160,8 +160,8 @@ func (session *Session) RemoveCloseCallback(handler, key interface{}) {
 	defer session.closeMutex.Unlock()
 
 	for i := session.closeCallbacks.Front(); i != nil; i = i.Next() {
-		item := i.Value.(*closeCallback)
-		if item.Handler == handler && item.Key == key {
+		callback := i.Value.(*closeCallback)
+		if callback.Handler == handler && callback.Key == key {
 			session.closeCallbacks.Remove(i)
 			return
 		}
@@ -177,7 +177,7 @@ func (session *Session) invokeCloseCallbacks() {
 	}
 
 	for i := session.closeCallbacks.Front(); i != nil; i = i.Next() {
-		callback := i.Value.(closeCallback)
+		callback := i.Value.(*closeCallback)
 		callback.Func()
 	}
 }
