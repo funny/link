@@ -4,14 +4,13 @@ go:
   - 1.7
 
 install:
-    - go get github.com/mattn/goveralls
     - go get -t -v ./...
 
 script:
     - go vet -x
     - go test -v -race
     - go test -v -race github.com/funny/link/codec
-    - go test -v -covermode=count -coverprofile=profile.cov
+    - go test -v -coverprofile=coverage.txt -covermode=atomic 
 
-after_script:
-    - $HOME/gopath/bin/goveralls -coverprofile=profile.cov -service=travis-ci
+after_success:
+    - bash <(curl -s https://codecov.io/bash)
