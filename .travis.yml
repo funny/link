@@ -5,7 +5,7 @@ go:
 
 install:
     - go get github.com/mattn/goveralls
-    - go get -d -v ./...
+    - go get -t -v ./...
 
 script:
     - go vet -x
