@@ -143,7 +143,6 @@ func Test_Channel(t *testing.T) {
 			})
 		}
 		channel.Close()
-		close(waitTestDone)
 	}()
 
 	clientWait := new(sync.WaitGroup)
@@ -176,6 +175,8 @@ func Test_Channel(t *testing.T) {
 			}
 
 			session.Close()
+
+			close(waitTestDone)
 		}()
 	}
 	clientWait.Wait()
