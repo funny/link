@@ -1,8 +1,132 @@
 package link
 
 import (
+	"bytes"
+	"encoding/binary"
+	"io"
+	"math/rand"
+	"sync"
 	"testing"
+	"time"
+
+	"github.com/funny/utest"
 )
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
+func NewTestCodec(rw io.ReadWriter) (Codec, error) {
+	return &TestCodec{
+		rw: rw.(io.ReadWriteCloser),
+	}, nil
+}
+
+type TestCodec struct {
+	rw io.ReadWriteCloser
+}
+
+func (c TestCodec) Send(msg interface{}) error {
+	var head [2]byte
+	binary.LittleEndian.PutUint16(head[:], uint16(len(msg.([]byte))))
+	_, err := c.rw.Write(head[:])
+	if err != nil {
+		return err
+	}
+	_, err = c.rw.Write(msg.([]byte))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c TestCodec) Receive() (interface{}, error) {
+	var head [2]byte
+	_, err := io.ReadFull(c.rw, head[:])
+	if err != nil {
+		return nil, err
+	}
+	n := binary.LittleEndian.Uint16(head[:])
+	buf := make([]byte, n)
+	_, err = io.ReadFull(c.rw, buf)
+	if err != nil {
+		return nil, err
+	}
+	return buf, nil
+}
+
+func (c TestCodec) Close() error {
+	return c.rw.Close()
+}
+
+func (c TestCodec) ClearSendChan(ch <-chan interface{}) {
+	for _ = range ch {
+	}
+}
+
+func RandBytes(n int) []byte {
+	n = rand.Intn(n) + 1
+	b := make([]byte, n)
+	for i := 0; i < n; i++ {
+		b[i] = byte(rand.Intn(255))
+	}
+	return b
+}
+
+func SessionTest(t *testing.T, sendChanSize int, test func(*testing.T, *Session)) {
+	server, err := Serve("tcp", "0.0.0.0:0", ProtocolFunc(NewTestCodec), sendChanSize)
+	utest.IsNilNow(t, err)
+	addr := server.Listener().Addr().String()
+
+	go server.Serve(HandlerFunc(func(session *Session) {
+		defer session.Close()
+		for {
+			msg, err := session.Receive()
+			if err != nil {
+				return
+			}
+			err = session.Send(msg)
+			if err != nil {
+				return
+			}
+		}
+	}))
+
+	clientWait := new(sync.WaitGroup)
+	for i := 0; i < 60; i++ {
+		clientWait.Add(1)
+		go func() {
+			session, err := Connect("tcp", addr, ProtocolFunc(NewTestCodec), sendChanSize)
+			utest.IsNilNow(t, err)
+			test(t, session)
+			session.Close()
+			clientWait.Done()
+		}()
+	}
+	clientWait.Wait()
+
+	server.Stop()
+}
+
+func BytesTest(t *testing.T, session *Session) {
+	for i := 0; i < 2000; i++ {
+		msg1 := RandBytes(512)
+		err := session.Send(msg1)
+		utest.IsNilNow(t, err)
+
+		msg2, err := session.Receive()
+		utest.IsNilNow(t, err)
+		utest.Assert(t, bytes.Equal(msg1, msg2.([]byte)))
+	}
+}
+
+func Test_Sync(t *testing.T) {
+	SessionTest(t, 0, BytesTest)
+}
+
+func Test_Async(t *testing.T) {
+	SessionTest(t, 1024, BytesTest)
+}
 
 func Benchmark_BytesToInterface(b *testing.B) {
 	var a = []byte{}
