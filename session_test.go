@@ -129,12 +129,16 @@ func Test_Async(t *testing.T) {
 }
 
 func Test_Channel(t *testing.T) {
-	channel := NewChannel()
-	waitClientReady := make(chan struct{})
 	waitTestDone := make(chan struct{})
+
+	channel := NewChannel()
 	testMessages := make([][]byte, 2000)
+
+	waitClientReady := new(sync.WaitGroup)
+	waitClientReady.Add(60)
 	go func() {
-		<-waitClientReady
+		waitClientReady.Wait()
+
 		for i := 0; i < 2000; i++ {
 			msg := RandBytes(128)
 			testMessages[i] = msg
@@ -142,13 +146,16 @@ func Test_Channel(t *testing.T) {
 				s.Send(testMessages[i])
 			})
 		}
+
+		<-waitTestDone
+
 		channel.Close()
 	}()
 
-	clientWait := new(sync.WaitGroup)
 	server, err := Listen("tcp", "0.0.0.0:0", ProtocolFunc(NewTestCodec), 2000)
 	utest.IsNilNow(t, err)
 	addr := server.Listener().Addr().String()
+
 	go server.Serve(HandlerFunc(func(session *Session) {
 		defer session.Close()
 		channel.Put(session.ID(), session)
@@ -158,12 +165,16 @@ func Test_Channel(t *testing.T) {
 		utest.EqualNow(t, channel.Get(session.ID()), nil)
 
 		channel.Put(session.ID(), session)
-		clientWait.Done()
+
+		waitClientReady.Done()
+
 		<-waitTestDone
 	}))
 
+	waitTestFinish := new(sync.WaitGroup)
 	for i := 0; i < 60; i++ {
-		clientWait.Add(1)
+		waitTestFinish.Add(1)
+
 		go func() {
 			session, err := DialTimeout("tcp", addr, time.Second, ProtocolFunc(NewTestCodec), 0)
 			utest.IsNilNow(t, err)
@@ -176,12 +187,12 @@ func Test_Channel(t *testing.T) {
 
 			session.Close()
 
-			close(waitTestDone)
+			waitTestFinish.Done()
 		}()
 	}
-	clientWait.Wait()
-	close(waitClientReady)
-	<-waitTestDone
+	waitTestFinish.Wait()
+
+	close(waitTestDone)
 
 	server.Stop()
 }
