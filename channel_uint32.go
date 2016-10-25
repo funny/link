@@ -48,14 +48,14 @@ func (channel *Uint32Channel) Put(key uint32, session *Session) {
 	if session, exists := channel.sessions[key]; exists {
 		channel.remove(key, session)
 	}
-	session.addCloseCallback(channel, func() {
+	session.AddCloseCallback(channel, key, func() {
 		channel.Remove(key)
 	})
 	channel.sessions[key] = session
 }
 
 func (channel *Uint32Channel) remove(key uint32, session *Session) {
-	session.removeCloseCallback(channel)
+	session.RemoveCloseCallback(channel, key)
 	delete(channel.sessions, key)
 }
 

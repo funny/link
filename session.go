@@ -132,10 +132,11 @@ func (session *Session) Send(msg interface{}) error {
 
 type closeCallback struct {
 	Handler interface{}
+	Key     interface{}
 	Func    func()
 }
 
-func (session *Session) addCloseCallback(handler interface{}, callback func()) {
+func (session *Session) AddCloseCallback(handler, key interface{}, callback func()) {
 	if session.IsClosed() {
 		return
 	}
@@ -147,10 +148,10 @@ func (session *Session) addCloseCallback(handler interface{}, callback func()) {
 		session.closeCallbacks = list.New()
 	}
 
-	session.closeCallbacks.PushBack(closeCallback{handler, callback})
+	session.closeCallbacks.PushBack(&closeCallback{handler, key, callback})
 }
 
-func (session *Session) removeCloseCallback(handler interface{}) {
+func (session *Session) RemoveCloseCallback(handler, key interface{}) {
 	if session.IsClosed() {
 		return
 	}
@@ -159,7 +160,8 @@ func (session *Session) removeCloseCallback(handler interface{}) {
 	defer session.closeMutex.Unlock()
 
 	for i := session.closeCallbacks.Front(); i != nil; i = i.Next() {
-		if i.Value.(closeCallback).Handler == handler {
+		item := i.Value.(*closeCallback)
+		if item.Handler == handler && item.Key == key {
 			session.closeCallbacks.Remove(i)
 			return
 		}
