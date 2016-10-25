@@ -74,7 +74,7 @@ func RandBytes(n int) []byte {
 }
 
 func SessionTest(t *testing.T, sendChanSize int, test func(*testing.T, *Session)) {
-	server, err := Serve("tcp", "0.0.0.0:0", ProtocolFunc(NewTestCodec), sendChanSize)
+	server, err := Listen("tcp", "0.0.0.0:0", ProtocolFunc(NewTestCodec), sendChanSize)
 	utest.IsNilNow(t, err)
 	addr := server.Listener().Addr().String()
 
@@ -96,7 +96,7 @@ func SessionTest(t *testing.T, sendChanSize int, test func(*testing.T, *Session)
 	for i := 0; i < 60; i++ {
 		clientWait.Add(1)
 		go func() {
-			session, err := Connect("tcp", addr, ProtocolFunc(NewTestCodec), sendChanSize)
+			session, err := Dial("tcp", addr, ProtocolFunc(NewTestCodec), sendChanSize)
 			utest.IsNilNow(t, err)
 			test(t, session)
 			session.Close()
@@ -126,6 +126,63 @@ func Test_Sync(t *testing.T) {
 
 func Test_Async(t *testing.T) {
 	SessionTest(t, 1024, BytesTest)
+}
+
+func Test_Channel(t *testing.T) {
+	channel := NewChannel()
+	waitClientReady := make(chan struct{})
+	waitTestDone := make(chan struct{})
+	testMessages := make([][]byte, 2000)
+	go func() {
+		<-waitClientReady
+		for i := 0; i < 2000; i++ {
+			msg := RandBytes(128)
+			testMessages[i] = msg
+			channel.Fetch(func(s *Session) {
+				s.Send(testMessages[i])
+			})
+		}
+		channel.Close()
+		close(waitTestDone)
+	}()
+
+	clientWait := new(sync.WaitGroup)
+	server, err := Listen("tcp", "0.0.0.0:0", ProtocolFunc(NewTestCodec), 2000)
+	utest.IsNilNow(t, err)
+	addr := server.Listener().Addr().String()
+	go server.Serve(HandlerFunc(func(session *Session) {
+		defer session.Close()
+		channel.Put(session.ID(), session)
+
+		utest.EqualNow(t, channel.Get(session.ID()), session)
+		utest.Assert(t, channel.Remove(session.ID()))
+		utest.EqualNow(t, channel.Get(session.ID()), nil)
+
+		channel.Put(session.ID(), session)
+		clientWait.Done()
+		<-waitTestDone
+	}))
+
+	for i := 0; i < 60; i++ {
+		clientWait.Add(1)
+		go func() {
+			session, err := DialTimeout("tcp", addr, time.Second, ProtocolFunc(NewTestCodec), 0)
+			utest.IsNilNow(t, err)
+
+			for j := 0; j < 2000; j++ {
+				msg, err := session.Receive()
+				utest.IsNilNow(t, err)
+				utest.EqualNow(t, msg.([]byte), testMessages[j])
+			}
+
+			session.Close()
+		}()
+	}
+	clientWait.Wait()
+	close(waitClientReady)
+	<-waitTestDone
+
+	server.Stop()
 }
 
 func Benchmark_BytesToInterface(b *testing.B) {
