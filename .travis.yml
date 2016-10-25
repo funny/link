@@ -9,7 +9,8 @@ install:
 
 script:
     - go vet -x
-    - go test -covermode=count -coverprofile=profile.cov -v github.com/funny/link/codec
+    - go test -covermode=count -coverprofile=profile.cov -v
+    - go test -v github.com/funny/link/codec
 
 after_script:
     - $HOME/gopath/bin/goveralls -coverprofile=profile.cov -service=travis-ci
