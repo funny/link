@@ -120,6 +120,29 @@ func BytesTest(t *testing.T, session *Session) {
 	}
 }
 
+func Test_CloseCallback(t *testing.T) {
+	session := newSession(nil, nil, 0)
+
+	c := make(chan int, 10)
+	for i := 0; i < 10; i++ {
+		func(n int) {
+			callback := func() {
+				c <- n
+			}
+			session.AddCloseCallback(nil, n, callback)
+			session.RemoveCloseCallback(nil, n)
+			session.AddCloseCallback(nil, n, callback)
+		}(i)
+	}
+
+	session.invokeCloseCallbacks()
+
+	for i := 0; i < 10; i++ {
+		n := <-c
+		utest.EqualNow(t, i, n)
+	}
+}
+
 func Test_Sync(t *testing.T) {
 	SessionTest(t, 0, BytesTest)
 }
