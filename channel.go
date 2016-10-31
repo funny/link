@@ -26,7 +26,6 @@ func (channel *Channel) Len() int {
 	return len(channel.sessions)
 }
 
-// Fetch the sessions. NOTE: Dead lock happends if invoke Exit() in fetch callback.
 func (channel *Channel) Fetch(callback func(*Session)) {
 	channel.mutex.RLock()
 	defer channel.mutex.RUnlock()
@@ -67,6 +66,16 @@ func (channel *Channel) Remove(key KEY) bool {
 		channel.remove(key, session)
 	}
 	return exists
+}
+
+func (channel *Channel) FetchAndRemove(callback func(*Session)) {
+	channel.mutex.Lock()
+	defer channel.mutex.Unlock()
+	for key, session := range channel.sessions {
+		session.RemoveCloseCallback(channel, key)
+		delete(channel.sessions, key)
+		callback(session)
+	}
 }
 
 func (channel *Channel) Close() {
