@@ -103,11 +103,11 @@ func (session *Session) sendLoop() {
 }
 
 func (session *Session) Send(msg interface{}) error {
-	if session.IsClosed() {
-		return SessionClosedError
-	}
-
 	if session.sendChan == nil {
+		if session.IsClosed() {
+			return SessionClosedError
+		}
+
 		err := session.codec.Send(msg)
 		if err != nil {
 			session.Close()
@@ -116,13 +116,14 @@ func (session *Session) Send(msg interface{}) error {
 	}
 
 	session.sendMutex.RLock()
+	if session.IsClosed() {
+		return SessionClosedError
+	}
+
 	select {
 	case session.sendChan <- msg:
 		session.sendMutex.RUnlock()
 		return nil
-	case <-session.closeChan:
-		session.sendMutex.RUnlock()
-		return SessionClosedError
 	default:
 		session.sendMutex.RUnlock()
 		session.Close()
