@@ -27,12 +27,12 @@ type ClearSendChan interface {
 	ClearSendChan(<-chan interface{})
 }
 
-func Listen(network, address string, protocol Protocol, sendChanSize int) (*Server, error) {
+func Listen(network, address string, protocol Protocol, sendChanSize int, handler Handler) (*Server, error) {
 	listener, err := net.Listen(network, address)
 	if err != nil {
 		return nil, err
 	}
-	return NewServer(listener, protocol, sendChanSize), nil
+	return NewServer(listener, protocol, sendChanSize, handler), nil
 }
 
 func Dial(network, address string, protocol Protocol, sendChanSize int) (*Session, error) {

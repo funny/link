@@ -6,6 +6,7 @@ type Server struct {
 	manager      *Manager
 	listener     net.Listener
 	protocol     Protocol
+	handler      Handler
 	sendChanSize int
 }
 
@@ -21,11 +22,12 @@ func (f HandlerFunc) HandleSession(session *Session) {
 	f(session)
 }
 
-func NewServer(l net.Listener, p Protocol, sendChanSize int) *Server {
+func NewServer(listener net.Listener, protocol Protocol, sendChanSize int, handler Handler) *Server {
 	return &Server{
 		manager:      NewManager(),
-		listener:     l,
-		protocol:     p,
+		listener:     listener,
+		protocol:     protocol,
+		handler:      handler,
 		sendChanSize: sendChanSize,
 	}
 }
@@ -34,7 +36,7 @@ func (server *Server) Listener() net.Listener {
 	return server.listener
 }
 
-func (server *Server) Serve(handler Handler) error {
+func (server *Server) Serve() error {
 	for {
 		conn, err := Accept(server.listener)
 		if err != nil {
@@ -48,7 +50,7 @@ func (server *Server) Serve(handler Handler) error {
 				return
 			}
 			session := server.manager.NewSession(codec, server.sendChanSize)
-			handler.HandleSession(session)
+			server.handler.HandleSession(session)
 		}()
 	}
 }

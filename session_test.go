@@ -74,11 +74,7 @@ func RandBytes(n int) []byte {
 }
 
 func SessionTest(t *testing.T, sendChanSize int, test func(*testing.T, *Session)) {
-	server, err := Listen("tcp", "0.0.0.0:0", ProtocolFunc(NewTestCodec), sendChanSize)
-	utest.IsNilNow(t, err)
-	addr := server.Listener().Addr().String()
-
-	go server.Serve(HandlerFunc(func(session *Session) {
+	server, err := Listen("tcp", "0.0.0.0:0", ProtocolFunc(NewTestCodec), sendChanSize, HandlerFunc(func(session *Session) {
 		defer session.Close()
 		for {
 			msg, err := session.Receive()
@@ -91,6 +87,10 @@ func SessionTest(t *testing.T, sendChanSize int, test func(*testing.T, *Session)
 			}
 		}
 	}))
+	utest.IsNilNow(t, err)
+	go server.Serve()
+
+	addr := server.Listener().Addr().String()
 
 	clientWait := new(sync.WaitGroup)
 	for i := 0; i < 60; i++ {
@@ -175,11 +175,7 @@ func Test_Channel(t *testing.T) {
 		channel.Close()
 	}()
 
-	server, err := Listen("tcp", "0.0.0.0:0", ProtocolFunc(NewTestCodec), 2000)
-	utest.IsNilNow(t, err)
-	addr := server.Listener().Addr().String()
-
-	go server.Serve(HandlerFunc(func(session *Session) {
+	server, err := Listen("tcp", "0.0.0.0:0", ProtocolFunc(NewTestCodec), 2000, HandlerFunc(func(session *Session) {
 		defer session.Close()
 		channel.Put(session.ID(), session)
 
@@ -193,6 +189,10 @@ func Test_Channel(t *testing.T) {
 
 		<-waitTestDone
 	}))
+	utest.IsNilNow(t, err)
+	go server.Serve()
+
+	addr := server.Listener().Addr().String()
 
 	waitTestFinish := new(sync.WaitGroup)
 	for i := 0; i < 60; i++ {
