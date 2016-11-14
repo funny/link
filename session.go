@@ -16,6 +16,7 @@ type Session struct {
 	codec     Codec
 	manager   *Manager
 	sendChan  chan interface{}
+	recvMutex sync.Mutex
 	sendMutex sync.RWMutex
 
 	closeFlag          int32
@@ -81,6 +82,9 @@ func (session *Session) Codec() Codec {
 }
 
 func (session *Session) Receive() (interface{}, error) {
+	session.recvMutex.Lock()
+	defer session.recvMutex.Unlock()
+
 	msg, err := session.codec.Receive()
 	if err != nil {
 		session.Close()
@@ -107,6 +111,9 @@ func (session *Session) Send(msg interface{}) error {
 		if session.IsClosed() {
 			return SessionClosedError
 		}
+
+		session.sendMutex.Lock()
+		defer session.sendMutex.Unlock()
 
 		err := session.codec.Send(msg)
 		if err != nil {
