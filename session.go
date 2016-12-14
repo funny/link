@@ -68,10 +68,14 @@ func (session *Session) Close() error {
 		}
 
 		err := session.codec.Close()
-		if session.manager != nil {
-			session.manager.delSession(session)
-		}
-		session.invokeCloseCallbacks()
+
+		go func() {
+			session.invokeCloseCallbacks()
+
+			if session.manager != nil {
+				session.manager.delSession(session)
+			}
+		}()
 		return err
 	}
 	return SessionClosedError
