@@ -1,9 +1,6 @@
 package link
 
-import (
-	"sync"
-	"sync/atomic"
-)
+import "sync"
 
 const sessionMapNum = 32
 
@@ -15,8 +12,8 @@ type Manager struct {
 
 type sessionMap struct {
 	sync.RWMutex
-	sessions    map[uint64]*Session
-	disposeFlag uint32
+	sessions map[uint64]*Session
+	disposed bool
 }
 
 func NewManager() *Manager {
@@ -32,7 +29,7 @@ func (manager *Manager) Dispose() {
 		for i := 0; i < sessionMapNum; i++ {
 			smap := &manager.sessionMaps[i]
 			smap.Lock()
-			atomic.StoreUint32(&smap.disposeFlag, 1)
+			smap.disposed = true
 			for _, session := range smap.sessions {
 				session.Close()
 			}
@@ -59,8 +56,14 @@ func (manager *Manager) GetSession(sessionID uint64) *Session {
 
 func (manager *Manager) putSession(session *Session) {
 	smap := &manager.sessionMaps[session.id%sessionMapNum]
+
 	smap.Lock()
 	defer smap.Unlock()
+
+	if smap.disposed {
+		session.Close()
+		return
+	}
 
 	smap.sessions[session.id] = session
 	manager.disposeWait.Add(1)
@@ -68,11 +71,6 @@ func (manager *Manager) putSession(session *Session) {
 
 func (manager *Manager) delSession(session *Session) {
 	smap := &manager.sessionMaps[session.id%sessionMapNum]
-
-	if atomic.LoadUint32(&smap.disposeFlag) == 1 {
-		manager.disposeWait.Done()
-		return
-	}
 
 	smap.Lock()
 	defer smap.Unlock()
