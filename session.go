@@ -128,6 +128,7 @@ func (session *Session) Send(msg interface{}) error {
 
 	session.sendMutex.RLock()
 	if session.IsClosed() {
+		session.sendMutex.RUnlock()
 		return SessionClosedError
 	}
 
