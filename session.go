@@ -2,6 +2,7 @@ package link
 
 import (
 	"errors"
+	"net"
 	"sync"
 	"sync/atomic"
 )
@@ -12,6 +13,8 @@ var SessionBlockedError = errors.New("Session Blocked")
 var globalSessionId uint64
 
 type Session struct {
+	net.Conn
+
 	id        uint64
 	codec     Codec
 	manager   *Manager
@@ -28,12 +31,13 @@ type Session struct {
 	State interface{}
 }
 
-func NewSession(codec Codec, sendChanSize int) *Session {
-	return newSession(nil, codec, sendChanSize)
+func NewSession(codec Codec, conn net.Conn, sendChanSize int) *Session {
+	return newSession(nil, codec, conn, sendChanSize)
 }
 
-func newSession(manager *Manager, codec Codec, sendChanSize int) *Session {
+func newSession(manager *Manager, codec Codec, conn net.Conn, sendChanSize int) *Session {
 	session := &Session{
+		Conn:      conn,
 		codec:     codec,
 		manager:   manager,
 		closeChan: make(chan int),

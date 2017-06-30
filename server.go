@@ -49,7 +49,7 @@ func (server *Server) Serve() error {
 				conn.Close()
 				return
 			}
-			session := server.manager.NewSession(codec, server.sendChanSize)
+			session := server.manager.NewSession(codec, conn, server.sendChanSize)
 			server.handler.HandleSession(session)
 		}()
 	}

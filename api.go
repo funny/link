@@ -44,7 +44,7 @@ func Dial(network, address string, protocol Protocol, sendChanSize int) (*Sessio
 	if err != nil {
 		return nil, err
 	}
-	return NewSession(codec, sendChanSize), nil
+	return NewSession(codec, conn, sendChanSize), nil
 }
 
 func DialTimeout(network, address string, timeout time.Duration, protocol Protocol, sendChanSize int) (*Session, error) {
@@ -56,7 +56,7 @@ func DialTimeout(network, address string, timeout time.Duration, protocol Protoc
 	if err != nil {
 		return nil, err
 	}
-	return NewSession(codec, sendChanSize), nil
+	return NewSession(codec, conn, sendChanSize), nil
 }
 
 func Accept(listener net.Listener) (net.Conn, error) {
