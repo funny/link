@@ -121,7 +121,7 @@ func BytesTest(t *testing.T, session *Session) {
 }
 
 func Test_CloseCallback(t *testing.T) {
-	session := newSession(nil, nil, 0)
+	session := newSession(nil, nil, nil, 0)
 
 	c := make(chan int, 10)
 	for i := 0; i < 10; i++ {
