@@ -59,12 +59,12 @@ func main() {
 	json.Register(AddReq{})
 	json.Register(AddRsp{})
 
-	server, err := link.Serve("tcp", "0.0.0.0:0", json, 0 /* sync send */)
+	server, err := link.Listen("tcp", "0.0.0.0:0", json, 0 /* sync send */, link.HandlerFunc(serverSessionLoop))
 	checkErr(err)
 	addr := server.Listener().Addr().String()
-	go server.Serve(link.HandlerFunc(serverSessionLoop))
+	go server.Serve()
 
-	client, err := link.Connect("tcp", addr, json, 0)
+	client, err := link.Dial("tcp", addr, json, 0)
 	checkErr(err)
 	clientSessionLoop(client)
 }
