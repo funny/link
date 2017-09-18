@@ -38,6 +38,11 @@ func (server *Server) Listener() net.Listener {
 
 func (server *Server) Serve() error {
 	for {
+		// two issues need to be optimized:
+		// 1. Accept may happen long time block, new request will delay to handle, this is not appropriate.
+		// 2. Accept return error, session service shouldn't be exit and it need write error log to waiting for other goroutine to process, and at the same time continously receives new request.
+		// ::TODO
+
 		conn, err := Accept(server.listener)
 		if err != nil {
 			return err
@@ -46,6 +51,7 @@ func (server *Server) Serve() error {
 		go func() {
 			codec, err := server.protocol.NewCodec(conn)
 			if err != nil {
+				// ::TODO
 				conn.Close()
 				return
 			}

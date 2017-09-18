@@ -59,6 +59,9 @@ func DialTimeout(network, address string, timeout time.Duration, protocol Protoc
 	return NewSession(codec, sendChanSize), nil
 }
 
+// this file exist interdependence relationship. api.go calls NewServer method.
+// server.go calls Accept method
+// ::TODO
 func Accept(listener net.Listener) (net.Conn, error) {
 	var tempDelay time.Duration
 	for {
