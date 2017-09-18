@@ -1,9 +1,10 @@
 package link
 
 import (
-	"errors"
 	"sync"
 	"sync/atomic"
+
+	"github.com/pkg/errors"
 )
 
 var SessionClosedError = errors.New("Session Closed")
@@ -87,15 +88,22 @@ func (session *Session) Codec() Codec {
 
 func (session *Session) Receive() (interface{}, error) {
 	session.recvMutex.Lock()
-	defer session.recvMutex.Unlock()
 
 	msg, err := session.codec.Receive()
 	if err != nil {
-		session.Close()
+		if err0 := session.Close(); err0 != nil {
+			session.recvMutex.Unlock()
+			return msg, errors.Errorf("receive message failed. error: %s\n, and close session also failed. error: %s\n",
+				err.Error(),
+				err0.Error())
+		}
 	}
+	session.recvMutex.Unlock()
 	return msg, err
 }
 
+// 1.  if session closes failed, why the error message doesn't return
+// 2.  if session sends  message failed, why the error message doesn't return
 func (session *Session) sendLoop() {
 	defer session.Close()
 	for {
@@ -117,12 +125,12 @@ func (session *Session) Send(msg interface{}) error {
 		}
 
 		session.sendMutex.Lock()
-		defer session.sendMutex.Unlock()
 
 		err := session.codec.Send(msg)
 		if err != nil {
 			session.Close()
 		}
+		session.sendMutex.Unlock()
 		return err
 	}
 
@@ -155,17 +163,16 @@ func (session *Session) AddCloseCallback(handler, key interface{}, callback func
 		return
 	}
 
-	session.closeMutex.Lock()
-	defer session.closeMutex.Unlock()
-
 	newItem := &closeCallback{handler, key, callback, nil}
 
+	session.closeMutex.Lock()
 	if session.firstCloseCallback == nil {
 		session.firstCloseCallback = newItem
 	} else {
 		session.lastCloseCallback.Next = newItem
 	}
 	session.lastCloseCallback = newItem
+	session.closeMutex.Unlock()
 }
 
 func (session *Session) RemoveCloseCallback(handler, key interface{}) {
@@ -174,7 +181,6 @@ func (session *Session) RemoveCloseCallback(handler, key interface{}) {
 	}
 
 	session.closeMutex.Lock()
-	defer session.closeMutex.Unlock()
 
 	var prev *closeCallback
 	for callback := session.firstCloseCallback; callback != nil; prev, callback = callback, callback.Next {
@@ -187,16 +193,19 @@ func (session *Session) RemoveCloseCallback(handler, key interface{}) {
 			if session.lastCloseCallback == callback {
 				session.lastCloseCallback = prev
 			}
+			session.closeMutex.Unlock()
 			return
 		}
 	}
+	session.closeMutex.Unlock()
+	return
 }
 
 func (session *Session) invokeCloseCallbacks() {
 	session.closeMutex.Lock()
-	defer session.closeMutex.Unlock()
 
 	for callback := session.firstCloseCallback; callback != nil; callback = callback.Next {
 		callback.Func()
 	}
+	session.closeMutex.Unlock()
 }
