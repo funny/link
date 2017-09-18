@@ -45,27 +45,25 @@ func (manager *Manager) NewSession(codec Codec, sendChanSize int) *Session {
 	return session
 }
 
-func (manager *Manager) GetSession(sessionID uint64) *Session {
+func (manager *Manager) GetSession(sessionID uint64) (session *Session) {
 	smap := &manager.sessionMaps[sessionID%sessionMapNum]
 	smap.RLock()
-	defer smap.RUnlock()
-
-	session, _ := smap.sessions[sessionID]
-	return session
+	session, _ = smap.sessions[sessionID]
+	smap.RUnlock()
+	return
 }
 
 func (manager *Manager) putSession(session *Session) {
 	smap := &manager.sessionMaps[session.id%sessionMapNum]
-
-	smap.Lock()
-	defer smap.Unlock()
 
 	if smap.disposed {
 		session.Close()
 		return
 	}
 
+	smap.Lock()
 	smap.sessions[session.id] = session
+	smap.Unlock()
 	manager.disposeWait.Add(1)
 }
 
@@ -73,8 +71,7 @@ func (manager *Manager) delSession(session *Session) {
 	smap := &manager.sessionMaps[session.id%sessionMapNum]
 
 	smap.Lock()
-	defer smap.Unlock()
-
 	delete(smap.sessions, session.id)
+	smap.Unlock()
 	manager.disposeWait.Done()
 }
