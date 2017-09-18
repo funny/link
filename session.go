@@ -1,9 +1,10 @@
 package link
 
 import (
-	"errors"
 	"sync"
 	"sync/atomic"
+
+	"github.com/pkg/errors"
 )
 
 var SessionClosedError = errors.New("Session Closed")
@@ -91,7 +92,11 @@ func (session *Session) Receive() (interface{}, error) {
 
 	msg, err := session.codec.Receive()
 	if err != nil {
-		session.Close()
+		if err0 := session.Close(); err0 != nil {
+			return msg, errors.Errorf("receive message failed. error: %s\n, and close session also failed. error: %s\n",
+				err.Error(),
+				err0.Error())
+		}
 	}
 	return msg, err
 }
