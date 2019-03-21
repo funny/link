@@ -41,6 +41,7 @@ package main
 
 import (
 	"log"
+	"net"
 
 	"github.com/funny/link"
 	"github.com/funny/link/codec"
@@ -54,22 +55,25 @@ type AddRsp struct {
 	C int
 }
 
+type Server struct{}
+
 func main() {
 	json := codec.Json()
 	json.Register(AddReq{})
 	json.Register(AddRsp{})
 
-	server, err := link.Serve("tcp", "0.0.0.0:0", json, 0 /* sync send */)
+	listen, err := net.Listen("tcp", "")
 	checkErr(err)
-	addr := server.Listener().Addr().String()
-	go server.Serve(link.HandlerFunc(serverSessionLoop))
+	server := link.NewServer(listen, json, 1024, new(Server))
+	go server.Serve()
+	addr := server.Listener().Addr()
 
-	client, err := link.Connect("tcp", addr, json, 0)
+	clientSession, err := link.Dial(addr.Network(), addr.String(), json, 1024)
 	checkErr(err)
-	clientSessionLoop(client)
+	clientSessionLoop(clientSession)
 }
 
-func serverSessionLoop(session *link.Session) {
+func (*Server) HandleSession(session *link.Session) {
 	for {
 		req, err := session.Receive()
 		checkErr(err)
@@ -100,6 +104,7 @@ func checkErr(err error) {
 		log.Fatal(err)
 	}
 }
+
 ```
 
 补充说明
