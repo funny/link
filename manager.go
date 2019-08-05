@@ -75,6 +75,8 @@ func (manager *Manager) delSession(session *Session) {
 	smap.Lock()
 	defer smap.Unlock()
 
-	delete(smap.sessions, session.id)
-	manager.disposeWait.Done()
+	if _, ok := smap.sessions[session.id]; ok {
+		delete(smap.sessions, session.id)
+		manager.disposeWait.Done()
+	}
 }
