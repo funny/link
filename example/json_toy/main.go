@@ -25,6 +25,8 @@ func main() {
 	addr := server.Listener().Addr().String()
 	go server.Serve()
 
+	log.Println("addr : ", addr)
+
 	client, err := link.Dial("tcp", addr, json, 0)
 	checkErr(err)
 	clientSessionLoop(client)
