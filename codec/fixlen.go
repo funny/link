@@ -7,7 +7,7 @@ import (
 	"io"
 	"math"
 
-	"github.com/funny/link"
+	"github.com/younglifestyle/link"
 )
 
 var ErrTooLargePacket = errors.New("Too Large Packet")

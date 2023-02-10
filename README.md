@@ -43,8 +43,8 @@ import (
 	"log"
 	"net"
 
-	"github.com/funny/link"
-	"github.com/funny/link/codec"
+	"github.com/younglifestyle/link"
+	"github.com/younglifestyle/link/codec"
 )
 
 type AddReq struct {
@@ -110,7 +110,7 @@ func checkErr(err error) {
 补充说明
 =======
 
-[channel.go](https://github.com/funny/link/blob/master/channel.go)
+[channel.go](https://github.com/younglifestyle/link/blob/master/channel.go)
 --------------
 
 这个文件里实现了`Channel`类型用于管理一组`Session`，通常用于发送广播和维护在线列表。

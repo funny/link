@@ -9,7 +9,7 @@ install:
 script:
     - go vet -x
     - go test -v -race
-    - go test -v -race github.com/funny/link/codec
+    - go test -v -race github.com/younglifestyle/link/codec
     - go test -v -coverprofile=coverage.txt -covermode=atomic 
 
 after_success:

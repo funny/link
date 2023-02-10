@@ -5,7 +5,7 @@ import (
 	"io"
 	"reflect"
 
-	"github.com/funny/link"
+	"github.com/younglifestyle/link"
 )
 
 type JsonProtocol struct {
